@@ -51,9 +51,18 @@ class Launcher {
       "Enter Discord webhook URL: "
     );
 
+    // Nuevo apartado flips con filtros por defecto
+    const flips = {
+      maxBuyPrice: 5000000,           // máximo a gastar por flip
+      minProfit: 10000,               // mínimo profit por unidad
+      minVolume: 1000,                // mínimo volumen (demanda)
+      blacklistContaining: ["name1","name2"] // array de strings a filtrar
+    };
+
     this.config = {
       usernames,
-      discordWebhook
+      discordWebhook,
+      flips
     };
 
     fs.writeFileSync(
@@ -64,6 +73,8 @@ class Launcher {
 
     console.log("\nconfig.json created successfully.");
   }
+
+
 
   ask(question) {
     const rl = readline.createInterface({

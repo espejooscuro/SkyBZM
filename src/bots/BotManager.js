@@ -33,7 +33,6 @@ class BotManager {
             bot.init("mc.hypixel.net", 25565);
             await this.sleep(delayMs);
         }
-        console.log("uff")
     }
 
     // Función sleep dentro de BotManager
