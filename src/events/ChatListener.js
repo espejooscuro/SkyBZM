@@ -21,7 +21,7 @@ class ChatListener {
   constructor(bot, options = {}) {
     this.bot = bot;
     this.messages = [];
-
+    this.watchList = options.watchList || null;
     this.users = options.users || null;
     this.exactMessages = options.exactMessages || null;
     this.keywords = options.keywords || null;
@@ -44,6 +44,12 @@ class ChatListener {
 
       const messageLower = message.toLowerCase();
 
+      if (this.watchList) {
+        const match = this.watchList.some(word => messageLower.includes(word.toLowerCase()));
+        if (!match) return;
+      }
+
+
       // Inclusion filter
       if (this.keywords) {
         const matches = this.keywords.some(p => messageLower.includes(p.toLowerCase()));
@@ -64,7 +70,7 @@ class ChatListener {
       };
 
       this.messages.push(record);
-      console.log(`[CHAT] <${username}>: ${message}`);
+      //console.log(`[CHAT] <${username}>: ${message}`);
       if (this.callback) this.callback(record);
     };
 
@@ -76,6 +82,12 @@ class ChatListener {
       if (!this.types.includes('system')) return;
       const plainText = jsonMsg.toString().trim();
       const lowerText = plainText.toLowerCase();
+
+      if (this.watchList) {
+        const match = this.watchList.some(word => lowerText.includes(word.toLowerCase()));
+        if (!match) return;
+      }
+
 
       if (this.exactMessages && !this.exactMessages.includes(plainText)) return;
       if (this.keywords) {
@@ -94,7 +106,7 @@ class ChatListener {
       };
 
       this.messages.push(record);
-      console.log(`[SERVER] ${plainText}`);
+      //console.log(`[SERVER] ${plainText}`);
       if (this.callback) this.callback(record);
     };
 
@@ -123,7 +135,6 @@ class ChatListener {
 
   send(text) {
     if (!text || typeof text !== 'string') return;
-    console.log(`📤 Sending: ${text}`);
     this.bot.chat(text);
   }
 

@@ -206,6 +206,42 @@ class ContainerManager {
   // -------------------- Container Interaction Methods --------------------
 
   /**
+   * Returns the description/lore of an item in the current container or inventory
+   * @param {Object} filters - Filters like { contains: 'diamond' }
+   * @param {boolean} isContainer - true: look in open container, false: player inventory
+   * @returns {Array<string>} array of lines, color codes removed
+   */
+  getItemDescription(filters = {}, isContainer = true) {
+    const window = this.bot.currentWindow;
+    if (!window) return [];
+
+    const startSlot = isContainer ? 0 : window.slots.length - 36;
+    const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
+
+    for (let slot = startSlot; slot < endSlot; slot++) {
+      const item = window.slots[slot];
+      if (!item) continue;
+
+      const nbt = item.nbt || { value: {} };
+      const customName = nbt.value.display?.value?.Name?.value || item.name || '';
+      const plainName = customName.replace(/§[0-9a-fk-or]/gi, '').toLowerCase();
+
+      if (filters.contains && !plainName.includes(filters.contains.toLowerCase())) continue;
+
+      const lore = nbt.value.display?.value?.Lore?.value || [];
+      // Remove color codes and convert from { text: '...' } to string if needed
+      return lore.map(line => {
+        if (typeof line === 'string') return line.replace(/§[0-9a-fk-or]/gi, '');
+        if (line?.text) return line.text.replace(/§[0-9a-fk-or]/gi, '');
+        return '';
+      });
+    }
+
+    return [];
+  }
+
+
+  /**
    * Returns a random delay to simulate human action
    * @returns {Promise<void>}
    */
