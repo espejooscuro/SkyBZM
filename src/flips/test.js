@@ -21,7 +21,7 @@ function formatNumber(num) {
     minProfit: MIN_PROFIT,
     minVolume: MIN_VOLUME,
     blacklistContaining: BLACKLIST,
-    sellTimeout: 20_000, // 20s para test rápido
+    sellTimeout: 50_000, // 20s para test rápido
     purse: PURSE
   });
 
