@@ -13,7 +13,7 @@ function formatNumber(num) {
   const MIN_VOLUME = 40_000;
   const BLACKLIST = ["enchant"];
 
-  const PURSE = 5_000_000; // 10M para repartir entre flips
+  const PURSE = 7_000_000; // 10M para repartir entre flips
 
   // Creamos el manager (sin bot)
   const manager = new FlipManager(null, {

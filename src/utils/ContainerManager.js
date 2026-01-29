@@ -29,15 +29,21 @@ class ContainerManager {
       return nbt.value.display?.value?.Name?.value || item.name || '';
     };
 
-    const processItem = (item, index, type) => ({
-      slot: index,
-      originalName: item?.name || '',
-      customName: getCustomName(item),
-      id: item?.type || 0,
-      quantity: item?.count || 0,
-      type,
-      nbt: item?.nbt || { value: {} },
-    });
+    const processItem = (item, index, type) => {
+      const rawCustomName = getCustomName(item);
+
+      return {
+        slot: index,
+        originalName: item?.name || '',
+        customName: rawCustomName,
+        customNameClean: this._cleanText(rawCustomName),
+        id: item?.type || 0,
+        quantity: item?.count || 0,
+        type,
+        nbt: item?.nbt || { value: {} },
+      };
+    };
+
 
     if (window) {
       const containerSlots = window.slots.length - 36;
@@ -118,13 +124,16 @@ class ContainerManager {
       if (!item) return null;
       const type = index < containerSlots ? 'container' : 'inventory';
       const nbt = item.nbt || { value: {} };
-      const customName = nbt.value.display?.value?.Name?.value || item.name || '';
+      const rawCustomName = nbt.value.display?.value?.Name?.value || item.name || '';
+
       return {
         slot: index,
         type,
         originalName: item.name || '',
-        customName: customName.replace(/§[0-9a-fk-or]/gi, ''),
+        customName: rawCustomName,
+        customNameClean: this._cleanText(rawCustomName),
       };
+
     }).filter(Boolean);
 
     return items.some(item => this._matchesFilters(item, filters));
@@ -177,6 +186,15 @@ class ContainerManager {
     return result;
   }
 
+  _cleanText(text = '') {
+    return text
+      .replace(/§[0-9a-fk-or]/gi, '')     // códigos Minecraft
+      .replace(/[^a-zA-Z0-9 ]/g, '')      // SOLO letras, números y espacios
+      .replace(/\s+/g, ' ')               // espacios múltiples → uno
+      .trim()
+      .toLowerCase();
+  }
+
   /**
    * @private
    */
@@ -194,10 +212,17 @@ class ContainerManager {
 
       const nbt = item.nbt || { value: {} };
       const customName = nbt.value.display?.value?.Name?.value || item.displayName || item.name;
-      const plainName = customName.replace(/§[0-9a-fk-or]/gi, '').trim().toLowerCase();
+      const plainName = this._cleanText(customName);
       if (["go back", "claim all coins"].includes(plainName)) continue;
 
-      result.push({ slot, originalName: item.name, customName, plainName, quantity: item.count });
+      result.push({
+        slot,
+        originalName: item.name,
+        customName,
+        customNameClean: plainName,
+        plainName,
+        quantity: item.count
+      });
     }
 
     return result;
@@ -218,27 +243,42 @@ class ContainerManager {
     const startSlot = isContainer ? 0 : window.slots.length - 36;
     const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
 
+    const removeColorCodes = text => text ? text.replace(/§[0-9a-fk-or]/gi, '') : '';
+
     for (let slot = startSlot; slot < endSlot; slot++) {
       const item = window.slots[slot];
       if (!item) continue;
 
       const nbt = item.nbt || { value: {} };
-      const customName = nbt.value.display?.value?.Name?.value || item.name || '';
-      const plainName = customName.replace(/§[0-9a-fk-or]/gi, '').toLowerCase();
+      const customNameRaw = nbt.value.display?.value?.Name?.value || item.name || '';
+      const plainName = removeColorCodes(customNameRaw).toLowerCase();
 
+      if (filters.customName && plainName !== filters.customName.toLowerCase()) continue;
       if (filters.contains && !plainName.includes(filters.contains.toLowerCase())) continue;
 
-      const lore = nbt.value.display?.value?.Lore?.value || [];
-      // Remove color codes and convert from { text: '...' } to string if needed
-      return lore.map(line => {
-        if (typeof line === 'string') return line.replace(/§[0-9a-fk-or]/gi, '');
-        if (line?.text) return line.text.replace(/§[0-9a-fk-or]/gi, '');
-        return '';
-      });
+      const loreRaw = nbt.value.display?.value?.Lore?.value;
+      const loreArray = [];
+
+      if (loreRaw) {
+        const items = Array.isArray(loreRaw) ? loreRaw : [loreRaw];
+        for (const line of items) {
+          if (!line) continue;
+          if (typeof line === 'string') loreArray.push(line.replace(/§[0-9a-fk-or]/gi, ''));
+          else if (line.text) loreArray.push(line.text.replace(/§[0-9a-fk-or]/gi, ''));
+          else if (Array.isArray(line.extra)) {
+            loreArray.push(line.extra.map(part => (part.text || '').replace(/§[0-9a-fk-or]/gi, '')).join(''));
+          }
+        }
+      }
+      return loreArray;
+
     }
 
     return [];
   }
+
+
+
 
 
   /**
@@ -267,17 +307,31 @@ class ContainerManager {
    * @param {number} mode
    * @returns {Promise<boolean>}
    */
-  async click(filters = {}, mouseButton = 0, mode = 0) {
-    const startTime = Date.now();
+    async click(filters = {}, mouseButton = 0, mode = 0) {
     await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
 
-    const inventoryStart = Date.now();
     const items = this.cachedItems || JSON.parse(this.getInventoryPlain());
-    const inventoryEnd = Date.now();
-
     const foundItem = items.find(item => this._matchesFilters(item, filters));
+
     if (!foundItem) {
-      console.log('❌ Click aborted: item not found.');
+      const containerName = this.getOpenContainerName() || 'unknown container';
+      const containerItems = this.getValidContainerItems();
+
+      console.error('❌ Click aborted: item not found');
+      console.error('🔍 Filters used:', filters);
+      console.error('📦 Container:', containerName);
+
+      if (containerItems.length === 0) {
+        console.error('📭 Container is empty.');
+      } else {
+        console.error('📋 Items in container:');
+        containerItems.forEach(item => {
+          console.error(
+            `  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`
+          );
+        });
+      }
+
       return false;
     }
 
@@ -294,6 +348,7 @@ class ContainerManager {
       return false;
     }
   }
+
   /**
    * Shift-click an item
    * @param {Object} filters
@@ -358,19 +413,41 @@ class ContainerManager {
    * @private
    */
   _matchesFilters(item, filters) {
+    const clean = txt => this._cleanText(txt);
+
     if (filters.contains) {
-      const needle = filters.contains.toLowerCase();
-      if (!(item.originalName?.toLowerCase().includes(needle) ||
-            item.customName?.toLowerCase().includes(needle))) return false;
+      const needle = clean(filters.contains);
+
+      const haystacks = [
+        clean(item.originalName),
+        clean(item.customName),
+        item.customNameClean
+      ];
+
+      if (!haystacks.some(text => text?.includes(needle))) {
+        return false;
+      }
     }
+
     for (const key in filters) {
       if (key === 'contains') continue;
-      const itemValue = typeof item[key] === 'string' ? item[key].toLowerCase() : item[key];
-      const filterValue = typeof filters[key] === 'string' ? filters[key].toLowerCase() : filters[key];
+
+      const filterValue =
+        typeof filters[key] === 'string'
+          ? clean(filters[key])
+          : filters[key];
+
+      const itemValue =
+        typeof item[key] === 'string'
+          ? clean(item[key])
+          : item[key];
+
       if (itemValue !== filterValue) return false;
     }
+
     return true;
   }
+
 }
 
 module.exports = ContainerManager;

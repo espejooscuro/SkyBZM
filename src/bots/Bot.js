@@ -24,7 +24,7 @@ class Bot {
     });
 
     this.chat = new ChatListener(this.bot, {
-      watchList: ["sold", "bought", "coins", "flip", "skyblock", "joined", "Hypixel", "Sending to"],
+      watchList: ["sold", "bought", "coins", "flip", "skyblock", "joined", "Hypixel", "Sending to", "Bazaar"],
       callback: (msg) => {
         console.log(msg.message);
       }
@@ -60,9 +60,6 @@ class Bot {
 
       console.log("\n=== Starting all BUYS ===\n");
       for (const flip of manager.flips) await flip.buy();
-
-      console.log("\n=== Starting all SELLS ===\n");
-      for (const flip of manager.flips) await flip.sell();
 
       console.log("\nAll tasks finished!");
     });
