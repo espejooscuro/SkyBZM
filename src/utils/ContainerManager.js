@@ -1,3 +1,7 @@
+const util = require('util');
+const fs = require('fs');
+const path = require('path');
+
 class ContainerManager {
   /**
    * @param {Object} bot - Bot instance containing inventory and window data
@@ -195,38 +199,103 @@ class ContainerManager {
       .toLowerCase();
   }
 
-  /**
-   * @private
+
+
+/**
+ * Muestra el JSON completo de un slot específico para debug
+ * @param {number} slot
+ */
+logSlotJson(slot) {
+  const window = this.bot.currentWindow;
+  if (!window) {
+    console.log(`⚠️ No hay ventana abierta para leer slot ${slot}`);
+    return;
+  }
+
+  const item = window.slots[slot];
+  if (!item) {
+    console.log(`⚠️ Slot ${slot} vacío`);
+    return;
+  }
+
+  // Mostramos TODO el objeto tal cual, en formato JSON bonito
+  console.log(`📦 Slot ${slot} crudo:`, JSON.stringify(item, null, 2));
+}
+
+
+ /**
+   * Guarda toda la información del contenedor abierto en un archivo JSON
+   * @param {string} filename - Nombre del archivo donde se guardará el JSON
    */
-  _getValidItems(isContainer) {
+  saveContainerToJson(filename = 'container.json') {
     const window = this.bot.currentWindow;
-    if (!window) return [];
-
-    const startSlot = isContainer ? 0 : window.slots.length - 36;
-    const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
-    const result = [];
-
-    for (let slot = startSlot; slot < endSlot; slot++) {
-      const item = window.slots[slot];
-      if (!item || item.name === "stained_glass_pane") continue;
-
-      const nbt = item.nbt || { value: {} };
-      const customName = nbt.value.display?.value?.Name?.value || item.displayName || item.name;
-      const plainName = this._cleanText(customName);
-      if (["go back", "claim all coins"].includes(plainName)) continue;
-
-      result.push({
-        slot,
-        originalName: item.name,
-        customName,
-        customNameClean: plainName,
-        plainName,
-        quantity: item.count
-      });
+    if (!window) {
+      console.log('⚠️ No hay contenedor abierto para guardar.');
+      return;
     }
 
-    return result;
+    const containerData = {
+      containerName: this.getOpenContainerName() || 'unknown',
+      slots: window.slots.map((item, index) => {
+        if (!item) return null; // slot vacío
+        return item; // guardamos TODO el objeto crudo
+      })
+    };
+
+    const filepath = path.resolve(filename);
+    fs.writeFileSync(filepath, JSON.stringify(containerData, null, 2), 'utf8');
+    console.log(`✅ Contenedor guardado en JSON: ${filepath}`);
   }
+
+
+/**
+ * @private
+ * Obtiene todos los items válidos del contenedor o inventario, con customName y lore completos
+ * @param {boolean} isContainer
+ * @returns {Array}
+ */
+
+_getValidItems(isContainer) {
+  const window = this.bot.currentWindow;
+  if (!window) return [];
+
+  const startSlot = isContainer ? 0 : window.slots.length - 36;
+  const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
+  const result = [];
+
+  for (let slot = startSlot; slot < endSlot; slot++) {
+    const item = window.slots[slot];
+
+    if (slot < 15) console.log(`📦 Slot ${slot} crudo:`, JSON.stringify(item, null, 2));
+
+    if (!item || item.name === "stained_glass_pane") continue;
+
+    const nbt = item.nbt || { value: {} };
+    const customNameRaw = nbt.value.display?.value?.Name?.value || item.displayName || item.name;
+
+    const plainName = this._cleanText(customNameRaw);
+
+    if (["go back", "claim all coins"].includes(plainName)) continue;
+
+    result.push({
+      slot,
+      originalName: item.name,
+      customName: customNameRaw,
+      customNameClean: plainName,   // 🔥 este es el importante
+      plainName,
+      quantity: item.count,
+      rawJSON: item
+    });
+  }
+
+  return result;
+}
+
+
+
+
+
+
 
   // -------------------- Container Interaction Methods --------------------
 
@@ -237,45 +306,94 @@ class ContainerManager {
    * @returns {Array<string>} array of lines, color codes removed
    */
   getItemDescription(filters = {}, isContainer = true) {
-    const window = this.bot.currentWindow;
-    if (!window) return [];
+  const window = this.bot.currentWindow;
+  if (!window) return [];
 
-    const startSlot = isContainer ? 0 : window.slots.length - 36;
-    const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
+  const startSlot = isContainer ? 0 : window.slots.length - 36;
+  const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
 
-    const removeColorCodes = text => text ? text.replace(/§[0-9a-fk-or]/gi, '') : '';
+  const clean = text => text
+    ? text.replace(/§[0-9a-fk-or]/gi, '').trim().toLowerCase()
+    : '';
 
-    for (let slot = startSlot; slot < endSlot; slot++) {
-      const item = window.slots[slot];
-      if (!item) continue;
+  for (let slot = startSlot; slot < endSlot; slot++) {
+    const item = window.slots[slot];
+    if (!item) continue;
 
-      const nbt = item.nbt || { value: {} };
-      const customNameRaw = nbt.value.display?.value?.Name?.value || item.name || '';
-      const plainName = removeColorCodes(customNameRaw).toLowerCase();
+    const nbt = item.nbt || { value: {} };
+    const customNameRaw = nbt.value.display?.value?.Name?.value || item.name || '';
+    const plainName = clean(customNameRaw);
 
-      if (filters.customName && plainName !== filters.customName.toLowerCase()) continue;
-      if (filters.contains && !plainName.includes(filters.contains.toLowerCase())) continue;
+    if (filters.customName && plainName !== filters.customName.toLowerCase()) continue;
+    if (filters.contains && !plainName.includes(filters.contains.toLowerCase())) continue;
 
-      const loreRaw = nbt.value.display?.value?.Lore?.value;
-      const loreArray = [];
+    const loreRaw = nbt.value.display?.value?.Lore?.value?.value;
 
-      if (loreRaw) {
-        const items = Array.isArray(loreRaw) ? loreRaw : [loreRaw];
-        for (const line of items) {
-          if (!line) continue;
-          if (typeof line === 'string') loreArray.push(line.replace(/§[0-9a-fk-or]/gi, ''));
-          else if (line.text) loreArray.push(line.text.replace(/§[0-9a-fk-or]/gi, ''));
-          else if (Array.isArray(line.extra)) {
-            loreArray.push(line.extra.map(part => (part.text || '').replace(/§[0-9a-fk-or]/gi, '')).join(''));
-          }
-        }
+    const loreArray = [];
+
+    if (Array.isArray(loreRaw)) {
+      for (const line of loreRaw) {
+        loreArray.push(line.replace(/§[0-9a-fk-or]/gi, ''));
       }
-      return loreArray;
-
     }
 
-    return [];
+    return loreArray;
   }
+
+  return [];
+}
+
+_findLoreLine(loreLines, filters = {}) {
+  if (!Array.isArray(loreLines)) return null;
+
+  const clean = text =>
+    text
+      .replace(/§[0-9a-fk-or]/gi, '')
+      .trim()
+      .toLowerCase();
+
+  for (const line of loreLines) {
+    if (!line) continue;
+
+    const plain = clean(line);
+
+    if (filters.equals && plain !== filters.equals.toLowerCase()) continue;
+    if (filters.startsWith && !plain.startsWith(filters.startsWith.toLowerCase())) continue;
+    if (filters.contains && !plain.includes(filters.contains.toLowerCase())) continue;
+    if (filters.regex && !filters.regex.test(plain)) continue;
+
+    return line;
+  }
+
+  return null;
+}
+
+
+_parseDurationToMs(durationLine) {
+  // durationLine = "Duration: 3d 23h 53m 45s"
+  const text = durationLine.replace("Duration:", "").trim();
+
+  let days = 0, hours = 0, minutes = 0, seconds = 0;
+
+  const dayMatch = text.match(/(\d+)\s*d/);
+  const hourMatch = text.match(/(\d+)\s*h/);
+  const minMatch = text.match(/(\d+)\s*m/);
+  const secMatch = text.match(/(\d+)\s*s/);
+
+  if (dayMatch) days = parseInt(dayMatch[1]);
+  if (hourMatch) hours = parseInt(hourMatch[1]);
+  if (minMatch) minutes = parseInt(minMatch[1]);
+  if (secMatch) seconds = parseInt(secMatch[1]);
+
+  const totalMs =
+    days * 24 * 60 * 60 * 1000 +
+    hours * 60 * 60 * 1000 +
+    minutes * 60 * 1000 +
+    seconds * 1000;
+
+  return totalMs;
+}
+
 
 
 

@@ -21,7 +21,7 @@ class FlipManager {
 
     this.sellTimeout = options.sellTimeout || 300_000;
     this.flips = [];
-    this.purse = options.purse || 7_000_000;
+    this.purse = options.purse || 40_000_000;
     this.defaultSpread = options.defaultSpread || 0.05;
     this.amount = null;
     if (bot && typeof bot.on === 'function') {

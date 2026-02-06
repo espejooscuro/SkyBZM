@@ -42,9 +42,6 @@ class Flip {
     this.sellTimer = null;
     this.priceWatcher = null;
 
-    this.buyReferencePrice = this.instaBuyPrice;
-    this.sellReferencePrice = this.instaSellPrice;
-
     this.amountToBuy = Math.max(1, Math.floor(this.calculateAmount(data) || 1));
     this.bot = bot;
     this.ContainerManager = new ContainerManager(this.bot);
@@ -78,6 +75,11 @@ class Flip {
       await delay(1850);
       this.ContainerManager.click({customName: "Top Order +0.1", type: "container" });
       await delay(1850);
+      const lore = this.ContainerManager.getItemDescription({customName: "Buy Order"}, true);
+      //lore.forEach(line => console.log(line));
+      const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+      this.instaBuyPrice = price;
+      console.log(price);
       this.ContainerManager.click({customName: "Buy Order", type: "container" });
       this.bought = true;
       console.log(`Finished buying ${this.item}...`);
@@ -124,6 +126,10 @@ class Flip {
           await delay(1300);
           this.ContainerManager.click({ contains: "Best Offer -0.1" });
           await delay(1200);
+          const lore = this.ContainerManager.getItemDescription({customName: "Sell Order"}, true);
+          //lore.forEach(line => console.log(line));
+          const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+          this.instaSellPrice = price;
           this.ContainerManager.click({ contains: "Sell Offer"});
             await delay(1000);
         }
@@ -148,6 +154,10 @@ class Flip {
           await delay(1300);
           this.ContainerManager.click({ contains: "Best Offer -0.1" });
           await delay(1200);
+          const lore = this.ContainerManager.getItemDescription({customName: "Sell Order"}, true);
+          //lore.forEach(line => console.log(line));
+          const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+          this.instaSellPrice = price;
           this.ContainerManager.click({ contains: "Sell Offer"});
           await delay(1000);
         }
@@ -176,16 +186,16 @@ class Flip {
         const apiSellPrice = Number(snapshot.buyPrice);
 
         // Relist de compra solo antes de vender
-        if (this.bought && !this.sellExecuted && apiBuyPrice > this.buyReferencePrice) {
-          console.log(`BUY price increased for ${this.item} [${this.itemTag}]: ${formatPrice(this.buyReferencePrice)} → ${formatPrice(apiBuyPrice)}`);
-          this.buyReferencePrice = apiBuyPrice;
+        if (this.bought && !this.sellExecuted && apiBuyPrice > this.instaBuyPrice) {
+          console.log(`BUY price increased for ${this.item} [${this.itemTag}]: ${formatPrice(this.instaBuyPrice)} → ${formatPrice(apiBuyPrice)}`);
+          this.instaBuyPrice = apiBuyPrice;
           this.buyRelist();
         }
 
         // Relist de venta solo después de vender
-        if (this.sellExecuted && apiSellPrice < this.sellReferencePrice) {
-          console.log(`SELL price decreased for ${this.item} [${this.itemTag}]: ${formatPrice(this.sellReferencePrice)} → ${formatPrice(apiSellPrice)}`);
-          this.sellReferencePrice = apiSellPrice;
+        if (this.sellExecuted && apiSellPrice < this.instaSellPrice) {
+          console.log(`SELL price decreased for ${this.item} [${this.itemTag}]: ${formatPrice(this.instaSellPrice)} → ${formatPrice(apiSellPrice)}`);
+          this.instaSellPrice = apiSellPrice;
           this.sellRelist();
         }
 
@@ -193,6 +203,20 @@ class Flip {
         console.warn(`Error checking prices for ${this.itemTag}: ${err}`);
       }
     }, 5000);
+  }
+
+    /**
+   * Extrae el número de un lore tipo "Price per unit: 287,902.4 coins"
+   * @param {string} line - La línea del lore
+   * @returns {number} - El valor numérico con decimales
+   */
+  _parsePriceFromLoreLine(line) {
+    if (!line || typeof line !== "string") return 0;
+    const cleanLine = line.replace(/§[0-9a-fk-or]/gi, '').trim();
+    const match = cleanLine.match(/([\d,]+\.\d+)/);
+    if (!match) return 0;
+    const numericString = match[1].replace(/,/g, '');
+    return parseFloat(numericString);
   }
 
   async buyRelist() {
@@ -239,6 +263,10 @@ class Flip {
           await delay(1300);
           this.ContainerManager.click({ contains: "Best Offer -0.1" });
           await delay(1200);
+          const lore = this.ContainerManager.getItemDescription({customName: "Sell Order"}, true);
+          //lore.forEach(line => console.log(line));
+          const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+          this.instaSellPrice = price;
           this.ContainerManager.click({ contains: "Sell Offer"});
             await delay(1000);
         }
