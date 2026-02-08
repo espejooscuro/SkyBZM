@@ -11,7 +11,6 @@ class Launcher {
   }
 
   async start() {
-    // Banner with box
     this.printBanner();
 
     if (this.configExists()) {
@@ -51,13 +50,21 @@ class Launcher {
       "Enter Discord webhook URL: "
     );
 
-    // Nuevo apartado flips con filtros por defecto
     const flips = {
-      maxBuyPrice: 5000000,           // máximo a gastar por flip
-      minProfit: 10000,               // mínimo profit por unidad
-      minVolume: 1000,                // mínimo volumen (demanda)
-      blacklistContaining: ["name1","name2"] // array de strings a filtrar
+      maxBuyPrice: 5000000,
+      minProfit: 10000,
+      minVolume: 1000,
+
+      maxFlips: 7,      // máximo número de flips simultáneos
+      maxRelist: 3,     // máximo de relist por flip
+
+      blacklistContaining: ["name1", "name2"],
+
+      whitelist: [
+        "KISMET_FEATHER"
+      ]
     };
+
 
     this.config = {
       usernames,
@@ -73,8 +80,6 @@ class Launcher {
 
     console.log("\nconfig.json created successfully.");
   }
-
-
 
   ask(question) {
     const rl = readline.createInterface({
@@ -92,7 +97,7 @@ class Launcher {
 
   printBanner() {
     const title = "SkyBZM Launcher";
-    const padding = 4; // spaces on each side
+    const padding = 4;
     const contentWidth = title.length + padding * 2;
     const topBottom = "─".repeat(contentWidth);
 
@@ -102,7 +107,6 @@ class Launcher {
   }
 }
 
-// Execute Launcher.js directly
 if (require.main === module) {
   const launcher = new Launcher();
   launcher.start();

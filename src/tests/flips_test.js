@@ -1,4 +1,4 @@
-const FlipManager = require('./FlipManager');
+const FlipManager = require('../flips/FlipManager');
 
 function formatNumber(num) {
   if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -31,6 +31,7 @@ function formatNumber(num) {
   console.log("\n=== STARTING BUYS ===\n");
   for (const flip of manager.flips) {
     await flip.buy(); // solo se compra una vez por flip
+    console.log("Comprando..")
   }
 
   // Resumen de gasto

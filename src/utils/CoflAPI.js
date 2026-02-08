@@ -27,21 +27,57 @@ class CoflAPI {
     return res.json();
   }
 
-  /* =========================
-     SNAPSHOT BAZAAR (REAL)
-     ========================= */
+/* =========================
+   SNAPSHOT BAZAAR (HYPIXEL)
+   ========================= */
 
   async getBazaarSnapshot(itemTag) {
-    const res = await fetch(
-      `https://sky.coflnet.com/api/bazaar/${itemTag}/snapshot`
-    );
-
-    if (!res.ok) {
-      throw new Error(`Snapshot HTTP ${res.status} for ${itemTag}`);
+    const res = await fetch("https://api.hypixel.net/v2/skyblock/bazaar");
+    if (!res.ok) throw new Error(`Bazaar HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success || !data.products[itemTag]) {
+      throw new Error(`Item ${itemTag} not found in bazaar`);
     }
+    const product = data.products[itemTag];
 
-    return res.json();
+    const buyPrice = Math.round((product.buy_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
+    const sellPrice = Math.round((product.sell_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
+    const buyVolume = product.buy_summary?.[0]?.amount ?? 0;
+    const sellVolume = product.sell_summary?.[0]?.amount ?? 0;
+
+    const resNames = await fetch("https://api.hypixel.net/resources/skyblock/items");
+    if (!resNames.ok) throw new Error(`HTTP ${resNames.status} loading item names`);
+    const dataNames = await resNames.json();
+
+    const itemsList = dataNames.items; // ✅ acceder al array
+    const hypixelItem = itemsList.find(i => i.id === itemTag);
+    const itemName = hypixelItem ? hypixelItem.name : itemTag; // fallback
+
+    return {
+      item: itemName,
+      itemTag,
+      buyPrice,
+      sellPrice,
+      buyVolume,
+      sellVolume
+    };
   }
+
+
+
+/* =========================
+   PROFIT
+   ========================= */
+
+computeProfit(quickStatus) {
+  const buy = quickStatus.buyPrice;   // precio al que compras (buy order)
+  const sell = quickStatus.sellPrice; // precio al que vendes (sell order)
+
+  if (!buy || !sell) return 0;
+
+  const tax = sell * 0.025; // 2.5% tax sobre la venta
+  return sell - buy - tax;
+}
 
   /* =========================
      PROFIT

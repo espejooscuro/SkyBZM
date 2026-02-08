@@ -11,6 +11,7 @@ class FlipManager {
   constructor(bot, options = {}) {
     this.bot = bot;
     this.queue = new TaskQueue();
+
     this.api = new CoflAPI(
       options.apiUrl,
       options.maxBuyPrice,
@@ -20,10 +21,17 @@ class FlipManager {
     );
 
     this.sellTimeout = options.sellTimeout || 300_000;
-    this.flips = [];
     this.purse = options.purse || 40_000_000;
     this.defaultSpread = options.defaultSpread || 0.05;
+
+    // NUEVOS
+    this.maxFlips = options.maxFlips || 7;
+    this.maxRelist = options.maxRelist || 3;
+    this.whitelist = options.whitelist || [];
+
+    this.flips = [];
     this.amount = null;
+
     if (bot && typeof bot.on === 'function') {
       this.chatListener = new ChatListener(bot, { callback: (msg) => this.onChatMessage(msg) });
     } else {
@@ -32,15 +40,57 @@ class FlipManager {
     }
   }
 
-  async buildFlips(amount = 10) {
-    const flipsData = await this.api.getSortedFlips();
-    const random = this.api.getRandomSafeFlips(flipsData, amount);
+  async buildFlips(amount = this.maxFlips) {
+  const flipsData = await this.api.getSortedFlips();
+  let selectedFlips = [];
 
-    this.amount = amount;
+  // 1️⃣ Si hay whitelist
+  if (this.whitelist.length > 0) {
+    const whitelistFlips = [];
 
-    const moneyPerFlip = this.purse / this.amount;
-    this.flips = random.map(f => this.createFlip(f, moneyPerFlip));
+  for (const w of this.whitelist) {
+    let snapshot = null;
+
+  console.log("Procesando whitelist item:", w);
+  const tag = typeof w === "string" ? w : w.itemTag;
+  snapshot = await this.api.getBazaarSnapshot(tag);
+
+  whitelistFlips.push({
+    itemTag: tag,
+    item: snapshot.item,        // nombre legible
+    buyPrice: snapshot.buyPrice,
+    sellPrice: snapshot.sellPrice,
+    buyVolume: snapshot.buyVolume,
+    sellVolume: snapshot.sellVolume
+  });
+}
+
+
+    if (whitelistFlips.length >= amount) {
+      selectedFlips = whitelistFlips.slice(0, amount);
+    } else {
+      selectedFlips = [...whitelistFlips];
+
+      const remaining = amount - selectedFlips.length;
+
+      // Rellenar con flips normales excluyendo whitelist
+      const random = this.api.getRandomSafeFlips(flipsData, remaining)
+        .filter(f => !whitelistFlips.some(w => w.itemTag === f.itemTag));
+
+      selectedFlips = selectedFlips.concat(random);
+    }
+  } else {
+    // sin whitelist → comportamiento normal
+    selectedFlips = this.api.getRandomSafeFlips(flipsData, amount);
   }
+
+  this.amount = selectedFlips.length;
+  const moneyPerFlip = this.purse / this.amount;
+
+  // Crear los flips
+  this.flips = selectedFlips.map(f => this.createFlip(f, moneyPerFlip));
+}
+
 
 
   createFlip(flipData, moneyPerFlip) {
@@ -52,7 +102,8 @@ class FlipManager {
       this.api,
       this.sellTimeout,
       moneyPerFlip,
-      this.defaultSpread
+      this.defaultSpread,
+      this.maxRelist,      // NUEVO
     );
 
     flip.onFinish = (endedByTimeout) => {
@@ -83,20 +134,11 @@ class FlipManager {
 
       totalSpent += total;
 
-      return {
-        item: flip.item,
-        unitPrice,
-        amount,
-        total
-      };
+      return { item: flip.item, unitPrice, amount, total };
     });
 
-    return {
-      flips: summary,
-      totalSpent
-    };
+    return { flips: summary, totalSpent };
   }
-
 
   createNextFlipSame(flip) {
     const moneyPerFlip = this.purse / this.amount;
@@ -113,25 +155,50 @@ class FlipManager {
     newFlip.buy();
   }
 
-
   async createNextFlipDifferent(oldFlip) {
-    const flipsData = await this.api.getSortedFlips();
-    const available = this.api.getRandomSafeFlips(flipsData, 1)
-      .filter(f => f.itemTag !== oldFlip.itemTag);
-
-    if (available.length === 0) return;
-
     const moneyPerFlip = this.purse / this.amount;
+    let nextFlipData = null;
 
-    const newFlip = this.createFlip(available[0], moneyPerFlip);
+    // 1️⃣ Prioridad whitelist (ahora whitelist puede ser array de strings)
+    if (this.whitelist.length > 0) {
+      const availableWhitelist = this.whitelist.filter(tag => tag !== oldFlip.itemTag);
+
+      if (availableWhitelist.length > 0) {
+        const tag = availableWhitelist[Math.floor(Math.random() * availableWhitelist.length)];
+
+        try {
+          const snapshot = await this.api.getBazaarSnapshot(tag);
+
+          nextFlipData = {
+            itemTag: tag,
+            item: snapshot.item,        // nombre legible
+            buyPrice: snapshot.buyPrice,
+            sellPrice: snapshot.sellPrice,
+            buyVolume: snapshot.buyVolume,
+            sellVolume: snapshot.sellVolume
+          };
+        } catch (err) {
+          console.warn(`Whitelist item ${tag} no encontrado en la API, ignorando.`);
+        }
+      }
+    }
+
+    // 2️⃣ Si no hay whitelist válida, usar flips normales
+    if (!nextFlipData) {
+      const flipsData = await this.api.getSortedFlips();
+      const available = this.api.getRandomSafeFlips(flipsData, 1)
+        .filter(f => f.itemTag !== oldFlip.itemTag);
+
+      if (available.length === 0) return;
+
+      nextFlipData = available[0];
+    }
+
+    const newFlip = this.createFlip(nextFlipData, moneyPerFlip);
     this.flips.push(newFlip);
     newFlip.buy();
-    const summary = this.getActiveFlipsSummary();
-
-    console.log('Active flips:');
-    console.table(summary.flips);
-    console.log('TOTAL SPENT:', summary.totalSpent);
   }
+
 
 
 
@@ -139,12 +206,13 @@ class FlipManager {
     const text = cleanChatText(record.message);
 
     for (const flip of this.flips) {
-      if (flip.bought && !flip.sellExecuted && text.includes(flip.item) && text.includes("Buy Order") && text.includes("was filled!")) {
-        console.log(`Buy order filled for item ${flip.item}, Selling item..`);
+      if (!flip.buyFilled && text.includes(flip.item) && text.includes("buy order") && text.includes("was filled!")) {
+        console.log(`Buy order filled for ${flip.item}`);
         flip.sell();
       }
-      if (flip.bought && !flip.sellExecuted && text.includes(flip.item) && text.includes("[Bazaar] Sell Order") && text.includes("was filled!")) {
-        console.log(`Sell Order filled for item ${flip.item}, collecting coins!`);
+
+      if (!flip.flipFinished && text.includes(flip.item) && text.includes("sell offer") && text.includes("was filled!")) {
+        console.log(`Sell order filled for ${flip.item}`);
         flip.finishFlip(false);
       }
     }

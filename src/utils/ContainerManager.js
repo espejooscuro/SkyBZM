@@ -2,6 +2,8 @@ const util = require('util');
 const fs = require('fs');
 const path = require('path');
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 class ContainerManager {
   /**
    * @param {Object} bot - Bot instance containing inventory and window data
@@ -266,8 +268,6 @@ _getValidItems(isContainer) {
   for (let slot = startSlot; slot < endSlot; slot++) {
     const item = window.slots[slot];
 
-    if (slot < 15) console.log(`📦 Slot ${slot} crudo:`, JSON.stringify(item, null, 2));
-
     if (!item || item.name === "stained_glass_pane") continue;
 
     const nbt = item.nbt || { value: {} };
@@ -435,7 +435,7 @@ _parseDurationToMs(durationLine) {
       const containerName = this.getOpenContainerName() || 'unknown container';
       const containerItems = this.getValidContainerItems();
 
-      console.error('❌ Click aborted: item not found');
+      console.error(`❌ Click aborted: item found in container ${containerName}`);
       console.error('🔍 Filters used:', filters);
       console.error('📦 Container:', containerName);
 
@@ -504,6 +504,8 @@ _parseDurationToMs(durationLine) {
     }
     this.bot.editSign(text);
     console.log(`✏️ Sign edited with text: "${text}"`);
+    console.log(this.getOpenContainerName());
+    delay(500);
   }
 
   /**

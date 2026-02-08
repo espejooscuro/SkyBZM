@@ -4,7 +4,8 @@ const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
 const FlipManager = require("../flips/FlipManager");
 const ChatListener = require("../events/ChatListener");
 const delay = ms => new Promise(r => setTimeout(r, ms));
-const nbt = require('prismarine-nbt');
+const fs = require("fs");
+const path = require("path");
 
 const originalWrite = process.stdout.write;
 process.stdout.write = function(chunk, encoding, callback) {
@@ -19,6 +20,13 @@ class Bot {
     this.queue = new TaskQueue();
     this.chat = null;
     this.isLogged = false;
+    this.config = null;
+  }
+
+  loadConfig() {
+    const configPath = path.join(process.cwd(), "config.json");
+    const raw = fs.readFileSync(configPath, "utf-8");
+    this.config = JSON.parse(raw);
   }
 
   init(server = "mc.hypixel.net", port = 25565) {
@@ -78,17 +86,22 @@ class Bot {
 
       const booster = new AutoBoosterCookie(this.bot, this.chat, this.queue);
       await booster.getBoostercookie() 
+      this.loadConfig();
+      const flipsConfig = this.config.flips;
 
       const manager = new FlipManager(this.bot, {
-        maxBuyPrice: 10000000,
-        minProfit: 2500,
-        minVolume: 40000,
-        blacklistContaining: ["name"],
-        sellTimeout: 150000
+        maxBuyPrice: flipsConfig.maxBuyPrice,
+        minProfit: flipsConfig.minProfit,
+        minVolume: flipsConfig.minVolume,
+        blacklistContaining: flipsConfig.blacklistContaining,
+        whitelist: flipsConfig.whitelist,
+        maxRelist: flipsConfig.maxRelist,   // NUEVO
+        sellTimeout: flipsConfig.sellTimeout ?? 70000
       });
 
-      await manager.buildFlips(4);
-      
+      await manager.buildFlips(flipsConfig.maxFlips); // NUEVO
+
+            
       console.log("\n=== Starting all BUYS ===\n");
       for (const flip of manager.flips) await flip.buy();
 
