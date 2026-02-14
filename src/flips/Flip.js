@@ -1,7 +1,16 @@
+
+
+
 const ContainerManager = require('../utils/ContainerManager');
 const ChatListener = require('../events/ChatListener');
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => {
+  const jitter = Math.floor(Math.random() * 201) - 100; // rango [-100, +100]
+  const finalDelay = Math.max(0, ms + jitter); // evitar negativos
+
+  return new Promise(resolve => setTimeout(resolve, finalDelay));
+};
+
 
 function formatPrice(num) {
   return num.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -21,7 +30,7 @@ function formatNumber(num) {
 }
 
 class Flip {
-  constructor(bot, ChatListener, data, queue, api, sellTimeout = 300_000, maxSpend = Infinity, defaultSpread = 0.05) {
+  constructor(bot, ChatListener, data, queue, api, sellTimeout = 300_000, maxSpend = Infinity, defaultSpread = 0.05, maxRelist = 5) {
     this.item = stripColors(String(data.item || "unknown")).toLowerCase();
     this.itemTag = stripColors(String(data.itemTag || data.item || "unknown"));
 
@@ -33,7 +42,7 @@ class Flip {
     this.api = api;
 
     this.relistCounter = 0;
-    this.maxRelist = 5;
+    this.maxRelist = maxRelist || 5;
     this.sellTimeout = sellTimeout;
     this.maxSpend = Number(maxSpend) || Infinity;
     this.defaultSpread = defaultSpread;
@@ -68,28 +77,37 @@ class Flip {
 
       const totalSpent = this.amountToBuy * this.instaBuyPrice;
       console.log(`Buying ${this.amountToBuy}x ${this.item} [${this.itemTag}] for ${formatPrice(this.instaBuyPrice)} each → Total spent: ${formatNumber(totalSpent)}`);
-      await delay(2000);
+      await delay(1100);
 
+      if (!this.active) return; // 🔥 Check antes de cada operación
       this.ChatListener.send(`/bz ${this.item}`);
       await delay(1500);
+      if (!this.active) return;
       this.ContainerManager.click({customName: this.item, type: "container" });
-      await delay(2000);
+      await delay(1000);
+      if (!this.active) return;
       this.ContainerManager.click({customName: "Create Buy Order", type: "container" });
-      await delay(2000);
+      await delay(1000);
+      if (!this.active) return;
       this.ContainerManager.click({customName: "Custom Amount", type: "container" });
-      await delay(2000);
+      await delay(1000);
+      if (!this.active) return;
       this.ContainerManager.interactWithSign(this.amountToBuy);
-      await delay(1850);
+      await delay(1000);
+      if (!this.active) return;
       this.ContainerManager.click({customName: "Top Order +0.1", type: "container" });
       await delay(1850);
+      if (!this.active) return;
       const lore = this.ContainerManager.getItemDescription({customName: "Buy Order"}, true);
       //lore.forEach(line => console.log(line));
       const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
       this.instaBuyPrice = price;
       console.log(price);
+      if (!this.active) return;
       this.ContainerManager.click({customName: "Buy Order", type: "container" });
       console.log(`Finished buying ${this.item}...`);
-      await delay(3000);
+      await delay(1000);
+      if (!this.active) return;
       this.startSellTimer();
       this.startPriceWatcher();
     });
@@ -98,7 +116,10 @@ class Flip {
   async sell(endedByTimeout = false, buyRelistSell = false) {
     this.isSelling = true;
     return this.queue.enqueue(async () => {
-      if (!this.active || !this.bought || this.sellExecuted) return;
+      if (!this.active || !this.bought || this.sellExecuted) {
+        this.isSelling = false;
+        return;
+      }
 
       this.sellExecuted = true;           // marcar venta inmediatamente
       this.clearSellTimer();
@@ -117,68 +138,97 @@ class Flip {
       const totalEarned = this.amountToBuy * currentSellPrice;
       console.log(`Selling ${this.amountToBuy}x ${this.item} [${this.itemTag}] for ${formatPrice(currentSellPrice)} each → Total earned: ${formatNumber(totalEarned)}`);
 
-      await delay(2000); // simula tiempo de venta
+      await delay(1000); // simula tiempo de venta
+      
+      if (!this.active) {
+        this.isSelling = false;
+        return;
+      }
       
       if (buyRelistSell) {
         this.ChatListener.send("/managebazaarorders");
         await delay(1000);
-        if (!this.ContainerManager.hasItemInContainer({contains: this.item, type: "inventory"})) {
+        if (!this.active) { this.isSelling = false; return; }
+        if (!this.ContainerManager.hasItemInContainer({contains: this.item, type: "container"})) {
           console.log("Después de borar el BuyOrder no se encuentra ningun item en el inventario. Cerrando flip..");
           this.finishFlip(endedByTimeout, true);
         } else {
-          await delay(2000);
-          this.ContainerManager.click({ contains: this.item, type: "inventory" });
-          await delay(1200);
+          await delay(1400);
+          if (!this.active) { this.isSelling = false; return; }
+          this.ChatListener.send(`/bz ${this.item}`); 
+          await delay(1500);
+          if (!this.active) { this.isSelling = false; return; }
+          this.ContainerManager.click({customName: this.item, type: "container" });
+          await delay(1400);
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Create Sell Offer"});
           await delay(1300);
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Best Offer -0.1" });
           await delay(1200);
+          if (!this.active) { this.isSelling = false; return; }
           const lore = this.ContainerManager.getItemDescription({customName: "Sell Offer"}, true);
           //lore.forEach(line => console.log(line));
           const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
           this.instaSellPrice = price;
           console.log(price);
           console.log(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Sell Offer"});
             await delay(1000);
         }
       } else {
-        await delay(2000);
+        await delay(1000);
+        if (!this.active) { this.isSelling = false; return; }
         this.ChatListener.send("/managebazaarorders");
-        await delay(2000);
-        while (this.ContainerManager.hasItemInContainer({contains: `BUY ${this.item}`})) {
+        await delay(1000);
+        if (!this.active) { this.isSelling = false; return; }
+        while (this.active && this.ContainerManager.hasItemInContainer({contains: `BUY ${this.item}`})) {
           await delay(2000);
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({contains: `BUY ${this.item}`});
           await delay(1000);
+          if (!this.active) { this.isSelling = false; return; }
           if (this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
-            await delay(2000);
+            await delay(1000);
+            if (!this.active) { this.isSelling = false; return; }
             this.ContainerManager.click({contains: `Cancel Order`});
             await delay(1000);
             }
           }
-          if (!this.ContainerManager.hasItemInContainer({contains: this.item, type: "inventory"})) {
+          if (!this.active) { this.isSelling = false; return; }
+          if (!this.ContainerManager.hasItemInContainer({contains: this.item, type: "container"})) {
           console.log("Después de borar el BuyOrder no se encuentra ningun item en el inventario. Cerrando flip..");
           this.finishFlip(endedByTimeout, true);
         } else {
-          await delay(2000);
-          this.ContainerManager.click({ contains: this.item, type: "inventory" });
-          await delay(1200);
+          await delay(1000);
+          if (!this.active) { this.isSelling = false; return; }
+          this.ChatListener.send(`/bz ${this.item}`); 
+          await delay(1500);
+          if (!this.active) { this.isSelling = false; return; }
+          this.ContainerManager.click({customName: this.item, type: "container" });
+          await delay(1000);
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Create Sell Offer"});
           await delay(1300);
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Best Offer -0.1" });
           await delay(1200);
+          if (!this.active) { this.isSelling = false; return; }
           const lore = this.ContainerManager.getItemDescription({customName: "Sell Offer"}, true);
           //lore.forEach(line => console.log(line));
           const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
           this.instaSellPrice = price;
           console.log(price);
           console.log(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
+          if (!this.active) { this.isSelling = false; return; }
           this.ContainerManager.click({ contains: "Sell Offer"});
           await delay(1000);
           }
         }
 
       this.isSelling = false;
+      if (!this.active) return;
       this.finishTimer = setTimeout(() => {
         if (!this.active || this.flipFinished) return;
         this.finishFlip(endedByTimeout);
@@ -241,34 +291,50 @@ class Flip {
    */
   _parsePriceFromLoreLine(line) {
     if (!line || typeof line !== "string") return 0;
+
     const cleanLine = line.replace(/§[0-9a-fk-or]/gi, '').trim();
-    const match = cleanLine.match(/([\d,]+\.\d+)/);
+
+    // Acepta: 1,234 | 1,234.5 | 1234 | 1234.56
+    const match = cleanLine.match(/([\d,]+(?:\.\d+)?)/);
+
     if (!match) return 0;
+
     const numericString = match[1].replace(/,/g, '');
-    return parseFloat(numericString);
+    const value = parseFloat(numericString);
+
+    return isNaN(value) ? 0 : value;
   }
+
 
   async buyRelist() {
     console.log(`Executed Buy end for ${this.item} [${this.itemTag}]`);
     this.isBuyRellisting = true;
     return this.queue.enqueue(async () => {
-      await delay(2000);
+      if (!this.active) { this.isBuyRellisting = false; return; }
+      await delay(1000);
+      if (!this.active) { this.isBuyRellisting = false; return; }
       this.ChatListener.send("/managebazaarorders");
-      await delay(2000);
-      while (this.ContainerManager.hasItemInContainer({contains: `BUY ${this.item}`})) {
-        await delay(2000);
+      await delay(1000);
+      if (!this.active) { this.isBuyRellisting = false; return; }
+      while (this.active && this.ContainerManager.hasItemInContainer({contains: `BUY ${this.item}`})) {
+        await delay(1000);
+        if (!this.active) { this.isBuyRellisting = false; return; }
         this.ContainerManager.click({contains: `BUY ${this.item}`});
         await delay(1000);
+        if (!this.active) { this.isBuyRellisting = false; return; }
         if (this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
-          await delay(2000);
+          await delay(1000);
+          if (!this.active) { this.isBuyRellisting = false; return; }
           this.ContainerManager.click({contains: `Cancel Order`});
           await delay(1000);
         }
         await delay(1000);
       }
+      if (!this.active) { this.isBuyRellisting = false; return; }
       await delay(1000);
       await this.ContainerManager.closeContainer();
       await delay(1000);
+      if (!this.active) { this.isBuyRellisting = false; return; }
       this.sell(true, true);
     });
   }
@@ -277,13 +343,17 @@ class Flip {
     this.relistCounter++;
     if ( this.relistCounter >= this.maxRelist ) {
       console.log(`Se ha realizado relist ${this.relistCounter} veces, pasando al siguiente flip...`);
-      await delay(2000);
+      await delay(1000);
+      if (!this.active) return;
       this.ChatListener.send("/managebazaarorders");
       await delay(1000);
-      while (this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`})) {
-        await delay(2000);
+      if (!this.active) return;
+      while (this.active && this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`})) {
+        await delay(1000);
+        if (!this.active) return;
         this.ContainerManager.click({contains: `SELL ${this.item}`});
         await delay(1000);
+        if (!this.active) return;
         console.log(`Haciendo click en SELL ${this.item}`);
         if (!this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`}) && !this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
           console.log("No se ha encontrado ningun item. Probablemente ya estaba en estado filled..");
@@ -292,29 +362,38 @@ class Flip {
           return;
         }
         if (this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
-          await delay(2000);
+          await delay(1000);
+          if (!this.active) return;
           this.ContainerManager.click({contains: `Cancel Order`});
           console.log(`Haciendo click en Cancel Order`);
-          await delay(1000);
+          await delay(600);
           }
-          await this.ContainerManager.closeContainer();
-          await delay(500);
-          this.ChatListener.send("/bz");
-          await delay(1000);
-          this.ContainerManager.click({contains: `Sell Inventory Now`});
-          this.finishFlip(false, true);
-        }
+        if (!this.active) return;
+        this.ChatListener.send("/managebazaarorders");
+        await delay(1000);
+      }
+      if (!this.active) return;
+      this.ChatListener.send("/bz");
+        await delay(1000);
+        if (!this.active) return;
+        this.ContainerManager.click({contains: `Sell Inventory Now`});
+        this.finishFlip(false, true);
     }
     console.log(`Executed SellRelist for ${this.item} [${this.itemTag}] - ${this.relistCounter}`);
     return this.queue.enqueue(async () => {
+      if (!this.active) return;
       console.log(`Quitando item del inventario. Siempre se debe ejecutar..`);
-      await delay(2000);
+      await delay(1000);
+      if (!this.active) return;
       this.ChatListener.send("/managebazaarorders");
       await delay(1000);
-      while (this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`})) {
-        await delay(2000);
+      if (!this.active) return;
+      while (this.active && this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`})) {
+        await delay(1000);
+        if (!this.active) return;
         this.ContainerManager.click({contains: `SELL ${this.item}`});
         await delay(1000);
+        if (!this.active) return;
         console.log(`Haciendo click en SELL ${this.item}`);
         if (!this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`}) && !this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
           console.log("No se ha encontrado ningun item. Probablemente ya estaba en estado filled..");
@@ -323,22 +402,33 @@ class Flip {
           return;
         }
         if (this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
-          await delay(2000);
+          await delay(1000);
+          if (!this.active) return;
           this.ContainerManager.click({contains: `Cancel Order`});
           console.log(`Haciendo click en Cancel Order`);
           await delay(1000);
           }
         }
-        this.ContainerManager.click({ contains: this.item, type: "inventory" });
+        if (!this.active) return;
+        await delay(1000);
+        this.ChatListener.send(`/bz ${this.item}`); 
+        await delay(1500);
+        if (!this.active) return;
+        this.ContainerManager.click({customName: this.item, type: "container" });
+        await delay(2000);
+        if (!this.active) return;
         await delay(1200);
         this.ContainerManager.click({ contains: "Create Sell Offer"});
         await delay(1300);
+        if (!this.active) return;
         this.ContainerManager.click({ contains: "Best Offer -0.1" });
         await delay(1200);
+        if (!this.active) return;
         const lore = this.ContainerManager.getItemDescription({customName: "Sell Offer"}, true);
           //lore.forEach(line => console.log(line));
         const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
         this.instaSellPrice = price;
+        if (!this.active) return;
         this.ContainerManager.click({ contains: "Sell Offer"});
         await delay(1000);
         
@@ -353,8 +443,9 @@ class Flip {
   if (this.priceWatcher) clearInterval(this.priceWatcher);
 
   return this.queue.enqueue(async () => {
+    if (!this.active) return; // Ya está marcado como inactivo
     console.log(`Executed Flip finish for ${this.item} [${this.itemTag}]`);
-    this.active = false; // marcar flip como terminado
+    
     this.clearSellTimer();
     if (this.priceWatcher) clearInterval(this.priceWatcher);
 
@@ -366,17 +457,19 @@ class Flip {
     if (typeof this.onFinish === 'function') {
       if (!noItemsFlip) {
         console.log(`Flip for ${this.item} ended ${endedByTimeout ? 'by timeout' : 'normally'}`);
-        await delay(2000);
+        await delay(1000);
         this.ChatListener.send("/managebazaarorders");
         await delay(900);
         while (this.ContainerManager.hasItemInContainer({contains: `SELL ${this.item}`})) {
-          await delay(1600);
+          await delay(1000);
           this.ContainerManager.click({contains: `SELL ${this.item}`});
           await delay(1300);
           if (this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
-            await delay(2000);
+            await delay(1000);
             this.ContainerManager.click({contains: `Cancel Order`});
             await delay(1000);
+            this.ChatListener.send("/managebazaarorders");
+            await delay(900);
           }
           await this.ContainerManager.closeContainer();
           await delay(500);
@@ -390,10 +483,47 @@ class Flip {
     }
     });
   }
+  
+  /**
+   * Destruye el flip y limpia todos los timers/intervalos
+   */
+  destroy() {
+    console.log(`🧹 [${this.itemTag}] Destroying flip...`);
+    
+    // Marcar como inactivo inmediatamente para que todas las tareas pendientes se cancelen
+    this.active = false;
+    this.flipFinished = true;
+    
+    // Limpiar todos los timers
+    if (this.sellTimer) {
+      clearTimeout(this.sellTimer);
+      this.sellTimer = null;
+    }
+    
+    if (this.finishTimer) {
+      clearTimeout(this.finishTimer);
+      this.finishTimer = null;
+    }
+    
+    if (this.priceWatcher) {
+      clearInterval(this.priceWatcher);
+      this.priceWatcher = null;
+    }
+    
+    // 🔥 NO limpiar referencias para evitar errores de null en tareas pendientes
+    // Las referencias se limpiarán por el garbage collector cuando el objeto sea destruido
+    // this.bot = null;
+    // this.queue = null;
+    // this.api = null;
+    // this.ContainerManager = null;
+    // this.ChatListener = null;
+    // this.onFinish = null;
+    
+    console.log(`✅ [${this.itemTag}] Flip destroyed (marked inactive)`);
+  }
 }
 
 module.exports = Flip;
 
 
-// Funciona pero muy roto. No hace relist de sell, muchas veces no pilla el objeto, hay varios sell que parece que no se han ejecutad ni por timeout, no se ha leido el 
-// sell order filled, toma mal los valores para iniciar el relist, deberia leer el precio de compra / venta para tomarlo como referencia....
+

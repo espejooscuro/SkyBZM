@@ -29,39 +29,48 @@ class ContainerManager {
     const window = this.bot.currentWindow;
     const items = [];
 
-    const getCustomName = (item) => {
-      if (!item) return '';
-      const nbt = item.nbt || { value: {} };
-      return nbt.value.display?.value?.Name?.value || item.name || '';
-    };
-
-    const processItem = (item, index, type) => {
-      const rawCustomName = getCustomName(item);
-
-      return {
-        slot: index,
-        originalName: item?.name || '',
-        customName: rawCustomName,
-        customNameClean: this._cleanText(rawCustomName),
-        id: item?.type || 0,
-        quantity: item?.count || 0,
-        type,
-        nbt: item?.nbt || { value: {} },
-      };
-    };
-
-
     if (window) {
-      const containerSlots = window.slots.length - 36;
-      window.slots.forEach((item, index) => {
-        if (!item) return;
-        const type = index < containerSlots ? 'container' : 'inventory';
-        items.push(processItem(item, index, type));
+      const containerItems = this._getValidItems(true);
+      const inventoryItems = this._getValidItems(false);
+
+      containerItems.forEach((validItem) => {
+        items.push({
+          slot: validItem.slot,
+          originalName: validItem.originalName,
+          customName: validItem.customName,
+          customNameClean: validItem.customNameClean,
+          id: validItem.rawJSON?.type || 0,
+          quantity: validItem.quantity,
+          type: 'container',
+          nbt: validItem.rawJSON?.nbt || { value: {} },
+        });
+      });
+
+      inventoryItems.forEach((validItem) => {
+        items.push({
+          slot: validItem.slot,
+          originalName: validItem.originalName,
+          customName: validItem.customName,
+          customNameClean: validItem.customNameClean,
+          id: validItem.rawJSON?.type || 0,
+          quantity: validItem.quantity,
+          type: 'inventory',
+          nbt: validItem.rawJSON?.nbt || { value: {} },
+        });
       });
     } else {
-      this.bot.inventory.items().forEach((item) => {
-        if (!item) return;
-        items.push(processItem(item, item.slot, 'inventory'));
+      const inventoryItems = this._getValidItems(false);
+      inventoryItems.forEach((validItem) => {
+        items.push({
+          slot: validItem.slot,
+          originalName: validItem.originalName,
+          customName: validItem.customName,
+          customNameClean: validItem.customNameClean,
+          id: validItem.rawJSON?.type || 0,
+          quantity: validItem.quantity,
+          type: 'inventory',
+          nbt: validItem.rawJSON?.nbt || { value: {} },
+        });
       });
     }
 
@@ -73,17 +82,8 @@ class ContainerManager {
    * @returns {string}
    */
   getInventoryPlain() {
-    const removeColorCodes = (text) => text ? text.replace(/§[0-9a-fk-or]/gi, '') : '';
-    const inventory = JSON.parse(this.getInventory());
-    return JSON.stringify(
-      inventory.map(item => ({
-        ...item,
-        originalName: removeColorCodes(item.originalName),
-        customName: removeColorCodes(item.customName),
-      })),
-      null,
-      2
-    );
+    // Ya _getValidItems devuelve todo limpio
+    return this.getInventory();
   }
 
   /**
@@ -120,30 +120,58 @@ class ContainerManager {
    * @param {Object} filters - Optional keys: 'contains', 'originalName', 'customName', etc.
    * @returns {boolean}
    */
-  hasItemInContainer(filters = {}) {
-    const window = this.bot.currentWindow;
-    if (!window) return false;
+hasItemInContainer(filters = {}) {
+  const isInventory = filters.type === "inventory";
+  const slotsSource = isInventory
+    ? this.bot.inventory?.slots
+    : this.bot.currentWindow?.slots;
 
-    const containerSlots = window.slots.length - 36;
-
-    const items = window.slots.map((item, index) => {
-      if (!item) return null;
-      const type = index < containerSlots ? 'container' : 'inventory';
-      const nbt = item.nbt || { value: {} };
-      const rawCustomName = nbt.value.display?.value?.Name?.value || item.name || '';
-
-      return {
-        slot: index,
-        type,
-        originalName: item.name || '',
-        customName: rawCustomName,
-        customNameClean: this._cleanText(rawCustomName),
-      };
-
-    }).filter(Boolean);
-
-    return items.some(item => this._matchesFilters(item, filters));
+  if (!Array.isArray(slotsSource)) {
+    console.log("❌ [hasItemInContainer] No hay slots disponibles:", isInventory ? "inventario" : "contenedor");
+    return false;
   }
+
+
+  const items = this._getValidItems(!isInventory);
+
+
+  let found = false;
+
+  for (const item of items) {
+    const name = item.plainName;
+    let matches = false;
+
+    if (filters.equals) {
+      matches = name === filters.equals.toLowerCase();
+      //if (!matches) console.log(`❌ [NO MATCH] equals: "${name}" !== "${filters.equals.toLowerCase()}"`);
+    }
+    if (filters.contains) {
+      matches = name.includes(filters.contains.toLowerCase());
+      //if (!matches) console.log(`❌ [NO MATCH] contains: "${name}" no contiene "${filters.contains.toLowerCase()}"`);
+    }
+    if (filters.startsWith) {
+      matches = name.startsWith(filters.startsWith.toLowerCase());
+      //if (!matches) console.log(`❌ [NO MATCH] startsWith: "${name}" no empieza con "${filters.startsWith.toLowerCase()}"`);
+    }
+    if (filters.regex) {
+      matches = filters.regex.test(name);
+      //if (!matches) console.log(`❌ [NO MATCH] regex: "${name}" no coincide con ${filters.regex}`);
+    }
+
+    //console.log(`🧪 [hasItemInContainer] Test "${name}" contra filtros → ${matches ? "✅ MATCH" : "❌ NO"}`);
+
+    if (matches) {
+      found = true;
+      break;
+    }
+  }
+
+  console.log(`🎯 [hasItemInContainer] Resultado final: ${found}`);
+  return found;
+}
+
+
+
 
   /**
    * Returns true if less than 1/3 of inventory slots are empty
@@ -243,7 +271,7 @@ logSlotJson(slot) {
         return item; // guardamos TODO el objeto crudo
       })
     };
-
+ 
     const filepath = path.resolve(filename);
     fs.writeFileSync(filepath, JSON.stringify(containerData, null, 2), 'utf8');
     console.log(`✅ Contenedor guardado en JSON: ${filepath}`);
@@ -258,30 +286,66 @@ logSlotJson(slot) {
  */
 
 _getValidItems(isContainer) {
-  const window = this.bot.currentWindow;
-  if (!window) return [];
+  const slotsSource = isContainer
+    ? this.bot.currentWindow?.slots
+    : this.bot.inventory?.slots;
 
-  const startSlot = isContainer ? 0 : window.slots.length - 36;
-  const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
+  if (!Array.isArray(slotsSource)) {
+    console.log("❌ No hay slotsSource:", isContainer ? "currentWindow" : "inventory");
+    return [];
+  }
+
   const result = [];
 
+  // Rango de slots
+  const startSlot = 0;
+  const endSlot = slotsSource.length;
+
   for (let slot = startSlot; slot < endSlot; slot++) {
-    const item = window.slots[slot];
+    const item = slotsSource[slot];
 
-    if (!item || item.name === "stained_glass_pane") continue;
+    if (!item || item.name === "stained_glass_pane" || item.name === "black_stained_glass_pane") continue;
 
+    // 🔥 Intentar obtener el nombre de múltiples fuentes
+    let customNameRaw = item.formattedDisplayName || item.customName || item.displayName || item.name;
+
+    // 1. custom_name component
+    if (item.components && Array.isArray(item.components)) {
+      const customNameComponent = item.components.find(c => c.type === "custom_name");
+
+      if (customNameComponent?.data) {
+        const nameData = customNameComponent.data;
+
+        if (nameData.type === "compound" && nameData.value) {
+          const mainText = nameData.value.text?.value || "";
+          let extraText = "";
+          if (nameData.value.extra?.value?.value && Array.isArray(nameData.value.extra.value.value)) {
+            extraText = nameData.value.extra.value.value
+              .map(e => e.text?.value || "")
+              .join("");
+          }
+          const extracted = (mainText + extraText).trim();
+          if (extracted) customNameRaw = extracted;
+        } else if (typeof nameData === "string") {
+          customNameRaw = nameData;
+        }
+      }
+    }
+
+    // 2. Legacy NBT
     const nbt = item.nbt || { value: {} };
-    const customNameRaw = nbt.value.display?.value?.Name?.value || item.displayName || item.name;
+    const legacyName = nbt.value.display?.value?.Name?.value;
+    if (legacyName && legacyName !== item.displayName) {
+      customNameRaw = legacyName;
+    }
 
     const plainName = this._cleanText(customNameRaw);
-
-    if (["go back", "claim all coins"].includes(plainName)) continue;
 
     result.push({
       slot,
       originalName: item.name,
       customName: customNameRaw,
-      customNameClean: plainName,   // 🔥 este es el importante
+      customNameClean: plainName,
       plainName,
       quantity: item.count,
       rawJSON: item
@@ -297,6 +361,7 @@ _getValidItems(isContainer) {
 
 
 
+
   // -------------------- Container Interaction Methods --------------------
 
   /**
@@ -305,43 +370,63 @@ _getValidItems(isContainer) {
    * @param {boolean} isContainer - true: look in open container, false: player inventory
    * @returns {Array<string>} array of lines, color codes removed
    */
-  getItemDescription(filters = {}, isContainer = true) {
-  const window = this.bot.currentWindow;
-  if (!window) return [];
+ getItemDescription(filters = {}, isContainer = true) {
+  const items = isContainer ? this._getValidItems(true) : this._getValidItems(false);
 
-  const startSlot = isContainer ? 0 : window.slots.length - 36;
-  const endSlot = isContainer ? window.slots.length - 36 : window.slots.length;
+  for (const item of items) {
+    if (filters.customName && item.plainName !== filters.customName.toLowerCase()) continue;
+    if (filters.contains && !item.plainName.includes(filters.contains.toLowerCase())) continue;
+/*
+    console.log("🟢 SLOT ENCONTRADO");
+    console.log("➡ Slot:", item.slot);
+    console.log("➡ Nombre plano:", item.plainName);
+    console.log("➡ Nombre original:", item.originalName);
 
-  const clean = text => text
-    ? text.replace(/§[0-9a-fk-or]/gi, '').trim().toLowerCase()
-    : '';
+    console.log("📦 ITEM RAW JSON:");
+    console.log(JSON.stringify(item.rawJSON, null, 2));
+*/
+    const loreComponent = item.rawJSON?.components?.find(c => c.type === "lore");
 
-  for (let slot = startSlot; slot < endSlot; slot++) {
-    const item = window.slots[slot];
-    if (!item) continue;
-
-    const nbt = item.nbt || { value: {} };
-    const customNameRaw = nbt.value.display?.value?.Name?.value || item.name || '';
-    const plainName = clean(customNameRaw);
-
-    if (filters.customName && plainName !== filters.customName.toLowerCase()) continue;
-    if (filters.contains && !plainName.includes(filters.contains.toLowerCase())) continue;
-
-    const loreRaw = nbt.value.display?.value?.Lore?.value?.value;
+    if (!loreComponent || !Array.isArray(loreComponent.data)) {
+      console.log("❌ No se encontró componente lore");
+      return [];
+    }
 
     const loreArray = [];
 
-    if (Array.isArray(loreRaw)) {
-      for (const line of loreRaw) {
-        loreArray.push(line.replace(/§[0-9a-fk-or]/gi, ''));
+    for (const line of loreComponent.data) {
+      let text = "";
+
+      const mainText = line?.value?.text?.value;
+      if (typeof mainText === "string") {
+        text += mainText;
       }
+
+      const extra = line?.value?.extra?.value?.value;
+      if (Array.isArray(extra)) {
+        for (const part of extra) {
+          const partText = part?.text?.value;
+          if (typeof partText === "string") {
+            text += partText;
+          }
+        }
+      }
+
+      const cleanLine = text.trim();
+      loreArray.push(cleanLine);
     }
+
+    console.log("🧹 LORE LIMPIO:");
+    loreArray.forEach((l, i) => console.log(`${i}:`, l));
 
     return loreArray;
   }
 
+  console.log("❌ No se encontró ningún item que cumpla los filtros:", filters);
   return [];
 }
+
+
 
 _findLoreLine(loreLines, filters = {}) {
   if (!Array.isArray(loreLines)) return null;
@@ -425,47 +510,60 @@ _parseDurationToMs(durationLine) {
    * @param {number} mode
    * @returns {Promise<boolean>}
    */
-    async click(filters = {}, mouseButton = 0, mode = 0) {
-    await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
+  async click(filters = {}, mouseButton = 0, mode = 0) {
+  await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
 
-    const items = this.cachedItems || JSON.parse(this.getInventoryPlain());
-    const foundItem = items.find(item => this._matchesFilters(item, filters));
-
-    if (!foundItem) {
-      const containerName = this.getOpenContainerName() || 'unknown container';
-      const containerItems = this.getValidContainerItems();
-
-      console.error(`❌ Click aborted: item found in container ${containerName}`);
-      console.error('🔍 Filters used:', filters);
-      console.error('📦 Container:', containerName);
-
-      if (containerItems.length === 0) {
-        console.error('📭 Container is empty.');
-      } else {
-        console.error('📋 Items in container:');
-        containerItems.forEach(item => {
-          console.error(
-            `  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`
-          );
-        });
-      }
-
-      return false;
-    }
-
-    let realSlot = foundItem.slot;
-    if (foundItem.type === 'inventory' && realSlot <= 8) realSlot += 36;
-
-    try {
-      this.bot.currentWindow.requiresConfirmation = false;
-      this.bot.inventory.requiresConfirmation = false;
-      await this.bot.clickWindow(realSlot, mouseButton, mode);
-      return true;
-    } catch (err) {
-      console.error('⚠️ Error during clickWindow:', err.message);
-      return false;
-    }
+  const window = this.bot.currentWindow;
+  if (!window) {
+    console.error('❌ No window open to click in.');
+    return false;
   }
+
+  const containerItems = this._getValidItems(true);
+  const inventoryItems = this._getValidItems(false);
+  const allItems = [
+    ...containerItems.map(item => ({ ...item, type: 'container' })),
+    ...inventoryItems.map(item => ({ ...item, type: 'inventory' }))
+  ];
+
+  const foundItem = allItems.find(item => this._matchesFilters(item, filters));
+
+  if (!foundItem) {
+    const containerName = this.getOpenContainerName() || 'unknown container';
+    console.error(`❌ Click aborted: item not found in container ${containerName}`);
+    console.error('🔍 Filters used:', filters);
+    console.error('📦 Container items:');
+    containerItems.forEach(item => {
+      console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
+    });
+    console.error('📦 Inventory items:');
+    inventoryItems.forEach(item => {
+      console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
+    });
+    return false;
+  }
+
+  let realSlot = foundItem.slot;
+
+  if (foundItem.type === 'inventory') {
+    // Ajuste para hotbar
+    if (realSlot >= 0 && realSlot <= 8) {
+      realSlot += 36;
+    }
+    // Slots 9–35 ya coinciden con currentWindow
+  }
+
+  try {
+    this.bot.currentWindow.requiresConfirmation = false;
+    this.bot.inventory.requiresConfirmation = false;
+    await this.bot.clickWindow(realSlot, mouseButton, mode);
+    return true;
+  } catch (err) {
+    console.error('⚠️ Error during clickWindow:', err.message);
+    return false;
+  }
+}
+
 
   /**
    * Shift-click an item
@@ -539,9 +637,10 @@ _parseDurationToMs(durationLine) {
       const needle = clean(filters.contains);
 
       const haystacks = [
+        item.plainName,
+        item.customNameClean,
         clean(item.originalName),
-        clean(item.customName),
-        item.customNameClean
+        clean(item.customName)
       ];
 
       if (!haystacks.some(text => text?.includes(needle))) {
@@ -557,10 +656,11 @@ _parseDurationToMs(durationLine) {
           ? clean(filters[key])
           : filters[key];
 
-      const itemValue =
-        typeof item[key] === 'string'
-          ? clean(item[key])
-          : item[key];
+      let itemValue = item[key];
+      
+      if (typeof itemValue === 'string') {
+        itemValue = clean(itemValue);
+      }
 
       if (itemValue !== filterValue) return false;
     }

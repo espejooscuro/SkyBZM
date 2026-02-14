@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⛏️ SkyBZM - Minecraft Bot Panel</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Form -->
+    <div id="loginForm">
+      <div class="logo">
+        <h1>⛏️ SKYBZM</h1>
+        <p>MINECRAFT BOT CONTROL PANEL</p>
+        <p style="margin-top: 8px; font-size: 8px; color: #666;">v1.0.0 - HYPIXEL SKYBLOCK</p>
+      </div>
+
+      <div id="error" class="error"></div>
+
+      <form id="passwordForm">
+        <div class="form-group">
+          <label for="password">ENTER PASSWORD</label>
+          <input 
+            type="password" 
+            id="password" 
+            placeholder="***********"
+            required
+            autocomplete="off"
+          >
+        </div>
+        <button type="submit" class="btn">LOGIN</button>
+      </form>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+      <div class="header">
+        <div class="logo">
+          <h1>⛏️ SKYBZM</h1>
+          <p>BOT CONTROL PANEL</p>
+        </div>
+        <button class="btn logout-btn" onclick="logout()">LOGOUT</button>
+      </div>
+
+      <!-- Discord Webhook Section -->
+      <div id="webhookSection" class="global-section">
+        <h2>🔔 DISCORD WEBHOOK</h2>
+        <div class="value" id="webhook"></div>
+      </div>
+
+      <!-- Bots Container -->
+      <div class="tabs-container" id="tabsContainer">
+        <!-- Stats y bots se renderizan aquí dinámicamente -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
+

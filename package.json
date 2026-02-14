@@ -19,9 +19,11 @@
   },
   "homepage": "https://github.com/espejooscuro/SkyBZM#readme",
   "dependencies": {
-    "minecraft-protocol": "^1.63.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "mineflayer": "^4.34.0",
-    "mineflayer-viaproxy": "^0.7.8",
-    "prismarine-nbt": "^2.8.0"
+    "prismarine-nbt": "^2.8.0",
+    "proxy-agent": "^6.5.0",
+    "socks": "^2.8.7"
   }
 }

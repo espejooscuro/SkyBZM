@@ -43,7 +43,7 @@ class AutoBoosterCookie {
       // Extraer duración usando métodos propios de BoosterCookie
       const durationLine = this.ContainerManager._findLoreLine(lore, { contains: "duration" });
       if (!durationLine) {
-        console.log("❌ No se pudo encontrar la duración en el lore");
+        console.log("❌ No se pudo encontrar la duración en el lore. Boostercookie agotado.. Comprando nuevo boostercookie!");
         this.queue = null;
         return;
       }

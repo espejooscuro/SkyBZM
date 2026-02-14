@@ -1,28 +1,57 @@
-// test-mineflayer.js
 const mineflayer = require('mineflayer');
 
 const bot = mineflayer.createBot({
-  host: 'mp.lifestealsmp.com',   // servidor Java
-  port: 25565,               // puerto
-  username: 'Neckruz',       // nombre del bot
-  auth: 'microsoft',         // 'offline' si el server acepta bots offline
-  version: '1.21.11'          // versión de Minecraft
+  host: 'mc.hypixel.net',   // o el host del ViaProxy
+  port: 25565,
+  username: 'Notdtguy',
+  auth: 'microsoft',
+  version: "1.21.9"
 });
 
-// Evento cuando el bot se conecta
-bot.once('spawn', () => {
-  console.log('✅ Bot conectado al servidor sin ViaProxy');
-  bot.chat('¡Hola desde Mineflayer normal!');
+bot._client.on('connect', () => {
+  console.log('🟢 TCP conectado');
 });
 
-// Evento de chat
-bot.on('chat', (username, message) => {
-  if (username === bot.username) return;
-  console.log(`<${username}> ${message}`);
+bot._client.on('state', (newState) => {
+  console.log('🔁 Estado protocolo ->', newState);
 });
 
-// Errores
-bot.on('error', (err) => console.error('❌ Error:', err));
+bot._client.on('packet', (data, meta) => {
+  //console.log(`📥 [${bot._client.state}] Paquete entrante:`, meta.name);
+});
+bot._client.on('packet', (data, meta) => {
+  if (bot._client.state === 'configuration') {
+    console.log('CONFIG packet:', meta.name, data);
 
-// Desconexión
-bot.on('end', () => console.log('🔌 Bot desconectado'));
+    if (meta.name === 'finish_configuration') {
+      // algunos servidores esperan respuesta explícita
+      bot._client.write('finish_configuration', {});
+    }
+  }
+});
+
+
+
+bot._client.on('writePacket', (name, params) => {
+  //console.log(`📤 [${bot._client.state}] Paquete saliente:`, name);
+});
+
+bot._client.on('end', () => {
+  console.log('🔌 Socket cerrado (end)');
+});
+
+bot._client.on('close', () => {
+  console.log('🔌 Socket cerrado (close)');
+});
+
+bot.on('kicked', (reason, loggedIn) => {
+  console.log('⛔ Kick del servidor:', reason, 'loggedIn:', loggedIn);
+});
+
+bot.on('error', (err) => {
+  console.error('❌ Error del bot:', err);
+});
+
+bot.on('end', (reason) => {
+  console.log('🔌 Bot desconectado. Razón:', reason);
+});

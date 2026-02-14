@@ -116,14 +116,20 @@ computeProfit(quickStatus) {
           manipulated: item.isManipulated
         };
       })
-      .filter(f =>
-        f.profitPerItem >= this.minProfit &&
-        f.buyPrice <= this.maxBuyPrice &&
-        f.demand >= this.minVolume &&
-        !this.blacklistContaining.some(str =>
-          new RegExp(str, 'i').test(f.item)
-        )
-      )
+      .filter(f => {
+        // Verificar requisitos básicos
+        if (f.profitPerItem < this.minProfit) return false;
+        if (f.buyPrice > this.maxBuyPrice) return false;
+        if (f.demand < this.minVolume) return false;
+
+        // ✅ Verificar blacklist por itemTag exacto (no por nombre parcial)
+        if (this.blacklistContaining.includes(f.itemTag)) {
+          console.log(`🚫 Blacklisted item: ${f.item} (${f.itemTag})`);
+          return false;
+        }
+
+        return true;
+      })
       .sort((a, b) => b.score - a.score);
   }
 
