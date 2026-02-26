@@ -1,3 +1,4 @@
+
 /**
  * ChatListener - Class to listen, filter, and SEND messages in real time
  *
@@ -129,6 +130,13 @@ class ChatListener {
     this.messages = []; // Clear history to avoid memory accumulation
   }
 
+  /**
+   * Alias for removeListeners for compatibility
+   */
+  destroy() {
+    this.removeListeners();
+  }
+
   getLast(n = 10) {
     return this.messages.slice(-n);
   }
@@ -196,3 +204,4 @@ class ChatListener {
 }
 
 module.exports = ChatListener;
+

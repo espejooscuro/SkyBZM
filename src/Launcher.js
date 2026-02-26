@@ -1,7 +1,6 @@
 
 
 
-
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -67,6 +66,31 @@ class Launcher {
   loadConfig() {
     const rawData = fs.readFileSync(this.configPath, "utf-8");
     this.config = JSON.parse(rawData);
+    
+    // 🔥 Ensure all accounts have autoStart field (default: false)
+    if (this.config.accounts && Array.isArray(this.config.accounts)) {
+      this.config.accounts.forEach(account => {
+        if (account.autoStart === undefined) {
+          account.autoStart = false;
+        }
+        // 🔥 Ensure all accounts have restSchedule field
+        if (!account.restSchedule) {
+          account.restSchedule = {
+            shortBreaks: {
+              enabled: false,
+              workMinutes: 30,
+              restMinutes: 5
+            },
+            dailyRest: {
+              enabled: false,
+              workHours: 16
+            }
+          };
+        }
+      });
+      // Save if we added any missing autoStart fields
+      this.saveConfig();
+    }
   }
 
   saveConfig() {
@@ -136,15 +160,34 @@ class Launcher {
         minVolume: 1000,
         maxFlips: 7,
         maxRelist: 3,
+        minOrder: 1,
+        maxOrder: 640,
+        minSpread: 0,
         blacklistContaining: [],
         whitelist: ["KISMET_FEATHER"]
       };
+
+      // Ask if this bot should auto-start
+      const autoStartAnswer = await this.ask("Auto-start this bot on launch? (y/n, default: n): ");
+      const autoStart = autoStartAnswer.toLowerCase() === "y";
 
       accounts.push({
         username,
         proxy,
         flips,
-        enabled: true
+        enabled: true,
+        autoStart,
+        restSchedule: {
+          shortBreaks: {
+            enabled: false,
+            workMinutes: 30,
+            restMinutes: 5
+          },
+          dailyRest: {
+            enabled: false,
+            workHours: 16
+          }
+        }
       });
     }
 
@@ -154,7 +197,7 @@ class Launcher {
     };
 
     this.saveConfig();
-    console.log("\n✅ configuracion.json created successfully.");
+    console.log("\n✅ config.json created successfully.");
   }
 
   ask(question) {
@@ -189,7 +232,6 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
-
 
 
 

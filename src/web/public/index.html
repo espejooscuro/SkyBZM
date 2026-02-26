@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⛏️ SkyBZM - Minecraft Bot Panel</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles-discord.css?v=20260215235001">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -56,10 +55,41 @@
       <div class="tabs-container" id="tabsContainer">
         <!-- Stats y bots se renderizan aquí dinámicamente -->
       </div>
+
+      <section id="dashboardSection" style="display: none;">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>💼 Total Purse</h3>
+            <p id="totalPurse">0 coins</p>
+          </div>
+          <div class="stat-card">
+            <h3>💰 Total Profit</h3>
+            <p id="totalProfit">0 coins</p>
+          </div>
+          <div class="stat-card">
+            <h3>📈 Profit/Hour</h3>
+            <p id="profitPerHour">0 coins/h</p>
+          </div>
+        </div>
+
+        <div class="chart-section">
+          <div class="chart-header">
+            <h2>📊 Profit Chart</h2>
+            <div class="chart-selector">
+              <button id="individualChartBtn" class="chart-btn active" onclick="switchChartType('individual')">
+                Individual Profits
+              </button>
+              <button id="cumulativeChartBtn" class="chart-btn" onclick="switchChartType('cumulative')">
+                Cumulative Profit
+              </button>
+            </div>
+          </div>
+          <canvas id="profitChart"></canvas>
+        </div>
+      </section>
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20260215235000"></script>
 </body>
 </html>
-

@@ -21,7 +21,7 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "mineflayer": "^4.34.0",
+    "mineflayer": "^4.35.0",
     "prismarine-nbt": "^2.8.0",
     "proxy-agent": "^6.5.0",
     "socks": "^2.8.7"

@@ -1,0 +1,317 @@
+{
+  "queueLength": 10,
+  "running": true,
+  "paused": false,
+  "currentTask": {
+    "id": "1772141683135_heczq2wzr",
+    "metadata": {
+      "type": "buy",
+      "item": "summoning eye",
+      "itemTag": "SUMMONING_EYE",
+      "flipState": {
+        "itemTag": "SUMMONING_EYE",
+        "item": "summoning eye",
+        "active": true,
+        "bought": false,
+        "buyFilled": false,
+        "sellExecuted": false,
+        "orderFilled": false,
+        "flipFinished": false,
+        "instaBuyPrice": 1070354.6,
+        "instaSellPrice": 1209999.8,
+        "amountToBuy": 5,
+        "buyRelistCounter": 0,
+        "relistCounter": 0,
+        "moneyPerFlip": 6000000,
+        "startTime": 1772141683135,
+        "isSelling": false,
+        "isBuyRellisting": false
+      }
+    },
+    "startTime": 1772141782159
+  },
+  "queuedTasks": [
+    {
+      "id": "1772141689629_g0jfy6c4u",
+      "metadata": {
+        "type": "sell",
+        "item": "bejeweled handle",
+        "itemTag": "BEJEWELED_HANDLE",
+        "endedByTimeout": true,
+        "buyRelistSell": false,
+        "flipState": {
+          "itemTag": "BEJEWELED_HANDLE",
+          "item": "bejeweled handle",
+          "active": true,
+          "bought": true,
+          "buyFilled": false,
+          "sellExecuted": false,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 176690.7,
+          "instaSellPrice": 201956.2,
+          "amountToBuy": 32,
+          "buyRelistCounter": 1,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141481557,
+          "isSelling": true,
+          "isBuyRellisting": true
+        }
+      }
+    },
+    {
+      "id": "1772141690397_oo7f840yz",
+      "metadata": {
+        "type": "buy",
+        "item": "summoning eye",
+        "itemTag": "SUMMONING_EYE",
+        "flipState": {
+          "itemTag": "SUMMONING_EYE",
+          "item": "summoning eye",
+          "active": true,
+          "bought": false,
+          "buyFilled": false,
+          "sellExecuted": false,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 1070354.6,
+          "instaSellPrice": 1209999.8,
+          "amountToBuy": 5,
+          "buyRelistCounter": 0,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141690397,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141695008_mjly9fi6v",
+      "metadata": {
+        "type": "finish",
+        "item": "flawless onyx gemstone",
+        "itemTag": "FLAWLESS_ONYX_GEM",
+        "endedByTimeout": true,
+        "noItemsFlip": false,
+        "flipState": {
+          "itemTag": "FLAWLESS_ONYX_GEM",
+          "item": "flawless onyx gemstone",
+          "active": true,
+          "bought": true,
+          "buyFilled": false,
+          "sellExecuted": true,
+          "orderFilled": false,
+          "flipFinished": true,
+          "instaBuyPrice": 1300007.6,
+          "instaSellPrice": 1629852.9,
+          "amountToBuy": 4,
+          "buyRelistCounter": 0,
+          "relistCounter": 3,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141058696,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141697498_f6n8h3tqt",
+      "metadata": {
+        "type": "buy",
+        "item": "summoning eye",
+        "itemTag": "SUMMONING_EYE",
+        "flipState": {
+          "itemTag": "SUMMONING_EYE",
+          "item": "summoning eye",
+          "active": true,
+          "bought": false,
+          "buyFilled": false,
+          "sellExecuted": false,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 1070354.6,
+          "instaSellPrice": 1209999.8,
+          "amountToBuy": 5,
+          "buyRelistCounter": 0,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141697497,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141699249_2ickq5kww",
+      "metadata": {
+        "type": "buy",
+        "item": "fried feather",
+        "itemTag": "FRIED_FEATHER",
+        "flipState": {
+          "itemTag": "FRIED_FEATHER",
+          "item": "fried feather",
+          "active": true,
+          "bought": false,
+          "buyFilled": false,
+          "sellExecuted": false,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 12198.8,
+          "instaSellPrice": 21910.9,
+          "amountToBuy": 50,
+          "buyRelistCounter": 0,
+          "relistCounter": 0,
+          "moneyPerFlip": 640435.78012,
+          "startTime": 1772141699249,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141739326_u1rdftt27",
+      "metadata": {
+        "type": "buy",
+        "item": "plasma",
+        "itemTag": "PLASMA",
+        "flipState": {
+          "itemTag": "PLASMA",
+          "item": "plasma",
+          "active": true,
+          "bought": false,
+          "buyFilled": false,
+          "sellExecuted": false,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 257995.3,
+          "instaSellPrice": 295873.5,
+          "amountToBuy": 22,
+          "buyRelistCounter": 0,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141739325,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141741035_nhi0kybwn",
+      "metadata": {
+        "type": "finish",
+        "item": "l.a.s.r.'s eye",
+        "itemTag": "GIANT_FRAGMENT_LASER",
+        "endedByTimeout": true,
+        "noItemsFlip": true,
+        "flipState": {
+          "itemTag": "GIANT_FRAGMENT_LASER",
+          "item": "l.a.s.r.'s eye",
+          "active": true,
+          "bought": true,
+          "buyFilled": true,
+          "sellExecuted": true,
+          "orderFilled": false,
+          "flipFinished": true,
+          "instaBuyPrice": 1053351.4,
+          "instaSellPrice": 1181414.6,
+          "amountToBuy": 5,
+          "buyRelistCounter": 0,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141413745,
+          "isSelling": true,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141751530_0wr2wiyez",
+      "metadata": {
+        "type": "finish",
+        "item": "bejeweled handle",
+        "itemTag": "BEJEWELED_HANDLE",
+        "endedByTimeout": false,
+        "noItemsFlip": false,
+        "flipState": {
+          "itemTag": "BEJEWELED_HANDLE",
+          "item": "bejeweled handle",
+          "active": true,
+          "bought": true,
+          "buyFilled": false,
+          "sellExecuted": true,
+          "orderFilled": true,
+          "flipFinished": true,
+          "instaBuyPrice": 176690.7,
+          "instaSellPrice": 201956,
+          "amountToBuy": 32,
+          "buyRelistCounter": 2,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141481557,
+          "isSelling": false,
+          "isBuyRellisting": true
+        }
+      }
+    },
+    {
+      "id": "1772141757148_ex5czhemm",
+      "metadata": {
+        "type": "sell",
+        "item": "bejeweled handle",
+        "itemTag": "BEJEWELED_HANDLE",
+        "endedByTimeout": true,
+        "buyRelistSell": true,
+        "flipState": {
+          "itemTag": "BEJEWELED_HANDLE",
+          "item": "bejeweled handle",
+          "active": true,
+          "bought": true,
+          "buyFilled": false,
+          "sellExecuted": true,
+          "orderFilled": true,
+          "flipFinished": true,
+          "instaBuyPrice": 176690.7,
+          "instaSellPrice": 201956,
+          "amountToBuy": 32,
+          "buyRelistCounter": 2,
+          "relistCounter": 0,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141481557,
+          "isSelling": true,
+          "isBuyRellisting": false
+        }
+      }
+    },
+    {
+      "id": "1772141762312_7zdibyws5",
+      "metadata": {
+        "type": "sellrelist",
+        "item": "precursor gear",
+        "itemTag": "PRECURSOR_GEAR",
+        "relistCount": 3,
+        "flipState": {
+          "itemTag": "PRECURSOR_GEAR",
+          "item": "precursor gear",
+          "active": true,
+          "bought": true,
+          "buyFilled": false,
+          "sellExecuted": true,
+          "orderFilled": false,
+          "flipFinished": false,
+          "instaBuyPrice": 408053.5,
+          "instaSellPrice": 584456.5,
+          "amountToBuy": 14,
+          "buyRelistCounter": 1,
+          "relistCounter": 3,
+          "moneyPerFlip": 6000000,
+          "startTime": 1772141254100,
+          "isSelling": false,
+          "isBuyRellisting": false
+        }
+      }
+    }
+  ],
+  "timestamp": 1772141782159
+}
