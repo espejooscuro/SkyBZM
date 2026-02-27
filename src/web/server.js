@@ -1,6 +1,7 @@
 
 
 
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -116,28 +117,6 @@ class WebServer {
 
     // Bot control endpoints
     this.setupBotControl();
-
-    // Discord webhook endpoint
-    this.app.put('/api/discord/webhook', (req, res) => {
-      try {
-        if (!this.validatePassword(req.headers['x-password'])) {
-          return res.status(401).json({ success: false, error: 'Unauthorized' });
-        }
-
-        const { webhook } = req.body;
-        const config = this.getConfig();
-        
-        // 🔥 Guardar directamente en la raíz del config
-        config.discordWebhook = webhook;
-        this.saveConfig(config);
-        
-        console.log('✅ Discord webhook updated:', webhook || '(empty)');
-        res.json({ success: true, message: 'Discord webhook updated', webhook });
-      } catch (error) {
-        console.error('Error updating Discord webhook:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
 
     // Rest schedule endpoints
     this.app.get('/rest-schedule', (req, res) => {
@@ -558,6 +537,4 @@ module.exports = WebServer;
 
 
 
-/**
- * Super error: Cuando ejecutas Short Breaks o Daily Rest Period inicia automaticamente el bot por algun motivo. 
- */
+

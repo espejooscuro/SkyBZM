@@ -1,6 +1,7 @@
 
 
 
+
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -67,9 +68,15 @@ class Launcher {
     const rawData = fs.readFileSync(this.configPath, "utf-8");
     this.config = JSON.parse(rawData);
     
-    // 🔥 Ensure all accounts have autoStart field (default: false)
+    // 🔥 CLEAR ALL STATE ON STARTUP - Start fresh every time
     if (this.config.accounts && Array.isArray(this.config.accounts)) {
       this.config.accounts.forEach(account => {
+        // Delete any existing state
+        if (account.state) {
+          delete account.state;
+        }
+        
+        // Ensure all accounts have autoStart field (default: false)
         if (account.autoStart === undefined) {
           account.autoStart = false;
         }
@@ -88,8 +95,9 @@ class Launcher {
           };
         }
       });
-      // Save if we added any missing autoStart fields
+      // Save the cleaned config
       this.saveConfig();
+      console.log("🧹 Cleaned all saved states - starting fresh");
     }
   }
 
@@ -232,6 +240,7 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
 
 
 

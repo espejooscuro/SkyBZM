@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,22 +38,24 @@
 
     <!-- Dashboard -->
     <div id="dashboard" class="dashboard">
-      <div class="header">
-        <div class="logo">
-          <h1>⛏️ SKYBZM</h1>
-          <p>BOT CONTROL PANEL</p>
+      <header class="main-header">
+        <div class="header-left">
+          <div class="header-logo">⛏️</div>
+          <div class="header-brand">
+            <div class="brand-name">SKYBZM</div>
+            <div class="brand-subtitle">Bot Control Panel</div>
+          </div>
         </div>
-        <button class="btn logout-btn" onclick="logout()">LOGOUT</button>
-      </div>
+        <div class="header-right">
+          <button class="logout-btn" onclick="logout()">
+            <span class="logout-icon">⎋</span>
+            <span>Logout</span>
+          </button>
+        </div>
+      </header>
 
-      <!-- Discord Webhook Section -->
-      <div id="webhookSection" class="global-section">
-        <h2>🔔 DISCORD WEBHOOK</h2>
-        <div class="value" id="webhook"></div>
-      </div>
-
-      <!-- Bots Container -->
-      <div class="tabs-container" id="tabsContainer">
+      <!-- Main Content -->
+      <div class="tabs-container" id="dashboard-content">
         <!-- Stats y bots se renderizan aquí dinámicamente -->
       </div>
 
@@ -93,3 +96,5 @@
   <script src="/app.js?v=20260215235000"></script>
 </body>
 </html>
+
+

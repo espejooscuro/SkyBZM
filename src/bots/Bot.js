@@ -55,7 +55,8 @@ class Bot {
       'packets too fast',
       'server will restart soon',
       'game update',
-      'server is too laggy'
+      'server is too laggy',
+      'There was a problem joining SkyBlock'
     ];
   }
 

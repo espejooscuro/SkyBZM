@@ -153,13 +153,19 @@ function showDashboard(config) {
 }
 
 function renderDashboard(config) {
-  renderWebhook(config.discordWebhook);
-  
   const tabsContainer = document.querySelector('.tabs-container');
   tabsContainer.innerHTML = `
     <div class="stats-bar">${renderStatsBar(config.accounts)}</div>
     <div class="bots-grid">${config.accounts.map((account, index) => renderBotCard(account, index)).join('')}</div>
   `;
+  
+  // Update header stats
+  const headerActiveBots = document.getElementById('header-active-bots');
+  if (headerActiveBots) {
+    const totalBots = config.accounts.length;
+    const enabledBots = config.accounts.filter(a => a.enabled).length;
+    headerActiveBots.textContent = `${enabledBots}/${totalBots}`;
+  }
   
   // Inicializar todos los sliders después de renderizar
   initializeAllSliders(config.accounts);
@@ -187,127 +193,6 @@ function renderStatsBar(accounts) {
       <div class="stat-label">Whitelist Items</div>
     </div>
   `;
-}
-
-// ==================== WEBHOOK ====================
-function renderWebhook(webhook) {
-  const webhookEl = document.getElementById('webhook');
-  if (!webhookEl) return;
-
-  if (!webhook || webhook === '') {
-    webhookEl.innerHTML = '<span class="empty">No webhook configured</span>';
-    webhookEl.classList.add('empty');
-    webhookEl.classList.remove('editable');
-  } else {
-    webhookEl.textContent = webhook;
-    webhookEl.classList.remove('empty');
-    webhookEl.classList.add('editable');
-  }
-
-  const newWebhookEl = webhookEl.cloneNode(true);
-  webhookEl.parentNode.replaceChild(newWebhookEl, webhookEl);
-
-  newWebhookEl.addEventListener('click', () => makeWebhookEditable(newWebhookEl));
-}
-
-function makeWebhookEditable(element) {
-  const currentValue = (globalConfig && globalConfig.discordWebhook) ? globalConfig.discordWebhook : '';
-  
-  element.innerHTML = '';
-  element.classList.add('editing');
-  
-  const inputContainer = document.createElement('div');
-  inputContainer.style.width = '100%';
-  
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = currentValue;
-  input.className = 'webhook-input';
-  input.placeholder = 'https://discord.com/api/webhooks/...';
-  
-  const buttonsContainer = document.createElement('div');
-  buttonsContainer.className = 'webhook-buttons';
-  
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = 'Save';
-  saveBtn.className = 'btn webhook-save-btn';
-  saveBtn.onclick = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    await saveWebhook(input.value.trim(), currentValue);
-  };
-  
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.className = 'btn webhook-cancel-btn';
-  cancelBtn.onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    element.classList.remove('editing');
-    renderWebhook(currentValue);
-  };
-  
-  buttonsContainer.appendChild(saveBtn);
-  buttonsContainer.appendChild(cancelBtn);
-  inputContainer.appendChild(input);
-  inputContainer.appendChild(buttonsContainer);
-  element.appendChild(inputContainer);
-  
-  setTimeout(() => {
-    input.focus();
-    input.select();
-  }, 10);
-  
-  input.addEventListener('keypress', async (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      await saveWebhook(input.value.trim(), currentValue);
-    }
-  });
-  
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      element.classList.remove('editing');
-      renderWebhook(currentValue);
-    }
-  });
-}
-
-async function saveWebhook(webhook, oldValue) {
-  if (!password) {
-    showToast('Session expired. Please login again.', 'error');
-    logout();
-    return;
-  }
-
-  try {
-    const response = await fetch('/api/discord/webhook', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-password': password },
-      body: JSON.stringify({ webhook })
-    });
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      showToast('Webhook updated successfully', 'success');
-      if (globalConfig) globalConfig.discordWebhook = webhook;
-      const webhookEl = document.getElementById('webhook');
-      if (webhookEl) webhookEl.classList.remove('editing');
-      renderWebhook(webhook);
-    } else {
-      showToast('Failed to update webhook: ' + (data.error || 'Unknown error'), 'error');
-      const webhookEl = document.getElementById('webhook');
-      if (webhookEl) webhookEl.classList.remove('editing');
-      renderWebhook(oldValue);
-    }
-  } catch (error) {
-    console.error('❌ Error updating webhook:', error);
-    showToast('Error updating webhook: ' + error.message, 'error');
-    const webhookEl = document.getElementById('webhook');
-    if (webhookEl) webhookEl.classList.remove('editing');
-    renderWebhook(oldValue);
-  }
 }
 
 // ==================== BOT CARD ====================
@@ -390,7 +275,7 @@ function renderBotDetails(account, index) {
 
 function renderBotConfigSection(account, index) {
   const restSchedule = account.restSchedule || {
-    shortBreaks: { enabled: false, workMinutes: 30, restMinutes: 5 },
+    shortBreaks: { enabled: false, workDuration: 30, breakDuration: 5 },
     dailyRest: { enabled: false, workHours: 16 }
   };
   
@@ -417,6 +302,18 @@ function renderBotConfigSection(account, index) {
             <div class="bot-config-description">Automatically start bot when loaded</div>
           </div>
 
+          <!-- Discord Webhook -->
+          <div class="bot-config-row">
+            <div class="bot-config-title">Discord Webhook</div>
+            <div class="bot-config-control">
+              <input type="text" class="config-input" 
+                placeholder="https://discord.com/api/webhooks/..." 
+                value="${account.discordWebhook || ''}"
+                onchange="updateConfig(${index}, 'discordWebhook', this.value.trim())"/>
+            </div>
+            <div class="bot-config-description">Discord webhook for flip notifications</div>
+          </div>
+
           <!-- Short Breaks Enable -->
           <div class="bot-config-row">
             <div class="bot-config-title">Short Breaks</div>
@@ -436,10 +333,10 @@ function renderBotConfigSection(account, index) {
             <div class="bot-config-control">
               <div class="slider-container">
                 <input type="range" class="slider colored-slider" data-color="#8b5cf6" 
-                  min="5" max="120" step="5" value="${restSchedule.shortBreaks.workMinutes}"
+                  min="5" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
                   oninput="updateSliderValue(this, 'work-time-${index}', ' min')"
-                  onchange="updateRestSchedule(${index}, 'shortBreaks.workMinutes', parseInt(this.value))"/>
-                <div class="slider-value-card" id="work-time-${index}" style="--slider-color: #8b5cf6">${restSchedule.shortBreaks.workMinutes} min</div>
+                  onchange="updateRestSchedule(${index}, 'shortBreaks.workDuration', parseInt(this.value))"/>
+                <div class="slider-value-card" id="work-time-${index}" style="--slider-color: #8b5cf6">${restSchedule.shortBreaks.workDuration} min</div>
                 <div class="slider-labels">
                   <span>5 min</span>
                   <span>120 min</span>
@@ -455,10 +352,10 @@ function renderBotConfigSection(account, index) {
             <div class="bot-config-control">
               <div class="slider-container">
                 <input type="range" class="slider colored-slider" data-color="#7c3aed" 
-                  min="1" max="30" step="1" value="${restSchedule.shortBreaks.restMinutes}"
+                  min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
                   oninput="updateSliderValue(this, 'break-time-${index}', ' min')"
-                  onchange="updateRestSchedule(${index}, 'shortBreaks.restMinutes', parseInt(this.value))"/>
-                <div class="slider-value-card" id="break-time-${index}" style="--slider-color: #7c3aed">${restSchedule.shortBreaks.restMinutes} min</div>
+                  onchange="updateRestSchedule(${index}, 'shortBreaks.breakDuration', parseInt(this.value))"/>
+                <div class="slider-value-card" id="break-time-${index}" style="--slider-color: #7c3aed">${restSchedule.shortBreaks.breakDuration} min</div>
                 <div class="slider-labels">
                   <span>1 min</span>
                   <span>30 min</span>
@@ -528,26 +425,22 @@ function renderFlipperConfigSection(account, index) {
       </div>
     </div>
 
-    <div class="lists-container">
-      <div class="config-section collapsible">
-        <div class="config-section-header" onclick="toggleConfigSection(this)">
-          <h3>+ Whitelist Editor</h3>
-          <span class="config-expand">▼</span>
+    <div class="lists-buttons-container">
+      <button class="list-editor-button whitelist-btn" onclick="openListEditorModal(${index}, 'whitelist')">
+        <span class="list-btn-icon">+</span>
+        <div class="list-btn-content">
+          <div class="list-btn-title">Whitelist Editor</div>
+          <div class="list-btn-count">${account.flips?.whitelist?.length || 0} items</div>
         </div>
-        <div class="config-section-content">
-          ${renderListEditor(account.flips, index, 'whitelist')}
-        </div>
-      </div>
+      </button>
 
-      <div class="config-section collapsible">
-        <div class="config-section-header" onclick="toggleConfigSection(this)">
-          <h3>− Blacklist Editor</h3>
-          <span class="config-expand">▼</span>
+      <button class="list-editor-button blacklist-btn" onclick="openListEditorModal(${index}, 'blacklist')">
+        <span class="list-btn-icon">−</span>
+        <div class="list-btn-content">
+          <div class="list-btn-title">Blacklist Editor</div>
+          <div class="list-btn-count">${account.flips?.blacklistContaining?.length || 0} items</div>
         </div>
-        <div class="config-section-content">
-          ${renderListEditor(account.flips, index, 'blacklist')}
-        </div>
-      </div>
+      </button>
     </div>
   `;
 }
@@ -678,10 +571,12 @@ function renderListEditor(flips, index, listType) {
 }
 
 // ==================== ITEMS ====================
-function renderItemCard(itemId, accountIndex, listType) {
+function renderItemCard(itemId, accountIndex, listType, isModal = false) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
   const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
+  
+  const removeFunction = isModal ? 'removeItemModal' : 'removeItem';
   
   return `
     <div class="item-card ${listType}">
@@ -691,7 +586,7 @@ function renderItemCard(itemId, accountIndex, listType) {
         <div class="item-name">${escapeHtml(itemName)}</div>
         <div class="item-id">${escapeHtml(itemId)}</div>
       </div>
-      <button class="item-remove" onclick="removeItem(${accountIndex}, '${listType}', '${escapeHtml(itemId)}')">×</button>
+      <button class="item-remove" onclick="${removeFunction}(${accountIndex}, '${listType}', '${escapeHtml(itemId)}')">×</button>
     </div>
   `;
 }
@@ -815,6 +710,81 @@ async function removeItem(accountIndex, listType, itemId) {
   } catch (error) {
     console.error('Error removing item:', error);
     showToast(`❌ Failed to remove item: ${error.message}`, 'error');
+  }
+}
+
+async function addItemToListModal(accountIndex, listType, itemId) {
+  try {
+    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
+    showToast(`Adding to ${listType}...`, 'info');
+    
+    const res = await fetch(`/api/account/${accountIndex}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-password': password },
+      body: JSON.stringify({ itemId })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      document.getElementById(`modal-${listType}-search-${accountIndex}`).value = '';
+      document.getElementById(`modal-${listType}-results-${accountIndex}`).innerHTML = '';
+      document.getElementById(`modal-${listType}-results-${accountIndex}`).style.display = 'none';
+      
+      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
+      itemsContainer.innerHTML += renderItemCard(itemId, accountIndex, listType, true);
+      
+      // Update button count
+      updateListButtonCount(accountIndex, listType);
+      
+      showToast(`✅ Item added to ${listType}`, 'success');
+    } else {
+      showToast(`❌ ${data.error || 'Error adding item'}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error adding item:', error);
+    showToast(`❌ Failed to add item: ${error.message}`, 'error');
+  }
+}
+
+async function removeItemModal(accountIndex, listType, itemId) {
+  try {
+    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
+    showToast(`Removing from ${listType}...`, 'info');
+    
+    const res = await fetch(`/api/account/${accountIndex}/${endpoint}/${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: { 'x-password': password }
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
+      itemsContainer.innerHTML = data[endpoint].map(id => renderItemCard(id, accountIndex, listType, true)).join('');
+      
+      // Update button count
+      updateListButtonCount(accountIndex, listType);
+      
+      showToast(`✅ Item removed from ${listType}`, 'success');
+    } else {
+      showToast(`❌ ${data.error || 'Error removing item'}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error removing item:', error);
+    showToast(`❌ Failed to remove item: ${error.message}`, 'error');
+  }
+}
+
+function updateListButtonCount(accountIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+  
+  const count = listType === 'whitelist' 
+    ? (account.flips?.whitelist?.length || 0) 
+    : (account.flips?.blacklistContaining?.length || 0);
+  
+  const button = document.querySelector(`.${listType}-btn .list-btn-count`);
+  if (button) {
+    button.textContent = `${count} items`;
   }
 }
 
@@ -1214,7 +1184,10 @@ function renderPurseChart(accountIndex, statsData, isUpdate = false) {
       },
       scales: {
         x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#AAA' } },
-        y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#AAA', callback: (value) => formatNumber(value) } }
+        y: { 
+          grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+          ticks: { color: '#AAA', callback: (value) => formatNumber(value) } 
+        }
       }
     }
   });
@@ -1240,11 +1213,6 @@ async function loadActivityLogs(accountIndex) {
       logsContainer.innerHTML = '<div class="log-placeholder">No recent activity</div>';
       return;
     }
-
-    const scrollTop = logsContainer.scrollTop;
-    const scrollHeight = logsContainer.scrollHeight;
-    const clientHeight = logsContainer.clientHeight;
-    const wasAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
 
     const uniqueLogs = [];
     const seenLogs = new Map();
@@ -1501,7 +1469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function renderGeneralConfig(account, index) {
   const restSchedule = account.restSchedule || {
-    shortBreaks: { enabled: false, workMinutes: 30, restMinutes: 5 },
+    shortBreaks: { enabled: false, workDuration: 30, breakDuration: 5 },
     dailyRest: { enabled: false, workHours: 16 }
   };
 
@@ -1547,10 +1515,10 @@ function renderGeneralConfig(account, index) {
         <div class="config-item">
           <label class="config-label">Work Duration</label>
           <div class="slider-container">
-            <input type="range" class="slider" min="5" max="120" step="5" value="${restSchedule.shortBreaks.workMinutes}"
+            <input type="range" class="slider" min="5" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
               oninput="updateSliderValue(this, 'work-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.workMinutes', parseInt(this.value))"/>
-            <div class="slider-value" id="work-${index}">${restSchedule.shortBreaks.workMinutes} min</div>
+              onchange="updateRestSchedule(${index}, 'shortBreaks.workDuration', parseInt(this.value))"/>
+            <div class="slider-value" id="work-${index}">${restSchedule.shortBreaks.workDuration} min</div>
             <div class="slider-labels">
               <span>5 min</span>
               <span>120 min</span>
@@ -1561,10 +1529,10 @@ function renderGeneralConfig(account, index) {
         <div class="config-item">
           <label class="config-label">Break Duration</label>
           <div class="slider-container">
-            <input type="range" class="slider" min="1" max="30" step="1" value="${restSchedule.shortBreaks.restMinutes}"
+            <input type="range" class="slider" min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
               oninput="updateSliderValue(this, 'break-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.restMinutes', parseInt(this.value))"/>
-            <div class="slider-value" id="break-${index}">${restSchedule.shortBreaks.restMinutes} min</div>
+              onchange="updateRestSchedule(${index}, 'shortBreaks.breakDuration', parseInt(this.value))"/>
+            <div class="slider-value" id="break-${index}">${restSchedule.shortBreaks.breakDuration} min</div>
             <div class="slider-labels">
               <span>1 min</span>
               <span>30 min</span>
@@ -1664,7 +1632,7 @@ function updateSliderProgress(slider) {
 
 function renderGeneralConfig(account, index) {
   const restSchedule = account.restSchedule || {
-    shortBreaks: { enabled: false, workMinutes: 30, restMinutes: 5 },
+    shortBreaks: { enabled: false, workDuration: 30, breakDuration: 5 },
     dailyRest: { enabled: false, workHours: 16 }
   };
 
@@ -1710,10 +1678,10 @@ function renderGeneralConfig(account, index) {
         <div class="config-item">
           <label class="config-label">Work Duration</label>
           <div class="slider-container">
-            <input type="range" class="slider" min="5" max="120" step="5" value="${restSchedule.shortBreaks.workMinutes}"
+            <input type="range" class="slider" min="5" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
               oninput="updateSliderValue(this, 'work-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.workMinutes', parseInt(this.value))"/>
-            <div class="slider-value" id="work-${index}">${restSchedule.shortBreaks.workMinutes} min</div>
+              onchange="updateRestSchedule(${index}, 'shortBreaks.workDuration', parseInt(this.value))"/>
+            <div class="slider-value" id="work-${index}">${restSchedule.shortBreaks.workDuration} min</div>
             <div class="slider-labels">
               <span>5 min</span>
               <span>120 min</span>
@@ -1724,10 +1692,10 @@ function renderGeneralConfig(account, index) {
         <div class="config-item">
           <label class="config-label">Break Duration</label>
           <div class="slider-container">
-            <input type="range" class="slider" min="1" max="30" step="1" value="${restSchedule.shortBreaks.restMinutes}"
+            <input type="range" class="slider" min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
               oninput="updateSliderValue(this, 'break-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.restMinutes', parseInt(this.value))"/>
-            <div class="slider-value" id="break-${index}">${restSchedule.shortBreaks.restMinutes} min</div>
+              onchange="updateRestSchedule(${index}, 'shortBreaks.breakDuration', parseInt(this.value))"/>
+            <div class="slider-value" id="break-${index}">${restSchedule.shortBreaks.breakDuration} min</div>
             <div class="slider-labels">
               <span>1 min</span>
               <span>30 min</span>
@@ -1777,6 +1745,7 @@ async function updateRestSchedule(accountIndex, field, value) {
     let target = config.restSchedule;
     
     for (let i = 0; i < keys.length - 1; i++) {
+      if (!target[keys[i]]) target[keys[i]] = {};
       target = target[keys[i]];
     }
     target[keys[keys.length - 1]] = value;
@@ -1846,6 +1815,176 @@ async function updateConfig(accountIndex, field, value) {
     alert('Error al actualizar la configuración');
   }
 }
+
+// ==================== LIST EDITOR MODAL ====================
+function openListEditorModal(accountIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+
+  const list = listType === 'whitelist' ? (account.flips.whitelist || []) : (account.flips.blacklistContaining || []);
+  const title = listType === 'whitelist' ? 'Whitelist Editor' : 'Blacklist Editor';
+  const icon = listType === 'whitelist' ? '+' : '−';
+
+  // Remove existing modal if any
+  const existingModal = document.getElementById('list-editor-modal');
+  if (existingModal) existingModal.remove();
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.id = 'list-editor-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-container list-editor-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="modal-icon ${listType}">${icon}</span>
+          <h3>${title}</h3>
+        </div>
+        <button class="modal-close" onclick="closeListEditorModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="item-editor">
+          <div class="search-container">
+            <input type="text" class="item-search" id="modal-${listType}-search-${accountIndex}"
+              placeholder="Search items..." oninput="searchItemsModal(${accountIndex}, '${listType}', this.value)" autocomplete="off"/>
+            <div class="search-results" id="modal-${listType}-results-${accountIndex}"></div>
+          </div>
+          <div class="items-grid" id="modal-${listType}-items-${accountIndex}">
+            ${list.map(itemId => renderItemCard(itemId, accountIndex, listType, true)).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close on overlay click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeListEditorModal();
+  });
+
+  // Show modal with animation
+  setTimeout(() => modal.classList.add('show'), 10);
+}
+
+function closeListEditorModal() {
+  const modal = document.getElementById('list-editor-modal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function searchItemsModal(accountIndex, listType, query) {
+  const resultsDiv = document.getElementById(`modal-${listType}-results-${accountIndex}`);
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const matches = skyblockItems
+    .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
+    .slice(0, 10);
+
+  if (matches.length === 0) {
+    resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
+    resultsDiv.style.display = 'block';
+    return;
+  }
+
+  resultsDiv.innerHTML = matches.map(item => `
+    <div class="search-result-item" onclick="addItemToListModal(${accountIndex}, '${listType}', '${escapeHtml(item.id)}')">
+      <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
+      <div class="result-info">
+        <div class="result-name">${escapeHtml(item.name)}</div>
+        <div class="result-id">${escapeHtml(item.id)}</div>
+      </div>
+    </div>
+  `).join('');
+  
+  resultsDiv.style.display = 'block';
+}
+
+async function addItemToListModal(accountIndex, listType, itemId) {
+  try {
+    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
+    showToast(`Adding to ${listType}...`, 'info');
+    
+    const res = await fetch(`/api/account/${accountIndex}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-password': password },
+      body: JSON.stringify({ itemId })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      document.getElementById(`modal-${listType}-search-${accountIndex}`).value = '';
+      document.getElementById(`modal-${listType}-results-${accountIndex}`).innerHTML = '';
+      document.getElementById(`modal-${listType}-results-${accountIndex}`).style.display = 'none';
+      
+      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
+      itemsContainer.innerHTML += renderItemCard(itemId, accountIndex, listType, true);
+      
+      // Update button count
+      updateListButtonCount(accountIndex, listType);
+      
+      showToast(`✅ Item added to ${listType}`, 'success');
+    } else {
+      showToast(`❌ ${data.error || 'Error adding item'}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error adding item:', error);
+    showToast(`❌ Failed to add item: ${error.message}`, 'error');
+  }
+}
+
+async function removeItemModal(accountIndex, listType, itemId) {
+  try {
+    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
+    showToast(`Removing from ${listType}...`, 'info');
+    
+    const res = await fetch(`/api/account/${accountIndex}/${endpoint}/${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: { 'x-password': password }
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
+      itemsContainer.innerHTML = data[endpoint].map(id => renderItemCard(id, accountIndex, listType, true)).join('');
+      
+      // Update button count
+      updateListButtonCount(accountIndex, listType);
+      
+      showToast(`✅ Item removed from ${listType}`, 'success');
+    } else {
+      showToast(`❌ ${data.error || 'Error removing item'}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error removing item:', error);
+    showToast(`❌ Failed to remove item: ${error.message}`, 'error');
+  }
+}
+
+function updateListButtonCount(accountIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+  
+  const count = listType === 'whitelist' 
+    ? (account.flips?.whitelist?.length || 0) 
+    : (account.flips?.blacklistContaining?.length || 0);
+  
+  const button = document.querySelector(`.${listType}-btn .list-btn-count`);
+  if (button) {
+    button.textContent = `${count} items`;
+  }
+}
+
 
 
 

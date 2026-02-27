@@ -1,8 +1,5 @@
 
 
-
-
-
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const CoflAPI = require('../utils/CoflAPI');
@@ -230,21 +227,16 @@ class FlipManager {
     }
   }
 
-  // Save current state to file
+  // Métodos alias para simplificar llamadas
   saveState() {
-    // Alias para mantener compatibilidad
     this.saveStateToConfig();
   }
 
-  // Load state from file
   loadState() {
-    // Alias para mantener compatibilidad
     return this.loadStateFromConfig();
   }
-  
-  // Clear state file
+
   clearState() {
-    // Alias para mantener compatibilidad
     this.clearStateFromConfig();
   }
   
@@ -268,7 +260,7 @@ class FlipManager {
     });
     
     // Guardar estado actual
-    this.saveState();
+    this.saveStateToConfig();
     
     this.log(`✅ FlipManager paused, state saved`);
   }
@@ -495,29 +487,43 @@ class FlipManager {
     return flip;
   }
 
-  getActiveFlips() {
-    return this.flips.filter(flip => flip.active && flip.bought && !flip.sellExecuted);
+  // Obtener flips activos en fase de compra
+  getActiveFlipsInBuy() {
+    return this.flips.filter(f => f.active && !f.flipFinished);
   }
-
-  getActiveFlipsSummary() {
-    const activeFlips = this.getActiveFlips();
-    let totalSpent = 0;
-
-    const summary = activeFlips.map(flip => {
-      const unitPrice = flip.instaBuyPrice; 
-      const amount = flip.amountToBuy;
-      const total = unitPrice * amount;
-
-      totalSpent += total;
-
-      return { item: flip.item, unitPrice, amount, total };
-    });
-
-    return { flips: summary, totalSpent };
+  
+  // Verificar si se puede crear un nuevo flip
+  canCreateNewFlipInBuy() {
+    const activeInBuy = this.getActiveFlipsInBuy().length;
+    const canCreate = activeInBuy < this.maxFlips;
+    
+    if (!canCreate) {
+      this.log(`⚠️ Cannot create new flip: ${activeInBuy}/${this.maxFlips} flips active in buy phase`);
+    }
+    
+    return canCreate;
   }
 
   async createNextFlipSame(oldFlip) {
     this.log(`🔄 Creating next flip (same item): ${oldFlip.item}`);
+    
+    // 🔥 CHECK 1: Verify we have space in BUY phase
+    if (!this.canCreateNewFlipInBuy()) {
+      this.log(`  ❌ Max buy slots reached (${this.maxFlips}), waiting for flips to complete...`);
+      return;
+    }
+    
+    // 🔥 CHECK 2: Verify this item isn't already being flipped
+    const existingFlip = this.flips.find(f => 
+      f.itemTag === oldFlip.itemTag && 
+      f.active && 
+      !f.flipFinished
+    );
+    
+    if (existingFlip) {
+      this.log(`  ⚠️ Item ${oldFlip.item} is already being flipped, creating different flip instead...`);
+      return this.createNextFlipDifferent(oldFlip);
+    }
     
     const moneyPerFlip = this.purse / this.amount;
     
@@ -567,6 +573,12 @@ class FlipManager {
     const maxRetries = 10; // Maximum number of retries to avoid infinite loops
     
     this.log(`🔄 Creating next flip (different item)... ${retryCount > 0 ? `(Retry ${retryCount}/${maxRetries})` : ''}`);
+    
+    // 🔥 CHECK: Verify we have space in BUY phase
+    if (!this.canCreateNewFlipInBuy()) {
+      this.log(`  ❌ Max buy slots reached (${this.maxFlips}), waiting for flips to complete...`);
+      return;
+    }
     
     const moneyPerFlip = this.purse / this.amount;
     let nextFlipData = null;
@@ -626,7 +638,7 @@ class FlipManager {
           this.log(`  ⚠️ No whitelist items passed filters, falling back to normal flips`);
         }
       } else {
-        this.log(`  ⚠️ No available whitelist items (all are active)`);
+        this.log(`  ⚠️ No available whitelist items (all are active or same as previous)`);
       }
     }
 
@@ -699,6 +711,7 @@ class FlipManager {
       this.flips.push(newFlip);
       
       this.log(`  ✅ New flip created, starting buy...`);
+      this.log(`  📊 Current buy slots: ${this.getActiveFlipsInBuy().length}/${this.maxFlips}`);
       newFlip.buy();
     }
   }
@@ -759,13 +772,17 @@ class FlipManager {
       // Skip inactive flips
       if (!flip.active) continue;
 
-      if (!flip.buyFilled && text.includes(flip.item) && text.includes("buy order") && text.includes("was filled!")) {
+      // 🔥 FIX: Detectar cuando se completa la orden de COMPRA
+      // Solo marcar el flag, no llamar método inexistente
+      if (!flip.buyFilled && text.includes(flip.item.toLowerCase()) && text.includes("buy order") && text.includes("was filled")) {
         this.log(`✅ Buy order filled for ${flip.item}`);
         flip.buyFilled = true;
-        flip.sell();
+        flip.notifyStateChange();
       }
 
-      if (!flip.flipFinished && text.includes(flip.item) && text.includes("sell offer") && text.includes("was filled!")) {
+      // 🔥 FIX: Detectar cuando se completa la orden de VENTA
+      // Marcar flag y finalizar flip
+      if (!flip.flipFinished && text.includes(flip.item.toLowerCase()) && text.includes("sell offer") && text.includes("was filled")) {
         this.log(`✅ Sell order filled for ${flip.item}`);
         flip.orderFilled = true;
         flip.finishFlip(false);
@@ -847,6 +864,23 @@ class FlipManager {
   // Get profit history for charts
   getProfitHistory(limit = 50) {
     return this.profitHistory.slice(0, limit);
+  }
+
+  // Get comprehensive stats for UI
+  getStats() {
+    return {
+      totalFlips: this.totalFlips,
+      successfulFlips: this.successfulFlips,
+      failedFlips: this.failedFlips,
+      totalProfit: this.totalProfit,
+      totalVolume: this.totalVolume,
+      averageProfit: this.successfulFlips > 0 ? this.totalProfit / this.successfulFlips : 0,
+      activeFlips: this.activeFlips.size,
+      queuedFlips: this.flipQueue.length,
+      isPaused: this.isPaused,
+      activityLogs: this.getActivityLogs(20),
+      profitHistory: this.getProfitHistory(50)
+    };
   }
 
   // Resume flips from saved state (call this after bot connects)
@@ -984,16 +1018,5 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
-
-
-
-
-
-
-
-
-
-
-
 
 

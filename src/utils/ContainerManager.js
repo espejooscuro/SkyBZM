@@ -127,7 +127,6 @@ hasItemInContainer(filters = {}) {
     : this.bot.currentWindow?.slots;
 
   if (!Array.isArray(slotsSource)) {
-    console.log("❌ [hasItemInContainer] No hay slots disponibles:", isInventory ? "inventario" : "contenedor");
     return false;
   }
 
@@ -143,22 +142,16 @@ hasItemInContainer(filters = {}) {
 
     if (filters.equals) {
       matches = name === filters.equals.toLowerCase();
-      //if (!matches) console.log(`❌ [NO MATCH] equals: "${name}" !== "${filters.equals.toLowerCase()}"`);
     }
     if (filters.contains) {
       matches = name.includes(filters.contains.toLowerCase());
-      //if (!matches) console.log(`❌ [NO MATCH] contains: "${name}" no contiene "${filters.contains.toLowerCase()}"`);
     }
     if (filters.startsWith) {
       matches = name.startsWith(filters.startsWith.toLowerCase());
-      //if (!matches) console.log(`❌ [NO MATCH] startsWith: "${name}" no empieza con "${filters.startsWith.toLowerCase()}"`);
     }
     if (filters.regex) {
       matches = filters.regex.test(name);
-      //if (!matches) console.log(`❌ [NO MATCH] regex: "${name}" no coincide con ${filters.regex}`);
     }
-
-    //console.log(`🧪 [hasItemInContainer] Test "${name}" contra filtros → ${matches ? "✅ MATCH" : "❌ NO"}`);
 
     if (matches) {
       found = true;
@@ -166,12 +159,44 @@ hasItemInContainer(filters = {}) {
     }
   }
 
-  console.log(`🎯 [hasItemInContainer] Resultado final: ${found}`);
   return found;
 }
 
-
-
+  /**
+   * Counts how many items match the filters in inventory or container
+   * @param {Object} filters - Filters like { contains: 'plasma', type: 'inventory' }
+   * @returns {number} Total quantity of matching items
+   */
+  countItemsInInventory(filters = {}) {
+    const isInventory = filters.type !== "container";
+    const items = this._getValidItems(!isInventory);
+    
+    let totalCount = 0;
+    
+    for (const item of items) {
+      const name = item.plainName;
+      let matches = false;
+      
+      if (filters.equals) {
+        matches = name === filters.equals.toLowerCase();
+      }
+      if (filters.contains) {
+        matches = name.includes(filters.contains.toLowerCase());
+      }
+      if (filters.startsWith) {
+        matches = name.startsWith(filters.startsWith.toLowerCase());
+      }
+      if (filters.regex) {
+        matches = filters.regex.test(name);
+      }
+      
+      if (matches) {
+        totalCount += item.quantity;
+      }
+    }
+    
+    return totalCount;
+  }
 
   /**
    * Returns true if less than 1/3 of inventory slots are empty
@@ -291,7 +316,6 @@ _getValidItems(isContainer) {
     : this.bot.inventory?.slots;
 
   if (!Array.isArray(slotsSource)) {
-    console.log("❌ No hay slotsSource:", isContainer ? "currentWindow" : "inventory");
     return [];
   }
 
@@ -376,19 +400,10 @@ _getValidItems(isContainer) {
   for (const item of items) {
     if (filters.customName && item.plainName !== filters.customName.toLowerCase()) continue;
     if (filters.contains && !item.plainName.includes(filters.contains.toLowerCase())) continue;
-/*
-    console.log("🟢 SLOT ENCONTRADO");
-    console.log("➡ Slot:", item.slot);
-    console.log("➡ Nombre plano:", item.plainName);
-    console.log("➡ Nombre original:", item.originalName);
 
-    console.log("📦 ITEM RAW JSON:");
-    console.log(JSON.stringify(item.rawJSON, null, 2));
-*/
     const loreComponent = item.rawJSON?.components?.find(c => c.type === "lore");
 
     if (!loreComponent || !Array.isArray(loreComponent.data)) {
-      console.log("❌ No se encontró componente lore");
       return [];
     }
 
@@ -416,13 +431,9 @@ _getValidItems(isContainer) {
       loreArray.push(cleanLine);
     }
 
-    console.log("🧹 LORE LIMPIO:");
-    loreArray.forEach((l, i) => console.log(`${i}:`, l));
-
     return loreArray;
   }
 
-  console.log("❌ No se encontró ningún item que cumpla los filtros:", filters);
   return [];
 }
 
