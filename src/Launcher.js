@@ -2,6 +2,8 @@
 
 
 
+
+
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -53,7 +55,7 @@ class Launcher {
 
   startWebServer(botManager) {
     try {
-      this.webServer = new WebServer(this.configPath, 3000, botManager);
+      this.webServer = new WebServer(this.configPath, 7392, botManager);
       this.webServer.start();
     } catch (error) {
       console.error('❌ Error starting web server:', error.message);
@@ -112,10 +114,6 @@ class Launcher {
   async createConfig() {
     console.log("\n📝 Creating new configuration...\n");
 
-    const discordWebhook = await this.ask(
-      "Enter Discord webhook URL (optional, press Enter to skip): "
-    );
-
     const accountsInput = await this.ask(
       "How many accounts do you want to configure? "
     );
@@ -133,6 +131,9 @@ class Launcher {
       console.log(`\n--- Account ${i + 1} ---`);
       
       const username = await this.ask("Minecraft username: ");
+
+      // Ask for Discord webhook for this specific bot
+      const discordWebhook = await this.ask("Discord webhook URL for this bot (optional, press Enter to skip): ");
 
       // Ask for proxy
       const useProxyAnswer = await this.ask("Use SOCKS5 proxy for this account? (y/n): ");
@@ -181,6 +182,7 @@ class Launcher {
 
       accounts.push({
         username,
+        discordWebhook: discordWebhook || "",
         proxy,
         flips,
         enabled: true,
@@ -200,7 +202,6 @@ class Launcher {
     }
 
     this.config = {
-      discordWebhook: discordWebhook || "",
       accounts
     };
 
@@ -240,6 +241,8 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
+
 
 
 

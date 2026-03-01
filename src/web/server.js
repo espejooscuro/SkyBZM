@@ -2,13 +2,15 @@
 
 
 
+
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
 class WebServer {
-  constructor(configPath, port = 3000, botManager = null) {
+  constructor(configPath, port = 9527, botManager = null) {
     this.configPath = configPath;
     this.port = port;
     this.botManager = botManager;
@@ -91,21 +93,43 @@ class WebServer {
         }
 
         const index = parseInt(req.params.index);
-        const { path: fieldPath, value } = req.body;
         const config = this.getConfig();
         
         if (!config.accounts[index]) {
           return res.status(404).json({ success: false, error: 'Account not found' });
         }
 
-        this.setNestedValue(config.accounts[index], fieldPath, value);
+        // Check if this is a full account update or a field update
+        if (req.body.path && req.body.value !== undefined) {
+          // Old format: { path, value }
+          const { path: fieldPath, value } = req.body;
+          this.setNestedValue(config.accounts[index], fieldPath, value);
+        } else {
+          // New format: full account object
+          // Preserve critical fields that shouldn't be overwritten
+          const username = config.accounts[index].username;
+          const password = config.accounts[index].password;
+          
+          // Update account with new data
+          config.accounts[index] = {
+            ...req.body,
+            username,  // Ensure username doesn't change
+            password,  // Ensure password doesn't change
+            index      // Ensure index doesn't change
+          };
+        }
+
         this.saveConfig(config);
 
         if (this.botManager) {
-          this.updateBotRealTime(config.accounts[index].username, fieldPath, value);
+          // Update bot in real-time if it's running
+          const bot = this.botManager.bots.get(config.accounts[index].username);
+          if (bot && bot.flipManager) {
+            bot.flipManager.updateConfig(config.accounts[index].flips || {});
+          }
         }
 
-        res.json({ success: true, message: 'Configuration updated', config });
+        res.json(config.accounts[index]);
       } catch (error) {
         console.error('Error updating config:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -117,6 +141,46 @@ class WebServer {
 
     // Bot control endpoints
     this.setupBotControl();
+
+    // Bot data endpoint (for new dashboard)
+    this.app.get('/api/bot-data', (req, res) => {
+      try {
+        const config = this.getConfig();
+        
+        // Get first account data (or you can modify to handle multiple accounts)
+        const accountIndex = 0;
+        if (!config.accounts[accountIndex]) {
+          return res.json({
+            config: {},
+            stats: {},
+            activeFlips: [],
+            recentFlips: [],
+            taskQueue: { currentTask: null, queuedTasks: [] },
+            logs: []
+          });
+        }
+
+        const account = config.accounts[accountIndex];
+        
+        // Get bot instance
+        const bot = this.botManager?.bots?.get(account.username);
+        
+        // Collect data
+        const data = {
+          config: account.flips || {},
+          stats: this.collectBotStats(bot),
+          activeFlips: this.collectActiveFlips(bot),
+          recentFlips: this.collectRecentFlips(bot),
+          taskQueue: this.collectTaskQueue(bot),
+          logs: this.collectBotLogs(bot, 50)
+        };
+        
+        res.json(data);
+      } catch (error) {
+        console.error('Error getting bot data:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
 
     // Rest schedule endpoints
     this.app.get('/rest-schedule', (req, res) => {
@@ -364,6 +428,76 @@ class WebServer {
       }
     });
 
+    // GET brain data (task queue visualization)
+    this.app.get('/api/bot/:index/brain', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        const emptyBrain = {
+          success: true,
+          queueLength: 0,
+          running: false,
+          paused: false,
+          currentTask: null,
+          queuedTasks: []
+        };
+
+        if (!this.botManager) {
+          return res.json({ ...emptyBrain, message: 'Bot Manager not initialized' });
+        }
+
+        const bot = this.botManager.bots.get(config.accounts[index].username);
+        
+        if (!bot) {
+          return res.json({ ...emptyBrain, message: 'Bot not running' });
+        }
+
+        // 🔥 Access the Bot's central TaskQueue directly
+        const taskQueue = bot.queue;
+
+        if (!taskQueue) {
+          console.log('[Brain API] ⚠️ Bot has no TaskQueue');
+          return res.json(emptyBrain);
+        }
+
+        if (typeof taskQueue.getState === 'function') {
+          const queueState = taskQueue.getState();
+          
+          return res.json({
+            success: true,
+            queueLength: queueState.queueLength || 0,
+            running: queueState.running || false,
+            paused: queueState.paused || false,
+            currentTask: queueState.currentTask || null,
+            queuedTasks: queueState.queuedTasks || [],
+            heartbeat: {
+              lastPacketReceived: bot.lastPacketReceived || Date.now(),
+              lastHeartbeat: bot.lastHeartbeat || Date.now(),
+              timeSinceLastPacket: Date.now() - (bot.lastPacketReceived || Date.now()),
+              isAlive: (Date.now() - (bot.lastPacketReceived || Date.now())) < 10000,
+              isResting: bot.isResting || false
+            }
+          });
+        }
+
+        console.log('[Brain API] ⚠️ TaskQueue has no getState method');
+        // Fallback
+        res.json(emptyBrain);
+      } catch (error) {
+        console.error('Error getting brain data:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Bot logs (activity logs)
     this.app.get('/api/bot/:index/logs', (req, res) => {
       try {
@@ -485,16 +619,129 @@ class WebServer {
     target[lastKey] = value;
   }
 
+  collectBotStats(bot) {
+    if (!bot) {
+      return {
+        totalProfit: 0,
+        totalVolume: 0,
+        successfulFlips: 0,
+        failedFlips: 0
+      };
+    }
+
+    const currentProfit = (bot.currentPurse && bot.startPurse) 
+      ? bot.currentPurse - bot.startPurse 
+      : 0;
+
+    return {
+      totalProfit: currentProfit,
+      totalVolume: bot.totalVolume || 0,
+      successfulFlips: bot.successfulFlips || 0,
+      failedFlips: bot.failedFlips || 0,
+      currentPurse: bot.currentPurse || 0,
+      startPurse: bot.startPurse || 0,
+      coinsPerHour: bot.coinsPerHour || 0,
+      runtime: bot.runtime || 0
+    };
+  }
+
+  collectActiveFlips(bot) {
+    if (!bot?.flipManager?.activeFlips) {
+      return [];
+    }
+
+    return Array.from(bot.flipManager.activeFlips.values()).map(flip => ({
+      id: flip.id,
+      item: flip.item,
+      buyPrice: flip.buyPrice,
+      sellPrice: flip.sellPrice,
+      profit: flip.profit || 0,
+      status: flip.status || 'active',
+      timestamp: flip.timestamp || Date.now(),
+      phase: flip.phase || 'unknown'
+    }));
+  }
+
+  collectRecentFlips(bot) {
+    if (!bot?.flipManager?.completedFlips) {
+      return [];
+    }
+
+    return bot.flipManager.completedFlips.slice(-20).map(flip => ({
+      id: flip.id,
+      item: flip.item,
+      buyPrice: flip.buyPrice,
+      sellPrice: flip.sellPrice,
+      profit: flip.profit || 0,
+      status: flip.status || 'completed',
+      timestamp: flip.completedAt || flip.timestamp || Date.now()
+    }));
+  }
+
+  collectTaskQueue(bot) {
+    if (!bot?.taskQueue) {
+      return {
+        currentTask: null,
+        queuedTasks: []
+      };
+    }
+
+    const currentTask = bot.taskQueue.currentTask ? {
+      id: bot.taskQueue.currentTask.id,
+      metadata: bot.taskQueue.currentTask.metadata,
+      startTime: bot.taskQueue.currentTask.startTime
+    } : null;
+
+    const queuedTasks = (bot.taskQueue.queue || []).map(task => ({
+      id: task.id,
+      metadata: task.metadata
+    }));
+
+    return {
+      currentTask,
+      queuedTasks
+    };
+  }
+
+  collectBotLogs(bot, limit = 50) {
+    if (!bot?.activityLogs) {
+      return [];
+    }
+
+    return bot.activityLogs.slice(-limit).map(log => ({
+      timestamp: log.timestamp || Date.now(),
+      message: log.message || log.text || '',
+      level: log.level || 'info'
+    }));
+  }
+
   getLocalIP() {
     const interfaces = os.networkInterfaces();
+    let fallbackIP = null;
+    
+    // First pass: look for common local network IPs (WiFi)
     for (const name of Object.keys(interfaces)) {
       for (const iface of interfaces[name]) {
         if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
+          const ip = iface.address;
+          
+          // Prioritize local network ranges (WiFi/Ethernet)
+          if (ip.startsWith('192.168.') || 
+              ip.startsWith('10.') || 
+              (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
+            return ip;
+          }
+          
+          // Store first non-local IP as fallback (Hamachi, etc.)
+          if (!fallbackIP) {
+            fallbackIP = ip;
+          }
         }
       }
     }
-    return 'localhost';
+    
+    // If no local network IP found, use fallback or localhost
+    return fallbackIP || 'localhost';
   }
 
   start() {
@@ -534,6 +781,20 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

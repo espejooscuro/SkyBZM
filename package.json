@@ -1,16 +1,46 @@
 {
   "name": "skybzm",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SkyBZM - Hypixel Skyblock Bazaar Flipper Bot",
+  "main": "src/Launcher.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/Launcher.js",
+    "build": "pkg . --compress GZip",
+    "build:win": "pkg . --targets node18-win-x64 --compress GZip --output dist/SkyBZM-win.exe",
+    "build:linux": "pkg . --targets node18-linux-x64 --compress GZip --output dist/SkyBZM-linux",
+    "build:mac": "pkg . --targets node18-macos-x64 --compress GZip --output dist/SkyBZM-macos",
+    "build:all": "pkg . --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --compress GZip --out-path dist"
+  },
+  "bin": "src/Launcher.js",
+  "pkg": {
+    "assets": [
+      "src/web/public/**/*",
+      "node_modules/mineflayer/lib/plugins/**/*",
+      "node_modules/minecraft-data/**/*",
+      "node_modules/prismarine-*/**/*"
+    ],
+    "scripts": [
+      "src/**/*.js",
+      "node_modules/mineflayer/**/*.js"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/espejooscuro/SkyBZM.git"
   },
-  "keywords": [],
+  "keywords": [
+    "minecraft",
+    "hypixel",
+    "skyblock",
+    "bazaar",
+    "flipper",
+    "bot"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -25,5 +55,8 @@
     "prismarine-nbt": "^2.8.0",
     "proxy-agent": "^6.5.0",
     "socks": "^2.8.7"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

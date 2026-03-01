@@ -1,5 +1,6 @@
 
 
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const CoflAPI = require('../utils/CoflAPI');
@@ -12,17 +13,27 @@ function cleanChatText(text) {
 }
 
 class FlipManager {
-  constructor(bot, accountConfig = {}) {
+  constructor(bot, accountConfig = {}, sharedQueue = null) {
     this.bot = bot;
     this.username = accountConfig.username || (bot && bot.username) || 'Unknown';
     
     // 🔥 Ruta al config.json para guardar el estado
     this.configPath = path.join(process.cwd(), 'config.json');
     
-    // Initialize queue with save callback
-    this.queue = new TaskQueue((queueState) => {
-      this.saveStateToConfig(queueState);
-    });
+    // 🔥 Use shared queue if provided, otherwise create a new one
+    if (sharedQueue) {
+      this.log(`✅ Using shared TaskQueue from Bot`);
+      this.queue = sharedQueue;
+      // Set the save callback on the shared queue
+      sharedQueue.onSaveState = (queueState) => {
+        this.saveStateToConfig(queueState);
+      };
+    } else {
+      this.log(`⚠️ Creating new TaskQueue (no shared queue provided)`);
+      this.queue = new TaskQueue((queueState) => {
+        this.saveStateToConfig(queueState);
+      });
+    }
 
     // accountConfig now contains the config directly from Bot.js
     // which passes maxBuyPrice, minProfit, etc. as direct properties
@@ -1018,5 +1029,6 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
 
 

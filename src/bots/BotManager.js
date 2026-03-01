@@ -1,5 +1,6 @@
 
 
+
 const Bot = require("./Bot");
 const path = require("path");
 const fs = require("fs");
@@ -247,12 +248,18 @@ class BotManager {
     }
 
     const isConnected = bot.bot && bot.bot.player && bot.isLogged;
+    const health = bot.getHealthStatus ? bot.getHealthStatus() : {};
 
     return {
       exists: true,
       connected: isConnected,
       username: username,
-      state: bot.bot ? (isConnected ? 'connected' : 'connecting') : 'disconnected'
+      state: bot.bot ? (isConnected ? 'connected' : 'connecting') : 'disconnected',
+      health: {
+        ...health,
+        lastHeartbeat: bot.lastHeartbeat,
+        lastActivity: bot.lastActivity
+      }
     };
   }
 
@@ -330,5 +337,6 @@ class BotManager {
 }
 
 module.exports = BotManager;
+
 
 

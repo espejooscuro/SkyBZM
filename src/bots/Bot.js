@@ -3,6 +3,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -36,6 +37,10 @@ class Bot {
     this.flipManager = null;
     this.boosterCookie = null;
     this.heartbeatInterval = null; // 🔥 Para limpieza
+    this.lastHeartbeat = Date.now(); // 🔥 Timestamp del último heartbeat
+    this.lastActivity = Date.now(); // 🔥 Timestamp de última actividad detectada
+    this.lastPacketReceived = Date.now(); // 🔥 Timestamp del último paquete recibido
+    this.inactivityMonitor = null; // 🔥 Monitor de inactividad
     
     // 💰 Tracking de purse para estadísticas
     this.currentPurse = null;
@@ -55,8 +60,7 @@ class Bot {
       'packets too fast',
       'server will restart soon',
       'game update',
-      'server is too laggy',
-      'There was a problem joining SkyBlock'
+      'server is too laggy'
     ];
   }
 
@@ -169,17 +173,21 @@ class Bot {
     });
 
     this.bot.once("spawn", async () => {
-      console.log(`[${this.name}] Bot spawned, waiting for chunks...`);
-      await this.bot.waitForChunksToLoad();
+      this.markActivity(); // 🔥 Marcar actividad
       console.log(`[${this.name}] Chunks loaded, bot ready!`);
-      this.bot.physicsEnabled = true;
     });
 
     this.bot.on("login", async () => {
+      this.markActivity(); // 🔥 Marcar actividad
       if (this.isLogged) return;
       this.isLogged = true;
 
       console.log(`[${this.name}] Connected to the server!`);
+      
+      // 🔥 Reset packet timestamp on successful login
+      this.lastPacketReceived = Date.now();
+      this.lastActivity = Date.now();
+      this.lastHeartbeat = Date.now();
       
       // 🔥 HEARTBEAT MANUAL para mantener la conexión viva
       console.log(`💓 [${this.name}] Starting heartbeat system...`);
@@ -193,6 +201,7 @@ class Bot {
             this.bot._client.write('arm_animation', {
               hand: 0 // Main hand
             });
+            this.lastHeartbeat = Date.now(); // 🔥 Actualizar timestamp
           } catch (e) {
             // Si falla, intentar con position (enviar la posición actual)
             try {
@@ -203,27 +212,78 @@ class Bot {
                   z: this.bot.entity.position.z,
                   onGround: this.bot.entity.onGround
                 });
+                this.lastHeartbeat = Date.now(); // 🔥 Actualizar timestamp
               }
             } catch (e2) {
               // Ignorar errores silenciosamente
+              console.warn(`⚠️ [${this.name}] Heartbeat failed, may need reconnection`);
             }
           }
         }
       }, 25000); // Cada 25 segundos (antes del timeout de 30)
+      
+      // 🔥 MONITOR DE INACTIVIDAD: Detectar si no se reciben paquetes
+      console.log(`🔍 [${this.name}] Starting inactivity monitor...`);
+      this.inactivityMonitor = setInterval(() => {
+        if (this.isResting) return; // Ignorar durante modo descanso
+        
+        const timeSinceLogin = Date.now() - this.startTime;
+        const timeSinceLastPacket = Date.now() - this.lastPacketReceived;
+        
+        // 🔥 Grace period: Don't check for first 30 seconds after login
+        if (timeSinceLogin < 30000) {
+          return;
+        }
+        
+        if (timeSinceLastPacket > 15000) { // 15 segundos sin paquetes (aumentado desde 10)
+          console.error(`💀 [${this.name}] No packets received in ${Math.floor(timeSinceLastPacket / 1000)}s - Connection lost!`);
+          
+          // Detener heartbeat
+          if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+          }
+          
+          // Detener monitor de inactividad
+          if (this.inactivityMonitor) {
+            clearInterval(this.inactivityMonitor);
+            this.inactivityMonitor = null;
+          }
+          
+          // Desconectar bot
+          if (this.bot && this.bot._client) {
+            console.log(`🔌 [${this.name}] Disconnecting due to inactivity...`);
+            this.bot._client.end();
+          }
+        }
+      }, 1000); // Revisar cada segundo
       
       let containerManager = new ContainerManager(this.bot);
 
       await this.queue.enqueue(async () => {
         console.log(`[${this.name}] Starting bot...`);
         await delay(5000);
+        
+        // 🔥 Safety check: Verify bot still exists
+        if (!this.chat || !this.bot || this.bot.ended) {
+          console.warn(`[${this.name}] Bot destroyed during startup, aborting task`);
+          return;
+        }
+        
         this.chat.send("/skyblock");
         await delay(5000);
+        
+        if (!this.chat || !this.bot || this.bot.ended) {
+          console.warn(`[${this.name}] Bot destroyed during startup, aborting task`);
+          return;
+        }
+        
         this.chat.send("/is");
         await delay(5000);
         console.log(`[${this.name}] Bot ready!`);  
         let items = containerManager._getValidItems(false);
         console.log(items);
-      });
+      }, { type: 'login', item: 'Entering Skyblock' });
 
       const booster = new AutoBoosterCookie(this.bot, this.chat, this.queue);
       await booster.getBoostercookie();
@@ -244,13 +304,12 @@ class Bot {
         minOrder: flipsConfig.minOrder,
         maxOrder: flipsConfig.maxOrder,
         minSpread: flipsConfig.minSpread
-
-      });
+      }, this.queue); // 🔥 Pasar el TaskQueue central del Bot
 
       this.flipManager = manager; // 🔥 Guardar referencia
 
       // 🔥 Intentar cargar estado guardado antes de buildFlips
-      const hasState = manager.queue.hasStateToResume();
+      const hasState = this.queue.hasStateToResume(); // 🔥 Usar this.queue del Bot
       
       if (hasState) {
         console.log(`📂 [${this.name}] Found saved state, resuming flips...`);
@@ -293,10 +352,22 @@ class Bot {
         this.heartbeatInterval = null;
         console.log(`💓 [${this.name}] Heartbeat stopped`);
       }
+      
+      if (this.inactivityMonitor) {
+        clearInterval(this.inactivityMonitor);
+        this.inactivityMonitor = null;
+        console.log(`🔍 [${this.name}] Inactivity monitor stopped`);
+      }
     });
 
     // 💰 Listener de packets para capturar el purse del scoreboard
     this.bot._client.on('packet', (data, meta) => {
+      // 🔥 HEARTBEAT: Actualizar timestamp en CUALQUIER paquete recibido
+      if (!this.isResting) {
+        this.lastPacketReceived = Date.now();
+        this.lastActivity = Date.now();
+      }
+      
       if (meta.name !== 'teams') return;
 
       // 🔥 Extraer texto directo de prefix y suffix
@@ -431,10 +502,7 @@ class Bot {
    * Verifica si hay estado guardado para reanudar
    */
   hasSavedState() {
-    if (this.flipManager && this.flipManager.queue) {
-      return this.flipManager.queue.hasStateToResume();
-    }
-    return false;
+    return this.queue.hasStateToResume(); // 🔥 Usar this.queue del Bot
   }
 
   /**
@@ -449,6 +517,12 @@ class Bot {
         clearInterval(this.heartbeatInterval);
         this.heartbeatInterval = null;
         console.log(`   💓 Heartbeat cleared`);
+      }
+      
+      if (this.inactivityMonitor) {
+        clearInterval(this.inactivityMonitor);
+        this.inactivityMonitor = null;
+        console.log(`   🔍 Inactivity monitor cleared`);
       }
       
       // 1. Pausar FlipManager ANTES de destruir (guarda estado)
@@ -566,6 +640,32 @@ class Bot {
   }
 
   /**
+   * 💓 Verifica el estado de salud del bot
+   */
+  getHealthStatus() {
+    const now = Date.now();
+    const timeSinceHeartbeat = now - this.lastHeartbeat;
+    const timeSinceActivity = now - this.lastActivity;
+    
+    return {
+      isAlive: this.bot && this.bot._client && !this.bot._client.ended,
+      isLogged: this.isLogged,
+      timeSinceHeartbeat,
+      timeSinceActivity,
+      isHealthy: timeSinceHeartbeat < 60000, // Healthy if heartbeat in last 60s
+      isResponsive: timeSinceActivity < 120000, // Responsive if activity in last 2min
+      needsReconnection: timeSinceHeartbeat > 90000 || (this.bot && this.bot._client && this.bot._client.ended)
+    };
+  }
+
+  /**
+   * 🔍 Actualiza timestamp de actividad (llamar desde eventos importantes)
+   */
+  markActivity() {
+    this.lastActivity = Date.now();
+  }
+
+  /**
    * 🔄 Reconecta el bot manteniendo el estado guardado
    */
   async reconnect() {
@@ -604,6 +704,23 @@ class Bot {
 module.exports = Bot;
 
 //"are you sure?"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
