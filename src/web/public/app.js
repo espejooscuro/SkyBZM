@@ -501,9 +501,9 @@ function renderFlipConfig(flips, index) {
             <label class="config-label">${cfg.label}</label>
             <div class="slider-container">
               <input type="range" class="slider colored-slider" data-color="${cfg.color}" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${value}"
-                oninput="updateSliderValue(this, '${cfg.key}-${index}')"
+                oninput="updateSliderValue(this, 'flip-${cfg.key}-${index}')"
                 onchange="updateConfig(${index}, 'flips.${cfg.key}', parseInt(this.value))"/>
-              <div class="slider-value-card" id="${cfg.key}-${index}" style="--slider-color: ${cfg.color}">${formatNumber(value)}${cfg.unit}</div>
+              <div class="slider-value-card" id="flip-${cfg.key}-${index}" style="--slider-color: ${cfg.color}">${formatNumber(value)}${cfg.unit}</div>
               <div class="slider-labels">
                 <span>${cfg.minLabel}</span>
                 <span>${cfg.maxLabel}</span>
@@ -1893,8 +1893,8 @@ function openListEditorModal(accountIndex, listType) {
 
   const list = listType === 'whitelist' ? (account.flips.whitelist || []) : (account.flips.blacklistContaining || []);
   const title = listType === 'whitelist' ? 'Whitelist Editor' : 'Blacklist Editor';
-  const icon = listType === 'whitelist' ? '+' : '−';
-
+  const color = listType === 'whitelist' ? '#00ff88' : '#fbbf24';
+  
   // Remove existing modal if any
   const existingModal = document.getElementById('list-editor-modal');
   if (existingModal) existingModal.remove();
@@ -1907,7 +1907,7 @@ function openListEditorModal(accountIndex, listType) {
     <div class="modal-container list-editor-modal">
       <div class="modal-header">
         <div class="modal-title">
-          <span class="modal-icon ${listType}">${icon}</span>
+          <span class="modal-icon ${listType}">${listType === 'whitelist' ? '+' : '−'}</span>
           <h3>${title}</h3>
         </div>
         <button class="modal-close" onclick="closeListEditorModal()">×</button>
@@ -2919,12 +2919,26 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
       
       <div class="flip-card-footer">
         <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
-          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-          Whitelist
+          <div class="list-btn-icon">
+            <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </div>
+          <div class="list-btn-content">
+            <div class="list-btn-label">Whitelist</div>
+            <div class="list-btn-count">${whitelistCount} items</div>
+          </div>
         </button>
         <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklist')">
-          <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
-          Blacklist
+          <div class="list-btn-icon">
+            <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+              <path d="M19 13H5v-2h14v2z"/>
+            </svg>
+          </div>
+          <div class="list-btn-content">
+            <div class="list-btn-label">Blacklist</div>
+            <div class="list-btn-count">${blacklistCount} items</div>
+          </div>
         </button>
       </div>
     </div>
@@ -3108,132 +3122,139 @@ function closeFlipEditModal() {
 }
 
 function renderFlipConfigFields(flip, accountIndex, flipIndex) {
+  const whitelistCount = flip.whitelist?.length || 0;
+  const blacklistCount = flip.blacklistContaining?.length || 0;
+  
+  const configs = [
+    { key: 'maxBuyPrice', label: 'Max Buy Price', min: 100000, max: 50000000, step: 100000, unit: ' coins', minLabel: '100K', maxLabel: '50M', color: '#b19cd9' },
+    { key: 'minProfit', label: 'Min Profit', min: 1000, max: 1000000, step: 1000, unit: ' coins', minLabel: '1K', maxLabel: '1M', color: '#a78bfa' },
+    { key: 'minVolume', label: 'Min Volume', min: 1, max: 100000, step: 1, unit: ' sales/day', minLabel: '1', maxLabel: '100K', color: '#9b6ff7' },
+    { key: 'maxFlips', label: 'Max Flips', min: 1, max: 20, step: 1, unit: '', minLabel: '1', maxLabel: '20', color: '#8b5cf6' },
+    { key: 'maxRelist', label: 'Max Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#7c3aed' },
+    { key: 'maxBuyRelist', label: 'Max Buy Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#6d28d9' },
+    { key: 'minOrder', label: 'Min Order', min: 1, max: 1000, step: 1, unit: ' items', minLabel: '1', maxLabel: '1K', color: '#5b21b6' },
+    { key: 'maxOrder', label: 'Max Order', min: 10, max: 10000, step: 10, unit: ' items', minLabel: '10', maxLabel: '10K', color: '#4c1d95' },
+    { key: 'minSpread', label: 'Min Spread', min: 0, max: 100, step: 1, unit: '%', minLabel: '0%', maxLabel: '100%', color: '#3b0764' }
+  ];
+  
   return `
-    <div class="config-group">
-      <label class="config-label">Max Flips</label>
-      <input 
-        type="number" 
-        class="config-input" 
-        value="${flip.maxFlips || 5}"
-        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'maxFlips', parseInt(this.value))"
-      />
-    </div>
-    
-    <div class="config-group">
-      <label class="config-label">Budget (coins)</label>
-      <input 
-        type="number" 
-        class="config-input" 
-        value="${flip.budget || 10000000}"
-        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'budget', parseInt(this.value))"
-      />
-    </div>
-    
-    <div class="config-group">
-      <label class="config-label">Min Profit (coins)</label>
-      <input 
-        type="number" 
-        class="config-input" 
-        value="${flip.minProfit || 100000}"
-        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'minProfit', parseInt(this.value))"
-      />
-    </div>
-    
-    <div class="config-group">
-      <label class="config-label">Enabled</label>
-      <input 
-        type="checkbox" 
-        class="config-checkbox" 
-        ${flip.enabled !== false ? 'checked' : ''}
-        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'enabled', this.checked)"
-      />
-    </div>
-    
-    <div class="config-actions" style="grid-column: 1 / -1; display: flex; gap: 12px; margin-top: 24px;">
-      <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})" style="flex: 1;">
-        Delete Flip
-      </button>
-      <button class="btn btn-primary" onclick="closeFlipEditModal()" style="flex: 1;">
-        Done
-      </button>
+    <div class="config-section-wrapper" style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+      <!-- Configuration Sliders -->
+      <div class="config-section collapsible">
+        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
+          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
+              <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.12-.39-.22-.61-.22l-2.21 0c-.22 0-.49.18-.5 2v14c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/>
+            </svg>
+            Flip Configuration
+          </h3>
+          <span class="config-expand">▼</span>
+        </div>
+        <div class="config-section-content" style="display: block;">
+          <div class="config-grid" style="grid-template-columns: 1fr; gap: 20px; padding: 20px 0;">
+            ${configs.map(cfg => `
+              <div class="config-item">
+                <label class="config-label">${cfg.label}</label>
+                <div class="slider-container">
+                  <input type="range" class="slider colored-slider" data-color="${cfg.color}" 
+                    min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}"
+                    oninput="updateSliderValue(this, 'flip-${cfg.key}-${accountIndex}-${flipIndex}', '${cfg.unit}')"
+                    onchange="updateConfig(${accountIndex}, 'flips.${cfg.key}', parseInt(this.value))"/>
+                  <div class="slider-value-card" id="flip-${cfg.key}-${accountIndex}-${flipIndex}" style="--slider-color: ${cfg.color}">${formatNumber(cfg.value)}${cfg.unit}</div>
+                  <div class="slider-labels">
+                    <span>${cfg.minLabel}</span>
+                    <span>${cfg.maxLabel}</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Whitelist & Blacklist Section -->
+      <div class="config-section collapsible">
+        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
+          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
+              <path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+              <path d="M14 17H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Item Lists
+          </h3>
+          <span class="config-expand">▼</span>
+        </div>
+        <div class="config-section-content" style="display: block;">
+          <div class="list-buttons-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 0;">
+            <button class="list-manager-btn whitelist" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
+              <div class="list-btn-icon">
+                <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+              </div>
+              <div class="list-btn-content">
+                <div class="list-btn-label">Whitelist</div>
+                <div class="list-btn-count">${whitelistCount} items</div>
+              </div>
+            </button>
+            
+            <button class="list-manager-btn blacklist" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklist')">
+              <div class="list-btn-icon">
+                <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+                  <path d="M19 13H5v-2h14v2z"/>
+                </svg>
+              </div>
+              <div class="list-btn-content">
+                <div class="list-btn-label">Blacklist</div>
+                <div class="list-btn-count">${blacklistCount} items</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Advanced Settings -->
+      <div class="config-section collapsible collapsed">
+        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
+          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
+              <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+            </svg>
+            Advanced Settings
+          </h3>
+          <span class="config-expand">▶</span>
+        </div>
+        <div class="config-section-content" style="display: none;">
+          <div class="config-grid" style="grid-template-columns: 1fr; gap: 16px; padding: 20px 0;">
+            <div class="config-item">
+              <label class="config-label">Enabled</label>
+              <label class="switch">
+                <input type="checkbox" ${flip.enabled !== false ? 'checked' : ''}
+                  onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'enabled', this.checked)">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="config-actions" style="display: flex; gap: 12px; margin-top: 12px;">
+        <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})" style="flex: 1; background: rgba(239, 68, 68, 0.15); border: 1.5px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          Delete Flip
+        </button>
+        <button class="btn btn-primary" onclick="closeFlipEditModal()" style="flex: 1; background: rgba(129, 62, 242, 0.2); border: 1.5px solid rgba(129, 62, 242, 0.5); color: #9b6ff7; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          Save & Close
+        </button>
+      </div>
     </div>
   `;
-}
-
-async function updateFlipField(accountIndex, flipIndex, field, value) {
-  const account = globalConfig.accounts[accountIndex];
-  if (!account || !account.flipConfigs) return;
-  
-  const flip = account.flipConfigs[flipIndex];
-  if (!flip) return;
-  
-  flip[field] = value;
-  
-  try {
-    const res = await fetch(`/api/account/${accountIndex}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-password': password
-      },
-      body: JSON.stringify(account)
-    });
-    
-    if (res.ok) {
-      const updated = await res.json();
-      globalConfig.accounts[accountIndex] = updated;
-      
-      const section = document.getElementById(`flipper-config-${accountIndex}`);
-      if (section) {
-        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
-      }
-      
-      showToast('✅ Updated', 'success');
-    } else {
-      showToast('❌ Failed to update', 'error');
-    }
-  } catch (error) {
-    console.error('Error updating flip:', error);
-    showToast('❌ Failed to update', 'error');
-  }
-}
-
-async function deleteFlip(accountIndex, flipIndex) {
-  if (!confirm('Are you sure you want to delete this flip?')) return;
-  
-  const account = globalConfig.accounts[accountIndex];
-  if (!account || !account.flipConfigs) return;
-  
-  account.flipConfigs.splice(flipIndex, 1);
-  
-  try {
-    const res = await fetch(`/api/account/${accountIndex}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-password': password
-      },
-      body: JSON.stringify(account)
-    });
-    
-    if (res.ok) {
-      const updated = await res.json();
-      globalConfig.accounts[accountIndex] = updated;
-      
-      const section = document.getElementById(`flipper-config-${accountIndex}`);
-      if (section) {
-        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
-      }
-      
-      closeFlipEditModal();
-      showToast('✅ Flip deleted', 'success');
-    } else {
-      showToast('❌ Failed to delete flip', 'error');
-    }
-  } catch (error) {
-    console.error('Error deleting flip:', error);
-    showToast('❌ Failed to delete flip', 'error');
-  }
 }
 
 // Whitelist/Blacklist Editor
@@ -3244,7 +3265,7 @@ function openFlipListEditor(accountIndex, flipIndex, listType) {
   const flip = account.flipConfigs[flipIndex];
   if (!flip) return;
   
-  const list = listType === 'whitelist' ? flip.whitelist || [] : flip.blacklistContaining || [];
+  const list = listType === 'whitelist' ? flip.whitelist : flip.blacklistContaining;
   const title = listType === 'whitelist' ? 'Whitelist Items' : 'Blacklist Items';
   const color = listType === 'whitelist' ? '#00ff88' : '#fbbf24';
   
@@ -3466,6 +3487,7 @@ function updateActiveHoursSlider(accountIndex, value) {
     slider.style.setProperty('--slider-progress', `${percent}%`);
   }
 }
+
 
 
 
