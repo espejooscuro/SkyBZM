@@ -98,16 +98,41 @@ function showError(message) {
 }
 
 function formatNumber(num) {
+  if (num === undefined || num === null) return '0';
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toLocaleString('en-US');
 }
 
 function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Get item image URL from Minecraft assets
+function getItemImageUrl(item) {
+  if (!item || !item.tag) {
+    return 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
+  }
+  
+  // Convert tag to lowercase and replace : with /
+  const itemPath = item.tag.toLowerCase().replace(':', '/');
+  return `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/${itemPath}.png`;
+}
+
+// Update slider value display
+function updateSliderValue(slider, targetId, suffix = '') {
+  const target = document.getElementById(targetId);
+  if (target) {
+    const value = slider.value;
+    target.textContent = value + suffix;
+  }
 }
 
 function formatTimeAgo(timestamp) {
@@ -126,12 +151,23 @@ function formatTimeAgo(timestamp) {
 // ==================== DATA LOADING ====================
 async function loadSkyblockItems() {
   try {
+    console.log('🔄 Loading Skyblock items from Hypixel API...');
     const res = await fetch('https://api.hypixel.net/resources/skyblock/items');
+    
+    if (!res.ok) {
+      throw new Error(`API returned status ${res.status}`);
+    }
+    
     const data = await res.json();
     skyblockItems = data.items || [];
     console.log(`✅ Loaded ${skyblockItems.length} Skyblock items`);
+    
+    if (skyblockItems.length === 0) {
+      console.warn('⚠️ No items loaded from API');
+    }
   } catch (error) {
-    console.error('Error loading Skyblock items:', error);
+    console.error('❌ Error loading Skyblock items:', error);
+    showToast('Failed to load Skyblock items', 'error');
   }
 }
 
@@ -304,132 +340,131 @@ function renderBotConfigSection(account, index) {
   const dailyRestHours = 24 - (restSchedule.dailyRest.workHours || 16);
   
   return `
-    <div class="config-section collapsible">
-      <div class="config-section-header" onclick="toggleConfigSection(this)">
-        <h3>⚙ General Config</h3>
-        <span class="config-expand">▼</span>
-      </div>
-      <div class="config-section-content">
-        <div class="bot-config-grid">
-          <!-- Auto-Start -->
-          <div class="bot-config-row">
-            <div class="bot-config-title">Auto-Start Bot</div>
-            <div class="bot-config-control">
-              <label class="switch">
-                <input type="checkbox" ${account.autoStart ? 'checked' : ''} 
-                  onchange="updateConfig(${index}, 'autoStart', this.checked)">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-            <div class="bot-config-description">Automatically start bot when loaded</div>
-          </div>
-
-          <!-- Discord Webhook -->
-          <div class="bot-config-row">
-            <div class="bot-config-title">Discord Webhook</div>
-            <div class="bot-config-control">
-              <input type="text" class="config-input" 
-                placeholder="https://discord.com/api/webhooks/..." 
-                value="${account.discordWebhook || ''}"
-                onchange="updateConfig(${index}, 'discordWebhook', this.value.trim())"/>
-            </div>
-            <div class="bot-config-description">Discord webhook for flip notifications</div>
-          </div>
-
-          <!-- Short Breaks Enable -->
-          <div class="bot-config-row">
-            <div class="bot-config-title">Short Breaks</div>
-            <div class="bot-config-control">
-              <label class="switch">
-                <input type="checkbox" ${restSchedule.shortBreaks.enabled ? 'checked' : ''}
-                  onchange="updateRestSchedule(${index}, 'shortBreaks.enabled', this.checked)">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-            <div class="bot-config-description">Take short breaks between work periods</div>
-          </div>
-
-          <!-- Work Duration - Nested -->
-          <div class="bot-config-row nested-config" id="work-duration-${index}" style="display: ${restSchedule.shortBreaks.enabled ? 'grid' : 'none'}">
-            <div class="bot-config-title">Work Time</div>
-            <div class="bot-config-control">
-              <div class="slider-container">
-                <input type="range" class="slider colored-slider" data-color="#8b5cf6" 
-                  min="5" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
-                  oninput="updateSliderValue(this, 'work-time-${index}', ' min')"
-                  onchange="updateRestSchedule(${index}, 'shortBreaks.workDuration', parseInt(this.value))"/>
-                <div class="slider-value-card" id="work-time-${index}" style="--slider-color: #8b5cf6">${restSchedule.shortBreaks.workDuration} min</div>
-                <div class="slider-labels">
-                  <span>5 min</span>
-                  <span>120 min</span>
+    <div class="config-section-wrapper" style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+      <!-- Bot Parameters -->
+      <div class="config-section collapsible">
+        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
+          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
+            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
+              <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.32-.61-.32l-2.21 0c-.12 0-.49.18-.5 2v14c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/>
+            </svg>
+            Bot Configuration
+          </h3>
+          <span class="config-expand">▼</span>
+        </div>
+        <div class="config-section-content" style="display: block;">
+          <div style="padding: 20px 0;">
+            <!-- Short Breaks -->
+            <div style="margin-bottom: 24px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(12, 24, 42, 0.4); border: 1px solid rgba(129, 62, 242, 0.15); border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                  </svg>
+                  <div>
+                    <div style="font-size: 14px; font-weight: 600; color: #fff;">Short Breaks</div>
+                    <div style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">Take breaks during work sessions</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" ${restSchedule.shortBreaks.enabled ? 'checked' : ''} 
+                    onchange="toggleBotOption(${index}, 'shortBreaks', this.checked); updateConfig(${index}, 'restSchedule.shortBreaks.enabled', this.checked)">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-content ${restSchedule.shortBreaks.enabled ? 'active' : ''}" id="shortBreaks-${index}">
+                <div class="config-sliders-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div class="slider-card">
+                    <div class="slider-card-header">
+                      <span class="slider-label">Work Duration</span>
+                      <span class="slider-current-value" id="bot-work-duration-${index}">${restSchedule.shortBreaks.workDuration} min</span>
+                    </div>
+                    <div class="slider-track-wrapper">
+                      <input type="range" class="modern-slider" style="--slider-color: #9b6ff7;"
+                        min="10" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
+                        oninput="updateSliderValue(this, 'bot-work-duration-${index}', ' min')"
+                        onchange="updateConfig(${index}, 'restSchedule.shortBreaks.workDuration', parseInt(this.value))"/>
+                      <div class="slider-range-labels">
+                        <span>10 min</span>
+                        <span>120 min</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="slider-card">
+                    <div class="slider-card-header">
+                      <span class="slider-label">Break Duration</span>
+                      <span class="slider-current-value" id="bot-break-duration-${index}">${restSchedule.shortBreaks.breakDuration} min</span>
+                    </div>
+                    <div class="slider-track-wrapper">
+                      <input type="range" class="modern-slider" style="--slider-color: #8b5cf6;"
+                        min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
+                        oninput="updateSliderValue(this, 'bot-break-duration-${index}', ' min')"
+                        onchange="updateConfig(${index}, 'restSchedule.shortBreaks.breakDuration', parseInt(this.value))"/>
+                      <div class="slider-range-labels">
+                        <span>1 min</span>
+                        <span>30 min</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="bot-config-description">Time the bot actively flips before break</div>
-          </div>
 
-          <!-- Break Duration - Nested -->
-          <div class="bot-config-row nested-config" id="break-duration-${index}" style="display: ${restSchedule.shortBreaks.enabled ? 'grid' : 'none'}">
-            <div class="bot-config-title">Break Time</div>
-            <div class="bot-config-control">
-              <div class="slider-container">
-                <input type="range" class="slider colored-slider" data-color="#7c3aed" 
-                  min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
-                  oninput="updateSliderValue(this, 'break-time-${index}', ' min')"
-                  onchange="updateRestSchedule(${index}, 'shortBreaks.breakDuration', parseInt(this.value))"/>
-                <div class="slider-value-card" id="break-time-${index}" style="--slider-color: #7c3aed">${restSchedule.shortBreaks.breakDuration} min</div>
-                <div class="slider-labels">
-                  <span>1 min</span>
-                  <span>30 min</span>
+            <!-- Daily Rest -->
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(12, 24, 42, 0.4); border: 1px solid rgba(129, 62, 242, 0.15); border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+                    <path d="M17 10H7v2h10v-2zm2-7h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-5-5H7v2h7v-2z"/>
+                  </svg>
+                  <div>
+                    <div style="font-size: 14px; font-weight: 600; color: #fff;">Daily Rest</div>
+                    <div style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">Set maximum work hours per day</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" ${restSchedule.dailyRest.enabled ? 'checked' : ''} 
+                    onchange="toggleBotOption(${index}, 'dailyRest', this.checked); updateConfig(${index}, 'restSchedule.dailyRest.enabled', this.checked)">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-content ${restSchedule.dailyRest.enabled ? 'active' : ''}" id="dailyRest-${index}">
+                <div class="slider-card">
+                  <div class="slider-card-header">
+                    <span class="slider-label">Work Hours per Day</span>
+                    <span class="slider-current-value" id="bot-work-hours-${index}">${restSchedule.dailyRest.workHours}h work, ${dailyRestHours}h rest</span>
+                  </div>
+                  <div class="slider-track-wrapper">
+                    <input type="range" class="modern-slider" style="--slider-color: #7c3aed;"
+                      min="1" max="23" step="1" value="${restSchedule.dailyRest.workHours}"
+                      oninput="updateSliderValue(this, 'bot-work-hours-${index}', 'h work, ' + (24 - this.value) + 'h rest')"
+                      onchange="updateConfig(${index}, 'restSchedule.dailyRest.workHours', parseInt(this.value))"/>
+                    <div class="slider-range-labels">
+                      <span>1 hour</span>
+                      <span>23 hours</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="bot-config-description">Duration of rest period between work</div>
-          </div>
-
-          <!-- Daily Rest Enable -->
-          <div class="bot-config-row">
-            <div class="bot-config-title">Daily Rest Period</div>
-            <div class="bot-config-control">
-              <label class="switch">
-                <input type="checkbox" ${restSchedule.dailyRest.enabled ? 'checked' : ''}
-                  onchange="updateRestSchedule(${index}, 'dailyRest.enabled', this.checked)">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-            <div class="bot-config-description">Enable daily rest period to avoid detection</div>
-          </div>
-
-          <!-- Active Hours (Green to Red gradient) - Nested -->
-          <div class="bot-config-row nested-config" id="active-hours-${index}" style="display: ${restSchedule.dailyRest.enabled ? 'grid' : 'none'}">
-            <div class="bot-config-title">Active Hours per Day</div>
-            <div class="bot-config-control">
-              <div class="slider-container">
-                <input type="range" class="slider gradient-slider-green-red" 
-                  id="active-hours-slider-${index}"
-                  min="1" max="23" step="1" value="${restSchedule.dailyRest.workHours}"
-                  oninput="updateActiveHoursSlider(${index}, this.value)"
-                  onchange="updateRestSchedule(${index}, 'dailyRest.workHours', parseInt(this.value))"/>
-                <div class="slider-value-card" id="active-hours-value-${index}">${restSchedule.dailyRest.workHours}h</div>
-                <div class="slider-labels">
-                  <span>1h</span>
-                  <span>23h</span>
-                </div>
-              </div>
-            </div>
-            <div class="bot-config-description">Hours active per day (rest: ${24 - restSchedule.dailyRest.workHours}h). Lower is safer.</div>
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="config-section collapsible">
-      <div class="config-section-header" onclick="toggleConfigSection(this)">
-        <h3>⊡ Proxy Config</h3>
-        <span class="config-expand">▼</span>
-      </div>
-      <div class="config-section-content">
-        ${renderProxyConfig(account.proxy || {}, index)}
+      
+      <!-- Action Buttons -->
+      <div class="config-actions" style="display: flex; gap: 12px; margin-top: 12px;">
+        <button class="btn btn-danger" onclick="stopBot(${index})" style="flex: 1; background: rgba(239, 68, 68, 0.15); border: 1.5px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          Stop Bot
+        </button>
+        <button class="btn btn-primary" onclick="restartBot(${index})" style="flex: 1; background: rgba(129, 62, 242, 0.2); border: 1.5px solid rgba(129, 62, 242, 0.5); color: #9b6ff7; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-2zm0 16H5V8h14v11zm-5-5H7v2h7v-2z"/>
+          </svg>
+          Restart Bot
+        </button>
       </div>
     </div>
   `;
@@ -445,143 +480,478 @@ function renderFlipperConfigSection(account, index) {
         <div class="add-flip-icon">+</div>
         <div class="add-flip-text">Add Flip</div>
       </div>
-      ${flips.map((flip, flipIndex) => renderFlipCard(account, accountIndex, flip, flipIndex)).join('')}
+      ${flips.map((flip, flipIndex) => renderFlipCard(account, index, flip, flipIndex)).join('')}
     </div>
   `;
 }
 
-function renderProxyConfig(proxy, index) {
-  if (!proxy) return '<div class="config-item"><div class="config-value">No proxy configured</div></div>';
-
+function renderFlipCard(account, accountIndex, flip, flipIndex) {
+  const flipType = flip.type || 'SELL_ORDER';
+  const isDevelopment = flipType !== 'SELL_ORDER';
+  
+  const typeColors = {
+    'SELL_ORDER': '#00ff88',
+    'KAT': '#fbbf24',
+    'FORGE': '#ef4444',
+    'NPC': '#3b82f6',
+    'CRAFT': '#a855f7'
+  };
+  
+  const typeLabels = {
+    'SELL_ORDER': 'Sell Order',
+    'KAT': 'Kat Flip',
+    'FORGE': 'Forge Flip',
+    'NPC': 'NPC Flip',
+    'CRAFT': 'Craft Flip'
+  };
+  
+  const typeIcons = {
+    'SELL_ORDER': `<svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-2.44.85-2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>`,
+    'KAT': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`,
+    'FORGE': `<svg viewBox="0 0 24 24"><path d="M12.5 6.9c1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>`,
+    'NPC': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
+    'CRAFT': `<svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>`
+  };
+  
+  const color = typeColors[flipType] || '#888';
+  const label = typeLabels[flipType] || flipType;
+  const icon = typeIcons[flipType] || typeIcons['SELL_ORDER'];
+  
+  const whitelistCount = flip.whitelist?.length || 0;
+  const blacklistCount = flip.blacklistContaining?.length || 0;
+  const maxFlips = flip.maxFlips || 0;
+  const budget = flip.budget || 0;
+  
   return `
-    <div class="config-grid">
-      <div class="config-item">
-        <label class="config-label">Host</label>
-        <input type="text" class="config-value editable" value="${escapeHtml(proxy.host)}"
-          onchange="updateConfig(${index}, 'proxy.host', this.value)"/>
+    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
+      <div class="flip-card-header">
+        <div class="flip-card-title">
+          <div class="flip-type-icon">${icon}</div>
+          <h3>${label}</h3>
+        </div>
+        <div class="flip-type-badge" style="background: ${color}; color: #000;">
+          ${isDevelopment ? 'DEV' : 'ACTIVE'}
+        </div>
       </div>
-      <div class="config-item">
-        <label class="config-label">Port</label>
-        <input type="number" class="config-value editable" value="${proxy.port}"
-          onchange="updateConfig(${index}, 'proxy.port', parseInt(this.value))"/>
+      
+      <div class="flip-card-body">
+        <div class="flip-stat">
+          <span class="flip-stat-label">Whitelist</span>
+          <span class="flip-stat-value positive">${whitelistCount}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Blacklist</span>
+          <span class="flip-stat-value warning">${blacklistCount}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Max Flips</span>
+          <span class="flip-stat-value">${maxFlips}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Budget</span>
+          <span class="flip-stat-value">${formatNumber(budget)}</span>
+        </div>
       </div>
-      <div class="config-item">
-        <label class="config-label">Type</label>
-        <div class="config-value">SOCKS${proxy.type}</div>
+      
+      <div class="flip-card-footer">
+        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
+          <div class="list-btn-icon">
+            <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </div>
+          <div class="list-btn-content">
+            <div class="list-btn-label">Whitelist</div>
+            <div class="list-btn-count">${whitelistCount} items</div>
+          </div>
+        </button>
+        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklistContaining')">
+          <div class="list-btn-icon">
+            <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
+              <path d="M19 13H5v-2h14v2z"/>
+            </svg>
+          </div>
+          <div class="list-btn-content">
+            <div class="list-btn-label">Blacklist</div>
+            <div class="list-btn-count">${blacklistCount} items</div>
+          </div>
+        </button>
       </div>
-      ${proxy.username ? `
-      <div class="config-item">
-        <label class="config-label">Username</label>
-        <input type="text" class="config-value editable" value="${escapeHtml(proxy.username)}"
-          onchange="updateConfig(${index}, 'proxy.username', this.value)"/>
-      </div>` : ''}
     </div>
   `;
 }
 
-function renderFlipConfig(flips, index) {
+// Add Flip Modal
+function openAddFlipModal(accountIndex) {
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'add-flip-modal';
+  
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <h2 class="flip-modal-title">
+          <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: #9b6ff7;">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Add New Flip
+        </h2>
+        <button class="flip-modal-close" onclick="closeAddFlipModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flip-modal-body">
+        <div class="flip-type-selector">
+          <div class="flip-type-option ${true ? 'selected' : ''}" onclick="selectNewFlipType(${accountIndex}, 'SELL_ORDER')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-2.44.85-2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Sell Order</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'KAT')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Kat Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'FORGE')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12.5 6.9c1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Forge Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'NPC')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            </div>
+            <div class="flip-type-option-label">NPC Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'CRAFT')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Craft Flip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+}
+
+function closeAddFlipModal() {
+  const modal = document.getElementById('add-flip-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+async function selectNewFlipType(accountIndex, flipType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+  
+  if (!account.flipConfigs) account.flipConfigs = [];
+  
+  const newFlip = {
+    type: flipType,
+    enabled: true,
+    maxFlips: 5,
+    budget: 10000000,
+    minProfit: 100000,
+    whitelist: [],
+    blacklistContaining: []
+  };
+  
+  account.flipConfigs.push(newFlip);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      closeAddFlipModal();
+      showToast('✅ Flip created successfully', 'success');
+    } else {
+      showToast('❌ Failed to create flip', 'error');
+    }
+  } catch (error) {
+    console.error('Error creating flip:', error);
+    showToast('❌ Failed to create flip', 'error');
+  }
+}
+
+// Edit Flip Modal
+function openFlipEditModal(accountIndex, flipIndex) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const flipType = flip.type || 'SELL_ORDER';
+  const isDevelopment = flipType !== 'SELL_ORDER';
+  
+  if (isDevelopment) {
+    showToast('⚠️ This flip type is under development', 'info');
+    return;
+  }
+  
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'edit-flip-modal';
+  
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <div style="flex: 1;">
+          <h2 class="flip-modal-title">Configure Flip</h2>
+          <p style="color: rgba(255, 255, 255, 0.5); font-size: 13px; margin: 4px 0 0 0;">${flipType.replace('_', ' ')}</p>
+        </div>
+        <button class="flip-modal-close" onclick="closeFlipEditModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flip-modal-body">
+        <div style="padding: 24px 32px;">
+          <!-- Enable Toggle at Top -->
+          <div class="flip-enable-section">
+            <div class="flip-enable-info">
+              <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;">
+                <path d="M17,7H7A5,5 0 0,0 2,12A5,5 0 0,0 7,17H17A5,5 0 0,0 22,12A5,5 0 0,0 17,7M17,15A3,3 0 0,1 14,12A3,3 0 0,1 17,9A3,3 0 0,1 20,12A3,3 0 0,1 17,15Z"/>
+              </svg>
+              <div>
+                <span class="flip-enable-label">Flip Status</span>
+                <span class="flip-enable-desc">Enable or disable this flip configuration</span>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" ${flip.enabled ? 'checked' : ''} 
+                onchange="updateConfig(${accountIndex}, 'flipConfigs.${flipIndex}.enabled', this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          ${renderFlipConfigFields(flip, accountIndex, flipIndex)}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFlipEditModal();
+  });
+}
+
+function closeFlipEditModal() {
+  const modal = document.getElementById('edit-flip-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function renderFlipConfigFields(flip, accountIndex, flipIndex) {
+  const whitelistCount = flip.whitelist?.length || 0;
+  const blacklistCount = flip.blacklistContaining?.length || 0;
+  
   const configs = [
-    { key: 'maxBuyPrice', label: 'Max Buy Price', min: 100000, max: 50000000, step: 100000, unit: ' coins', minLabel: '100K', maxLabel: '50M', color: '#b19cd9' },
-    { key: 'minProfit', label: 'Min Profit', min: 1000, max: 1000000, step: 1000, unit: ' coins', minLabel: '1K', maxLabel: '1M', color: '#a78bfa' },
-    { key: 'minVolume', label: 'Min Volume', min: 1, max: 100000, step: 1, unit: ' sales/day', minLabel: '1', maxLabel: '100K', color: '#9b6ff7' },
-    { key: 'maxFlips', label: 'Max Flips', min: 1, max: 20, step: 1, unit: '', minLabel: '1', maxLabel: '20', color: '#8b5cf6' },
-    { key: 'maxRelist', label: 'Max Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#7c3aed' },
-    { key: 'maxBuyRelist', label: 'Max Buy Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#6d28d9' },
-    { key: 'minOrder', label: 'Min Order', min: 1, max: 1000, step: 1, unit: ' items', minLabel: '1', maxLabel: '1K', color: '#5b21b6' },
-    { key: 'maxOrder', label: 'Max Order', min: 10, max: 10000, step: 10, unit: ' items', minLabel: '10', maxLabel: '10K', color: '#4c1d95' },
-    { key: 'minSpread', label: 'Min Spread', min: 0, max: 100, step: 1, unit: '%', minLabel: '0%', maxLabel: '100%', color: '#3b0764' }
+    { key: 'maxBuyPrice', label: 'Max Buy Price', min: 100000, max: 50000000, step: 100000, unit: ' coins', minLabel: '100K', maxLabel: '50M', color: '#9b6ff7', value: flip.maxBuyPrice || 0 },
+    { key: 'minProfit', label: 'Min Profit', min: 1000, max: 1000000, step: 1000, unit: ' coins', minLabel: '1K', maxLabel: '1M', color: '#8b5cf6', value: flip.minProfit || 0 },
+    { key: 'minVolume', label: 'Min Volume', min: 1, max: 100000, step: 1, unit: ' sales/day', minLabel: '1', maxLabel: '100K', color: '#7c3aed', value: flip.minVolume || 0 },
+    { key: 'maxFlips', label: 'Max Flips', min: 1, max: 20, step: 1, unit: '', minLabel: '1', maxLabel: '20', color: '#6d28d9', value: flip.maxFlips || 0 },
+    { key: 'maxRelist', label: 'Max Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#5b21b6', value: flip.maxRelist || 0 },
+    { key: 'maxBuyRelist', label: 'Max Buy Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#4c1d95', value: flip.maxBuyRelist || 0 },
+    { key: 'minOrder', label: 'Min Order', min: 1, max: 1000, step: 1, unit: ' items', minLabel: '1', maxLabel: '1K', color: '#813ef2', value: flip.minOrder || 0 },
+    { key: 'maxOrder', label: 'Max Order', min: 10, max: 10000, step: 10, unit: ' items', minLabel: '10', maxLabel: '10K', color: '#9b6ff7', value: flip.maxOrder || 0 },
+    { key: 'minSpread', label: 'Min Spread', min: 0, max: 100, step: 1, unit: '%', minLabel: '0%', maxLabel: '100%', color: '#a78bfa', value: flip.minSpread || 0 }
   ];
-
+  
   return `
-    <div class="config-grid">
-      ${configs.map(cfg => {
-        const value = flips[cfg.key] || (cfg.key === 'maxBuyRelist' ? 3 : 0);
-        return `
-          <div class="config-item">
-            <label class="config-label">${cfg.label}</label>
-            <div class="slider-container">
-              <input type="range" class="slider colored-slider" data-color="${cfg.color}" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${value}"
-                oninput="updateSliderValue(this, 'flip-${cfg.key}-${index}')"
-                onchange="updateConfig(${index}, 'flips.${cfg.key}', parseInt(this.value))"/>
-              <div class="slider-value-card" id="flip-${cfg.key}-${index}" style="--slider-color: ${cfg.color}">${formatNumber(value)}${cfg.unit}</div>
-              <div class="slider-labels">
+    <!-- Configuration Parameters -->
+    <div class="config-params-section">
+      <div class="section-title-bar">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+          <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.32-.61-.32l-2.21 0c-.12 0-.49.18-.5 2v14c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/>
+        </svg>
+        <span>Flip Parameters</span>
+      </div>
+      <div class="config-sliders-grid">
+        ${configs.map(cfg => `
+          <div class="slider-card">
+            <div class="slider-card-header">
+              <span class="slider-label">${cfg.label}</span>
+              <span class="slider-current-value" id="flip-${cfg.key}-${accountIndex}-${flipIndex}">${formatNumber(cfg.value)}${cfg.unit}</span>
+            </div>
+            <div class="slider-track-wrapper">
+              <input type="range" class="modern-slider" 
+                style="--slider-color: ${cfg.color};"
+                min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}"
+                oninput="updateSliderValue(this, 'flip-${cfg.key}-${accountIndex}-${flipIndex}', '${cfg.unit}')"
+                onchange="updateConfig(${accountIndex}, 'flipConfigs.${flipIndex}.${cfg.key}', parseInt(this.value))"/>
+              <div class="slider-range-labels">
                 <span>${cfg.minLabel}</span>
                 <span>${cfg.maxLabel}</span>
               </div>
             </div>
           </div>
-        `;
-      }).join('')}
+        `).join('')}
+      </div>
+    </div>
+      
+    <!-- Whitelist & Blacklist -->
+    <div class="config-params-section" style="margin-top: 32px;">
+      <div class="section-title-bar">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <span>Item Filters</span>
+      </div>
+      <div class="list-buttons-container">
+        <button class="modern-list-btn whitelist-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
+          <div class="list-btn-content">
+            <svg viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            <div class="list-btn-text">
+              <span class="list-btn-title">Whitelist</span>
+              <span class="list-btn-count">${whitelistCount} items</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" class="list-btn-arrow">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </button>
+        
+        <button class="modern-list-btn blacklist-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklistContaining')">
+          <div class="list-btn-content">
+            <svg viewBox="0 0 24 24">
+              <path d="M19 13H5v-2h14v2z"/>
+            </svg>
+            <div class="list-btn-text">
+              <span class="list-btn-title">Blacklist</span>
+              <span class="list-btn-count">${blacklistCount} items</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" class="list-btn-arrow">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="config-actions" style="margin-top: 32px;">
+      <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+        Delete Flip
+      </button>
+      <button class="btn btn-primary" onclick="closeFlipEditModal()">
+        <svg viewBox="0 0 24 24">
+          <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+        </svg>
+        Save Changes
+      </button>
     </div>
   `;
 }
 
-function updateSliderValue(slider, elementId, unit = '') {
-  const valueEl = document.getElementById(elementId);
-  if (!valueEl) return;
+// Whitelist/Blacklist Editor
+function openFlipListEditor(accountIndex, flipIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
   
-  const value = parseInt(slider.value);
-  const min = parseInt(slider.min);
-  const max = parseInt(slider.max);
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
   
-  // Calculate progress percentage
-  const progress = ((value - min) / (max - min)) * 100;
-  slider.style.setProperty('--slider-progress', `${progress}%`);
+  const list = listType === 'whitelist' ? flip.whitelist : flip.blacklistContaining;
+  const title = listType === 'whitelist' ? 'Whitelist Items' : 'Blacklist Items';
+  const color = listType === 'whitelist' ? '#00ff88' : '#fbbf24';
   
-  // Update color if the slider has a data-color attribute
-  const color = slider.getAttribute('data-color');
-  if (color) {
-    slider.style.setProperty('--slider-color', color);
-  }
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'flip-list-editor-modal';
   
-  // If unit is explicitly provided, use it
-  if (unit) {
-    valueEl.textContent = formatNumber(value) + unit;
-    return;
-  }
-  
-  // Otherwise, determine unit based on element ID
-  if (elementId.includes('maxBuyPrice') || elementId.includes('minProfit')) {
-    valueEl.textContent = formatNumber(value) + ' coins';
-  } else if (elementId.includes('minVolume')) {
-    valueEl.textContent = formatNumber(value) + ' sales/day';
-  } else if (elementId.includes('minOrder') || elementId.includes('maxOrder')) {
-    valueEl.textContent = formatNumber(value) + ' items';
-  } else if (elementId.includes('minSpread')) {
-    valueEl.textContent = value + '%';
-  } else if (elementId.includes('work') || elementId.includes('break')) {
-    valueEl.textContent = value + ' min';
-  } else if (elementId.includes('daily')) {
-    valueEl.textContent = value + 'h';
-  } else {
-    valueEl.textContent = formatNumber(value);
-  }
-}
-
-function renderListEditor(flips, index, listType) {
-  const list = listType === 'whitelist' ? (flips.whitelist || []) : (flips.blacklistContaining || []);
-  
-  return `
-    <div class="item-editor">
-      <div class="search-container">
-        <input type="text" class="item-search" id="${listType}-search-${index}"
-          placeholder="Search items..." oninput="searchItems(${index}, '${listType}', this.value)" autocomplete="off"/>
-        <div class="search-results" id="${listType}-results-${index}"></div>
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <h2 class="flip-modal-title" style="color: ${color};">${title}</h2>
+        <button class="flip-modal-close" onclick="closeFlipListEditor()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
       </div>
-      <div class="items-grid" id="${listType}-items-${index}">
-        ${list.map(itemId => renderItemCard(itemId, index, listType)).join('')}
+      <div class="flip-modal-body">
+        <div class="flip-list-editor" style="padding: 32px;">
+          <div class="search-section" style="margin-bottom: 24px; position: relative;">
+            <input 
+              type="text" 
+              class="config-input" 
+              placeholder="Search items..."
+              id="flip-${listType}-search-${accountIndex}-${flipIndex}"
+              oninput="searchFlipItems(${accountIndex}, ${flipIndex}, '${listType}', this.value)"
+              style="width: 100%;"
+            />
+            <div class="flip-search-results" id="flip-${listType}-results-${accountIndex}-${flipIndex}"></div>
+          </div>
+          <div class="items-grid" id="flip-${listType}-items-${accountIndex}-${flipIndex}">
+            ${list.map(itemId => renderFlipItemCard(itemId, accountIndex, flipIndex, listType)).join('')}
+          </div>
+        </div>
       </div>
     </div>
   `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFlipListEditor();
+  });
 }
 
-// ==================== ITEMS ====================
-function renderItemCard(itemId, accountIndex, listType, isModal = false) {
+function closeFlipListEditor() {
+  const modal = document.getElementById('flip-list-editor-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function renderFlipItemCard(itemId, accountIndex, flipIndex, listType) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
-  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
-  
-  const removeFunction = isModal ? 'removeItemModal' : 'removeItem';
+  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png';
   
   return `
     <div class="item-card ${listType}">
@@ -591,47 +961,13 @@ function renderItemCard(itemId, accountIndex, listType, isModal = false) {
         <div class="item-name">${escapeHtml(itemName)}</div>
         <div class="item-id">${escapeHtml(itemId)}</div>
       </div>
-      <button class="item-remove" onclick="${removeFunction}(${accountIndex}, '${listType}', '${escapeHtml(itemId)}')">×</button>
+      <button class="item-remove" onclick="removeFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(itemId)}')">×</button>
     </div>
   `;
 }
 
-function getItemImageUrl(item) {
-  if (!item) return 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/barrier.png';
-  
-  if (item.skin && item.skin.value) {
-    try {
-      const decoded = atob(item.skin.value);
-      const skinData = JSON.parse(decoded);
-      if (skinData.textures && skinData.textures.SKIN && skinData.textures.SKIN.url) {
-        const textureHash = skinData.textures.SKIN.url.split('/').pop();
-        return `https://mc-heads.net/head/${textureHash}/32`;
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to decode skin data:', error);
-    }
-  }
-  
-  let material = (item.material || 'STONE').toLowerCase();
-  
-  const materialMap = {
-    'wood_hoe': 'wooden_hoe', 'wood_sword': 'wooden_sword', 'wood_axe': 'wooden_axe',
-    'gold_hoe': 'golden_hoe', 'gold_sword': 'golden_sword', 'gold_axe': 'golden_axe',
-    'gold_helmet': 'golden_helmet', 'gold_chestplate': 'golden_chestplate',
-    'skull_item': 'player_head'
-  };
-  
-  material = materialMap[material] || material;
-  
-  const blockMaterials = ['stone', 'cobblestone', 'dirt', 'grass_block', 'sand', 'gravel', 'glass', 
-    'coal_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'obsidian', 'tnt', 'chest'];
-  const textureType = blockMaterials.includes(material) ? 'block' : 'item';
-  
-  return `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/${textureType}/${material}.png`;
-}
-
-function searchItems(accountIndex, listType, query) {
-  const resultsDiv = document.getElementById(`${listType}-results-${accountIndex}`);
+function searchFlipItems(accountIndex, flipIndex, listType, query) {
+  const resultsDiv = document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`);
   
   if (!query || query.length < 2) {
     resultsDiv.innerHTML = '';
@@ -639,10 +975,14 @@ function searchItems(accountIndex, listType, query) {
     return;
   }
 
+  console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
+
   const lowerQuery = query.toLowerCase();
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
     .slice(0, 10);
+
+  console.log(`📋 Found ${matches.length} matches`);
 
   if (matches.length === 0) {
     resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
@@ -651,7 +991,7 @@ function searchItems(accountIndex, listType, query) {
   }
 
   resultsDiv.innerHTML = matches.map(item => `
-    <div class="search-result-item" onclick="addItemToList(${accountIndex}, '${listType}', '${escapeHtml(item.id)}')">
+    <div class="search-result-item" onclick="addFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(item.id)}')">
       <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
         onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
       <div class="result-info">
@@ -664,118 +1004,106 @@ function searchItems(accountIndex, listType, query) {
   resultsDiv.style.display = 'block';
 }
 
-async function addItemToList(accountIndex, listType, itemId) {
+async function addFlipItem(accountIndex, flipIndex, listType, itemId) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const list = listType === 'whitelist' ? 'whitelist' : 'blacklistContaining';
+  if (!flip[list]) flip[list] = [];
+  
+  if (flip[list].includes(itemId)) {
+    showToast('Item already in list', 'info');
+    return;
+  }
+  
+  flip[list].push(itemId);
+  
   try {
-    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
-    showToast(`Adding to ${listType}...`, 'info');
-    
-    const res = await fetch(`/api/account/${accountIndex}/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-password': password },
-      body: JSON.stringify({ itemId })
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
     });
-    const data = await res.json();
     
-    if (data.success) {
-      document.getElementById(`${listType}-search-${accountIndex}`).value = '';
-      document.getElementById(`${listType}-results-${accountIndex}`).innerHTML = '';
-      document.getElementById(`${listType}-results-${accountIndex}`).style.display = 'none';
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
       
-      const itemsContainer = document.getElementById(`${listType}-items-${accountIndex}`);
-      itemsContainer.innerHTML += renderItemCard(itemId, accountIndex, listType);
+      document.getElementById(`flip-${listType}-search-${accountIndex}-${flipIndex}`).value = '';
+      document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`).innerHTML = '';
+      document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`).style.display = 'none';
       
-      showToast(`✅ Item added to ${listType}`, 'success');
+      const itemsContainer = document.getElementById(`flip-${listType}-items-${accountIndex}-${flipIndex}`);
+      if (itemsContainer) {
+        itemsContainer.innerHTML += renderFlipItemCard(itemId, accountIndex, flipIndex, listType);
+      }
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Item added', 'success');
     } else {
-      showToast(`❌ ${data.error || 'Error adding item'}`, 'error');
+      showToast('❌ Failed to add item', 'error');
     }
   } catch (error) {
     console.error('Error adding item:', error);
-    showToast(`❌ Failed to add item: ${error.message}`, 'error');
+    showToast('❌ Failed to add item', 'error');
   }
 }
 
-async function removeItem(accountIndex, listType, itemId) {
+async function removeFlipItem(accountIndex, flipIndex, listType, itemId) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const list = listType === 'whitelist' ? 'whitelist' : 'blacklistContaining';
+  if (!flip[list]) return;
+  
+  flip[list] = flip[list].filter(id => id !== itemId);
+  
   try {
-    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
-    showToast(`Removing from ${listType}...`, 'info');
-    
-    const res = await fetch(`/api/account/${accountIndex}/${endpoint}/${encodeURIComponent(itemId)}`, {
-      method: 'DELETE',
-      headers: { 'x-password': password }
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
     });
-    const data = await res.json();
     
-    if (data.success) {
-      const itemsContainer = document.getElementById(`${listType}-items-${accountIndex}`);
-      itemsContainer.innerHTML = data[endpoint].map(id => renderItemCard(id, accountIndex, listType)).join('');
-      showToast(`✅ Item removed from ${listType}`, 'success');
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const itemsContainer = document.getElementById(`flip-${listType}-items-${accountIndex}-${flipIndex}`);
+      if (itemsContainer) {
+        itemsContainer.innerHTML = updated.flipConfigs[flipIndex][list].map(id => 
+          renderFlipItemCard(id, accountIndex, flipIndex, listType)
+        ).join('');
+      }
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Item removed', 'success');
     } else {
-      showToast(`❌ ${data.error || 'Error removing item'}`, 'error');
+      showToast('❌ Failed to remove item', 'error');
     }
   } catch (error) {
     console.error('Error removing item:', error);
-    showToast(`❌ Failed to remove item: ${error.message}`, 'error');
-  }
-}
-
-async function addItemToListModal(accountIndex, listType, itemId) {
-  try {
-    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
-    showToast(`Adding to ${listType}...`, 'info');
-    
-    const res = await fetch(`/api/account/${accountIndex}/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-password': password },
-      body: JSON.stringify({ itemId })
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-      document.getElementById(`modal-${listType}-search-${accountIndex}`).value = '';
-      document.getElementById(`modal-${listType}-results-${accountIndex}`).innerHTML = '';
-      document.getElementById(`modal-${listType}-results-${accountIndex}`).style.display = 'none';
-      
-      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
-      itemsContainer.innerHTML += renderItemCard(itemId, accountIndex, listType, true);
-      
-      // Update button count
-      updateListButtonCount(accountIndex, listType);
-      
-      showToast(`✅ Item added to ${listType}`, 'success');
-    } else {
-      showToast(`❌ ${data.error || 'Error adding item'}`, 'error');
-    }
-  } catch (error) {
-    console.error('Error adding item:', error);
-    showToast(`❌ Failed to add item: ${error.message}`, 'error');
-  }
-}
-
-async function removeItemModal(accountIndex, listType, itemId) {
-  try {
-    const endpoint = listType === 'whitelist' ? 'whitelist' : 'blacklist';
-    showToast(`Removing from ${listType}...`, 'info');
-    
-    const res = await fetch(`/api/account/${accountIndex}/${endpoint}/${encodeURIComponent(itemId)}`, {
-      method: 'DELETE',
-      headers: { 'x-password': password }
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-      const itemsContainer = document.getElementById(`modal-${listType}-items-${accountIndex}`);
-      itemsContainer.innerHTML = data[endpoint].map(id => renderItemCard(id, accountIndex, listType, true)).join('');
-      
-      // Update button count
-      updateListButtonCount(accountIndex, listType);
-      
-      showToast(`✅ Item removed from ${listType}`, 'success');
-    } else {
-      showToast(`❌ ${data.error || 'Error removing item'}`, 'error');
-    }
-  } catch (error) {
-    console.error('Error removing item:', error);
-    showToast(`❌ Failed to remove item: ${error.message}`, 'error');
+    showToast('❌ Failed to remove item', 'error');
   }
 }
 
@@ -1480,17 +1808,18 @@ async function botControl(accountIndex, action, message) {
 // ==================== UI HELPERS ====================
 function toggleConfigSection(headerElement) {
   const section = headerElement.closest('.config-section');
-  const content = section.querySelector('.config-section-content');
-  const expandIcon = section.querySelector('.config-expand');
+  section.classList.toggle('collapsed');
+}
+
+// Toggle bot option sections with animation
+function toggleBotOption(accountIndex, optionName, enabled) {
+  const contentElement = document.getElementById(`${optionName}-${accountIndex}`);
+  if (!contentElement) return;
   
-  if (section.classList.contains('collapsed')) {
-    section.classList.remove('collapsed');
-    content.style.display = 'block';
-    expandIcon.textContent = '▼';
+  if (enabled) {
+    contentElement.classList.add('active');
   } else {
-    section.classList.add('collapsed');
-    content.style.display = 'none';
-    expandIcon.textContent = '▶';
+    contentElement.classList.remove('active');
   }
 }
 
@@ -1828,7 +2157,7 @@ function renderGeneralConfig(account, index) {
           <div class="slider-container">
             <input type="range" class="slider" min="5" max="120" step="5" value="${restSchedule.shortBreaks.workDuration}"
               oninput="updateSliderValue(this, 'work-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.workDuration', parseInt(this.value))"/>
+              onchange="updateConfig(${index}, 'restSchedule.shortBreaks.workDuration', parseInt(this.value))"/>
             <div class="slider-value" id="work-${index}">${restSchedule.shortBreaks.workDuration} min</div>
             <div class="slider-labels">
               <span>5 min</span>
@@ -1842,7 +2171,7 @@ function renderGeneralConfig(account, index) {
           <div class="slider-container">
             <input type="range" class="slider" min="1" max="30" step="1" value="${restSchedule.shortBreaks.breakDuration}"
               oninput="updateSliderValue(this, 'break-${index}', ' min')"
-              onchange="updateRestSchedule(${index}, 'shortBreaks.breakDuration', parseInt(this.value))"/>
+              onchange="updateConfig(${index}, 'restSchedule.shortBreaks.breakDuration', parseInt(this.value))"/>
             <div class="slider-value" id="break-${index}">${restSchedule.shortBreaks.breakDuration} min</div>
             <div class="slider-labels">
               <span>1 min</span>
@@ -1869,11 +2198,11 @@ function renderGeneralConfig(account, index) {
         <div class="slider-container">
           <input type="range" class="slider" min="1" max="23" step="1" value="${restSchedule.dailyRest.workHours}"
             oninput="updateSliderValue(this, 'daily-${index}', 'h')"
-            onchange="updateRestSchedule(${index}, 'dailyRest.workHours', parseInt(this.value))"/>
+            onchange="updateConfig(${index}, 'restSchedule.dailyRest.workHours', parseInt(this.value))"/>
           <div class="slider-value" id="daily-${index}">${restSchedule.dailyRest.workHours}h</div>
           <div class="slider-labels">
-            <span>1h</span>
-            <span>23h</span>
+            <span>1 hour</span>
+            <span>23 hours</span>
           </div>
         </div>
       </div>
@@ -1917,7 +2246,7 @@ function openListEditorModal(accountIndex, listType) {
           <div class="search-container">
             <input type="text" class="item-search" id="${listType}-search-${accountIndex}"
               placeholder="Search items..." oninput="searchItems(${accountIndex}, '${listType}', this.value)" autocomplete="off"/>
-            <div class="search-results" id="${listType}-results-${accountIndex}"></div>
+            <div class="flip-search-results" id="${listType}-results-${accountIndex}"></div>
           </div>
           <div class="items-grid" id="${listType}-items-${accountIndex}">
             ${list.map(itemId => renderItemCard(itemId, accountIndex, listType)).join('')}
@@ -1955,10 +2284,14 @@ function searchItems(accountIndex, listType, query) {
     return;
   }
 
+  console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
+
   const lowerQuery = query.toLowerCase();
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
     .slice(0, 10);
+
+  console.log(`📋 Found ${matches.length} matches`);
 
   if (matches.length === 0) {
     resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
@@ -2835,16 +3168,16 @@ function stopBrainPolling(accountIndex) {
 
 // ==================== MODULAR FLIP SYSTEM ====================
 
-function renderFlipperConfigSection(account, accountIndex) {
+function renderFlipperConfigSection(account, index) {
   const flips = account.flipConfigs || [];
   
   return `
     <div class="flips-container">
-      <div class="add-flip-btn" onclick="openAddFlipModal(${accountIndex})">
+      <div class="add-flip-btn" onclick="openAddFlipModal(${index})">
         <div class="add-flip-icon">+</div>
         <div class="add-flip-text">Add Flip</div>
       </div>
-      ${flips.map((flip, flipIndex) => renderFlipCard(account, accountIndex, flip, flipIndex)).join('')}
+      ${flips.map((flip, flipIndex) => renderFlipCard(account, index, flip, flipIndex)).join('')}
     </div>
   `;
 }
@@ -2870,7 +3203,7 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
   };
   
   const typeIcons = {
-    'SELL_ORDER': `<svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>`,
+    'SELL_ORDER': `<svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-2.44.85-2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>`,
     'KAT': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`,
     'FORGE': `<svg viewBox="0 0 24 24"><path d="M12.5 6.9c1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>`,
     'NPC': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
@@ -2929,7 +3262,7 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
             <div class="list-btn-count">${whitelistCount} items</div>
           </div>
         </button>
-        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklist')">
+        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklistContaining')">
           <div class="list-btn-icon">
             <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
               <path d="M19 13H5v-2h14v2z"/>
@@ -2956,7 +3289,7 @@ function openAddFlipModal(accountIndex) {
       <div class="flip-modal-header">
         <h2 class="flip-modal-title">
           <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: #9b6ff7;">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
           Add New Flip
         </h2>
@@ -2970,7 +3303,7 @@ function openAddFlipModal(accountIndex) {
         <div class="flip-type-selector">
           <div class="flip-type-option ${true ? 'selected' : ''}" onclick="selectNewFlipType(${accountIndex}, 'SELL_ORDER')">
             <div class="flip-type-option-icon">
-              <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-2.44.85-2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>
             </div>
             <div class="flip-type-option-label">Sell Order</div>
           </div>
@@ -3090,7 +3423,10 @@ function openFlipEditModal(accountIndex, flipIndex) {
   modal.innerHTML = `
     <div class="flip-modal-content">
       <div class="flip-modal-header">
-        <h2 class="flip-modal-title">Edit ${flipType.replace('_', ' ')} Flip</h2>
+        <div style="flex: 1;">
+          <h2 class="flip-modal-title">Configure Flip</h2>
+          <p style="color: rgba(255, 255, 255, 0.5); font-size: 13px; margin: 4px 0 0 0;">${flipType.replace('_', ' ')}</p>
+        </div>
         <button class="flip-modal-close" onclick="closeFlipEditModal()">
           <svg viewBox="0 0 24 24">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -3098,7 +3434,25 @@ function openFlipEditModal(accountIndex, flipIndex) {
         </button>
       </div>
       <div class="flip-modal-body">
-        <div class="config-grid" style="padding: 32px;">
+        <div style="padding: 24px 32px;">
+          <!-- Enable Toggle at Top -->
+          <div class="flip-enable-section">
+            <div class="flip-enable-info">
+              <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;">
+                <path d="M17,7H7A5,5 0 0,0 2,12A5,5 0 0,0 7,17H17A5,5 0 0,0 22,12A5,5 0 0,0 17,7M17,15A3,3 0 0,1 14,12A3,3 0 0,1 17,9A3,3 0 0,1 20,12A3,3 0 0,1 17,15Z"/>
+              </svg>
+              <div>
+                <span class="flip-enable-label">Flip Status</span>
+                <span class="flip-enable-desc">Enable or disable this flip configuration</span>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" ${flip.enabled ? 'checked' : ''} 
+                onchange="updateConfig(${accountIndex}, 'flipConfigs.${flipIndex}.enabled', this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
           ${renderFlipConfigFields(flip, accountIndex, flipIndex)}
         </div>
       </div>
@@ -3126,133 +3480,104 @@ function renderFlipConfigFields(flip, accountIndex, flipIndex) {
   const blacklistCount = flip.blacklistContaining?.length || 0;
   
   const configs = [
-    { key: 'maxBuyPrice', label: 'Max Buy Price', min: 100000, max: 50000000, step: 100000, unit: ' coins', minLabel: '100K', maxLabel: '50M', color: '#b19cd9' },
-    { key: 'minProfit', label: 'Min Profit', min: 1000, max: 1000000, step: 1000, unit: ' coins', minLabel: '1K', maxLabel: '1M', color: '#a78bfa' },
-    { key: 'minVolume', label: 'Min Volume', min: 1, max: 100000, step: 1, unit: ' sales/day', minLabel: '1', maxLabel: '100K', color: '#9b6ff7' },
-    { key: 'maxFlips', label: 'Max Flips', min: 1, max: 20, step: 1, unit: '', minLabel: '1', maxLabel: '20', color: '#8b5cf6' },
-    { key: 'maxRelist', label: 'Max Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#7c3aed' },
-    { key: 'maxBuyRelist', label: 'Max Buy Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#6d28d9' },
-    { key: 'minOrder', label: 'Min Order', min: 1, max: 1000, step: 1, unit: ' items', minLabel: '1', maxLabel: '1K', color: '#5b21b6' },
-    { key: 'maxOrder', label: 'Max Order', min: 10, max: 10000, step: 10, unit: ' items', minLabel: '10', maxLabel: '10K', color: '#4c1d95' },
-    { key: 'minSpread', label: 'Min Spread', min: 0, max: 100, step: 1, unit: '%', minLabel: '0%', maxLabel: '100%', color: '#3b0764' }
+    { key: 'maxBuyPrice', label: 'Max Buy Price', min: 100000, max: 50000000, step: 100000, unit: ' coins', minLabel: '100K', maxLabel: '50M', color: '#9b6ff7', value: flip.maxBuyPrice || 0 },
+    { key: 'minProfit', label: 'Min Profit', min: 1000, max: 1000000, step: 1000, unit: ' coins', minLabel: '1K', maxLabel: '1M', color: '#8b5cf6', value: flip.minProfit || 0 },
+    { key: 'minVolume', label: 'Min Volume', min: 1, max: 100000, step: 1, unit: ' sales/day', minLabel: '1', maxLabel: '100K', color: '#7c3aed', value: flip.minVolume || 0 },
+    { key: 'maxFlips', label: 'Max Flips', min: 1, max: 20, step: 1, unit: '', minLabel: '1', maxLabel: '20', color: '#6d28d9', value: flip.maxFlips || 0 },
+    { key: 'maxRelist', label: 'Max Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#5b21b6', value: flip.maxRelist || 0 },
+    { key: 'maxBuyRelist', label: 'Max Buy Relist', min: 1, max: 10, step: 1, unit: '', minLabel: '1', maxLabel: '10', color: '#4c1d95', value: flip.maxBuyRelist || 0 },
+    { key: 'minOrder', label: 'Min Order', min: 1, max: 1000, step: 1, unit: ' items', minLabel: '1', maxLabel: '1K', color: '#813ef2', value: flip.minOrder || 0 },
+    { key: 'maxOrder', label: 'Max Order', min: 10, max: 10000, step: 10, unit: ' items', minLabel: '10', maxLabel: '10K', color: '#9b6ff7', value: flip.maxOrder || 0 },
+    { key: 'minSpread', label: 'Min Spread', min: 0, max: 100, step: 1, unit: '%', minLabel: '0%', maxLabel: '100%', color: '#a78bfa', value: flip.minSpread || 0 }
   ];
   
   return `
-    <div class="config-section-wrapper" style="display: grid; grid-template-columns: 1fr; gap: 24px;">
-      <!-- Configuration Sliders -->
-      <div class="config-section collapsible">
-        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
-          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
-            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
-              <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.12-.39-.22-.61-.22l-2.21 0c-.22 0-.49.18-.5 2v14c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/>
-            </svg>
-            Flip Configuration
-          </h3>
-          <span class="config-expand">▼</span>
-        </div>
-        <div class="config-section-content" style="display: block;">
-          <div class="config-grid" style="grid-template-columns: 1fr; gap: 20px; padding: 20px 0;">
-            ${configs.map(cfg => `
-              <div class="config-item">
-                <label class="config-label">${cfg.label}</label>
-                <div class="slider-container">
-                  <input type="range" class="slider colored-slider" data-color="${cfg.color}" 
-                    min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}"
-                    oninput="updateSliderValue(this, 'flip-${cfg.key}-${accountIndex}-${flipIndex}', '${cfg.unit}')"
-                    onchange="updateConfig(${accountIndex}, 'flips.${cfg.key}', parseInt(this.value))"/>
-                  <div class="slider-value-card" id="flip-${cfg.key}-${accountIndex}-${flipIndex}" style="--slider-color: ${cfg.color}">${formatNumber(cfg.value)}${cfg.unit}</div>
-                  <div class="slider-labels">
-                    <span>${cfg.minLabel}</span>
-                    <span>${cfg.maxLabel}</span>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+    <!-- Configuration Parameters -->
+    <div class="config-params-section">
+      <div class="section-title-bar">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+          <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.32-.61-.32l-2.21 0c-.12 0-.49.18-.5 2v14c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/>
+        </svg>
+        <span>Flip Parameters</span>
       </div>
-      
-      <!-- Whitelist & Blacklist Section -->
-      <div class="config-section collapsible">
-        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
-          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
-            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
-              <path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-              <path d="M14 17H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-            </svg>
-            Item Lists
-          </h3>
-          <span class="config-expand">▼</span>
-        </div>
-        <div class="config-section-content" style="display: block;">
-          <div class="list-buttons-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 0;">
-            <button class="list-manager-btn whitelist" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
-              <div class="list-btn-icon">
-                <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                </svg>
+      <div class="config-sliders-grid">
+        ${configs.map(cfg => `
+          <div class="slider-card">
+            <div class="slider-card-header">
+              <span class="slider-label">${cfg.label}</span>
+              <span class="slider-current-value" id="flip-${cfg.key}-${accountIndex}-${flipIndex}">${formatNumber(cfg.value)}${cfg.unit}</span>
+            </div>
+            <div class="slider-track-wrapper">
+              <input type="range" class="modern-slider" 
+                style="--slider-color: ${cfg.color};"
+                min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}"
+                oninput="updateSliderValue(this, 'flip-${cfg.key}-${accountIndex}-${flipIndex}', '${cfg.unit}')"
+                onchange="updateConfig(${accountIndex}, 'flipConfigs.${flipIndex}.${cfg.key}', parseInt(this.value))"/>
+              <div class="slider-range-labels">
+                <span>${cfg.minLabel}</span>
+                <span>${cfg.maxLabel}</span>
               </div>
-              <div class="list-btn-content">
-                <div class="list-btn-label">Whitelist</div>
-                <div class="list-btn-count">${whitelistCount} items</div>
-              </div>
-            </button>
-            
-            <button class="list-manager-btn blacklist" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklist')">
-              <div class="list-btn-icon">
-                <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: currentColor;">
-                  <path d="M19 13H5v-2h14v2z"/>
-                </svg>
-              </div>
-              <div class="list-btn-content">
-                <div class="list-btn-label">Blacklist</div>
-                <div class="list-btn-count">${blacklistCount} items</div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Advanced Settings -->
-      <div class="config-section collapsible collapsed">
-        <div class="config-section-header" onclick="toggleConfigSection(this)" style="cursor: pointer;">
-          <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
-            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #9b6ff7;">
-              <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-            </svg>
-            Advanced Settings
-          </h3>
-          <span class="config-expand">▶</span>
-        </div>
-        <div class="config-section-content" style="display: none;">
-          <div class="config-grid" style="grid-template-columns: 1fr; gap: 16px; padding: 20px 0;">
-            <div class="config-item">
-              <label class="config-label">Enabled</label>
-              <label class="switch">
-                <input type="checkbox" ${flip.enabled !== false ? 'checked' : ''}
-                  onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'enabled', this.checked)">
-                <span class="switch-slider"></span>
-              </label>
             </div>
           </div>
-        </div>
+        `).join('')}
       </div>
+    </div>
       
-      <!-- Action Buttons -->
-      <div class="config-actions" style="display: flex; gap: 12px; margin-top: 12px;">
-        <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})" style="flex: 1; background: rgba(239, 68, 68, 0.15); border: 1.5px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
-          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+    <!-- Whitelist & Blacklist -->
+    <div class="config-params-section" style="margin-top: 32px;">
+      <div class="section-title-bar">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <span>Item Filters</span>
+      </div>
+      <div class="list-buttons-container">
+        <button class="modern-list-btn whitelist-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
+          <div class="list-btn-content">
+            <svg viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            <div class="list-btn-text">
+              <span class="list-btn-title">Whitelist</span>
+              <span class="list-btn-count">${whitelistCount} items</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" class="list-btn-arrow">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
           </svg>
-          Delete Flip
         </button>
-        <button class="btn btn-primary" onclick="closeFlipEditModal()" style="flex: 1; background: rgba(129, 62, 242, 0.2); border: 1.5px solid rgba(129, 62, 242, 0.5); color: #9b6ff7; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
-          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        
+        <button class="modern-list-btn blacklist-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklistContaining')">
+          <div class="list-btn-content">
+            <svg viewBox="0 0 24 24">
+              <path d="M19 13H5v-2h14v2z"/>
+            </svg>
+            <div class="list-btn-text">
+              <span class="list-btn-title">Blacklist</span>
+              <span class="list-btn-count">${blacklistCount} items</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" class="list-btn-arrow">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
           </svg>
-          Save & Close
         </button>
       </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="config-actions" style="margin-top: 32px;">
+      <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+        Delete Flip
+      </button>
+      <button class="btn btn-primary" onclick="closeFlipEditModal()">
+        <svg viewBox="0 0 24 24">
+          <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+        </svg>
+        Save Changes
+      </button>
     </div>
   `;
 }
@@ -3285,7 +3610,7 @@ function openFlipListEditor(accountIndex, flipIndex, listType) {
       </div>
       <div class="flip-modal-body">
         <div class="flip-list-editor" style="padding: 32px;">
-          <div class="search-section" style="margin-bottom: 24px;">
+          <div class="search-section" style="margin-bottom: 24px; position: relative;">
             <input 
               type="text" 
               class="config-input" 
@@ -3294,7 +3619,7 @@ function openFlipListEditor(accountIndex, flipIndex, listType) {
               oninput="searchFlipItems(${accountIndex}, ${flipIndex}, '${listType}', this.value)"
               style="width: 100%;"
             />
-            <div class="search-results" id="flip-${listType}-results-${accountIndex}-${flipIndex}"></div>
+            <div class="flip-search-results" id="flip-${listType}-results-${accountIndex}-${flipIndex}"></div>
           </div>
           <div class="items-grid" id="flip-${listType}-items-${accountIndex}-${flipIndex}">
             ${list.map(itemId => renderFlipItemCard(itemId, accountIndex, flipIndex, listType)).join('')}
@@ -3323,7 +3648,7 @@ function closeFlipListEditor() {
 function renderFlipItemCard(itemId, accountIndex, flipIndex, listType) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
-  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
+  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png';
   
   return `
     <div class="item-card ${listType}">
@@ -3347,10 +3672,14 @@ function searchFlipItems(accountIndex, flipIndex, listType, query) {
     return;
   }
 
+  console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
+
   const lowerQuery = query.toLowerCase();
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
     .slice(0, 10);
+
+  console.log(`📋 Found ${matches.length} matches`);
 
   if (matches.length === 0) {
     resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
@@ -3475,18 +3804,26 @@ async function removeFlipItem(accountIndex, flipIndex, listType, itemId) {
   }
 }
 
-function updateActiveHoursSlider(accountIndex, value) {
-  const valueEl = document.getElementById(`active-hours-value-${accountIndex}`);
-  if (valueEl) {
-    valueEl.textContent = value + 'h';
-  }
+function updateListButtonCount(accountIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
   
-  const slider = document.getElementById(`active-hours-slider-${accountIndex}`);
-  if (slider) {
-    const percent = ((value - 1) / 22) * 100;
-    slider.style.setProperty('--slider-progress', `${percent}%`);
+  const count = listType === 'whitelist' 
+    ? (account.flips?.whitelist?.length || 0) 
+    : (account.flips?.blacklistContaining?.length || 0);
+  
+  const button = document.querySelector(`.${listType}-btn .list-btn-count`);
+  if (button) {
+    button.textContent = `${count} items`;
   }
 }
+
+
+
+
+
+
+
 
 
 
