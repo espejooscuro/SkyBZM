@@ -1,6 +1,7 @@
 
 
 
+
 const Bot = require("./Bot");
 const path = require("path");
 const fs = require("fs");
@@ -334,9 +335,26 @@ class BotManager {
 
     return bot.flipManager.getProfitHistory(limit);
   }
+
+  /**
+   * Obtiene el historial de money flow (dinero gastado/ganado) de un bot específico
+   * @param {string} username - Nombre de usuario del bot
+   * @param {number} limit - Cantidad de registros a retornar (default 100)
+   * @returns {Array} Historial de transacciones de dinero
+   */
+  getBotMoneyFlow(username, limit = 100) {
+    const bot = this.bots.get(username);
+    
+    if (!bot || !bot.flipManager) {
+      return [];
+    }
+
+    return bot.flipManager.getMoneyFlow(limit);
+  }
 }
 
 module.exports = BotManager;
+
 
 
 

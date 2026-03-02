@@ -139,6 +139,9 @@ class WebServer {
     // Whitelist/Blacklist management
     this.setupListManagement();
 
+    // 🔥 NEW: Flip Configurations Management
+    this.setupFlipConfigsManagement();
+
     // Bot control endpoints
     this.setupBotControl();
 
@@ -328,6 +331,349 @@ class WebServer {
       console.error(`❌ Error managing ${listType}:`, error);
       res.status(500).json({ success: false, error: error.message });
     }
+  }
+
+  setupFlipConfigsManagement() {
+    const crypto = require('crypto');
+    
+    // CREATE new flip configuration
+    this.app.post('/api/account/:index/flips', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const { type } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        // Initialize flipConfigs array if it doesn't exist
+        if (!config.accounts[index].flipConfigs) {
+          config.accounts[index].flipConfigs = [];
+        }
+
+        // Create new flip config based on type
+        const newFlip = {
+          id: crypto.randomBytes(8).toString('hex'),
+          type: type,
+          name: `${this.getFlipTypeName(type)} ${config.accounts[index].flipConfigs.length + 1}`,
+          enabled: true,
+          config: this.getDefaultFlipConfig(type)
+        };
+
+        config.accounts[index].flipConfigs.push(newFlip);
+        this.saveConfig(config);
+
+        console.log(`✅ Created flip configuration: ${newFlip.name} for account ${index}`);
+        res.json({ success: true, flip: newFlip, account: config.accounts[index] });
+      } catch (error) {
+        console.error('❌ Error creating flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // UPDATE flip enabled status
+    this.app.patch('/api/account/:index/flips/:flipIndex', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const flipIndex = parseInt(req.params.flipIndex);
+        const { enabled } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[index].flipConfigs || !config.accounts[index].flipConfigs[flipIndex]) {
+          return res.status(404).json({ success: false, error: 'Flip not found' });
+        }
+
+        config.accounts[index].flipConfigs[flipIndex].enabled = enabled;
+        this.saveConfig(config);
+
+        console.log(`✅ Flip ${flipIndex} ${enabled ? 'enabled' : 'disabled'} for account ${index}`);
+        res.json({ success: true, account: config.accounts[index] });
+      } catch (error) {
+        console.error('❌ Error updating flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // DELETE flip configuration
+    this.app.delete('/api/account/:index/flips/:flipIndex', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const flipIndex = parseInt(req.params.flipIndex);
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[index].flipConfigs || !config.accounts[index].flipConfigs[flipIndex]) {
+          return res.status(404).json({ success: false, error: 'Flip not found' });
+        }
+
+        const deletedFlip = config.accounts[index].flipConfigs.splice(flipIndex, 1)[0];
+        this.saveConfig(config);
+
+        console.log(`✅ Deleted flip configuration: ${deletedFlip.name} from account ${index}`);
+        res.json({ success: true, account: config.accounts[index] });
+      } catch (error) {
+        console.error('❌ Error deleting flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // UPDATE flip config values
+    this.app.patch('/api/account/:index/flips/:flipIndex/config', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const flipIndex = parseInt(req.params.flipIndex);
+        const { key, value } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[index].flipConfigs || !config.accounts[index].flipConfigs[flipIndex]) {
+          return res.status(404).json({ success: false, error: 'Flip not found' });
+        }
+
+        if (!config.accounts[index].flipConfigs[flipIndex].config) {
+          config.accounts[index].flipConfigs[flipIndex].config = {};
+        }
+
+        config.accounts[index].flipConfigs[flipIndex].config[key] = value;
+        this.saveConfig(config);
+
+        console.log(`✅ Updated flip config ${key} = ${value} for account ${index}, flip ${flipIndex}`);
+        res.json({ success: true, account: config.accounts[index] });
+      } catch (error) {
+        console.error('❌ Error updating flip config:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ADD item to flip whitelist
+    this.app.post('/api/account/:index/flips/:flipIndex/whitelist', (req, res) => {
+      this.manageFlipList(req, res, 'whitelist', 'add');
+    });
+
+    // REMOVE item from flip whitelist
+    this.app.delete('/api/account/:index/flips/:flipIndex/whitelist/:itemId', (req, res) => {
+      this.manageFlipList(req, res, 'whitelist', 'remove');
+    });
+
+    // ADD item to flip blacklist
+    this.app.post('/api/account/:index/flips/:flipIndex/blacklist', (req, res) => {
+      this.manageFlipList(req, res, 'blacklist', 'add');
+    });
+
+    // REMOVE item from flip blacklist
+    this.app.delete('/api/account/:index/flips/:flipIndex/blacklist/:itemId', (req, res) => {
+      this.manageFlipList(req, res, 'blacklist', 'remove');
+    });
+
+    // CREATE new flip
+    this.app.post('/api/flip/create', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const { accountIndex, type } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[accountIndex]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[accountIndex].flipConfigs) {
+          config.accounts[accountIndex].flipConfigs = [];
+        }
+
+        const newFlip = {
+          type: type || 'SELL_ORDER',
+          maxBuyPrice: 5000000,
+          minProfit: 50000,
+          minVolume: 1000,
+          maxFlips: 5,
+          maxRelist: 5,
+          maxBuyRelist: 3,
+          minOrder: 1,
+          maxOrder: 640,
+          minSpread: 0,
+          whitelist: [],
+          blacklistContaining: []
+        };
+
+        config.accounts[accountIndex].flipConfigs.push(newFlip);
+        this.saveConfig(config);
+
+        console.log(`✅ Created new ${type} flip for account ${accountIndex}`);
+        res.json({ success: true, flip: newFlip });
+      } catch (error) {
+        console.error('❌ Error creating flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // UPDATE flip configuration
+    this.app.post('/api/flip/update', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const { accountIndex, flipIndex, key, value } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[accountIndex]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[accountIndex].flipConfigs || !config.accounts[accountIndex].flipConfigs[flipIndex]) {
+          return res.status(404).json({ success: false, error: 'Flip not found' });
+        }
+
+        config.accounts[accountIndex].flipConfigs[flipIndex][key] = value;
+        this.saveConfig(config);
+
+        console.log(`✅ Updated flip ${flipIndex} ${key} to ${value} for account ${accountIndex}`);
+        res.json({ success: true });
+      } catch (error) {
+        console.error('❌ Error updating flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // DELETE flip
+    this.app.post('/api/flip/delete', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const { accountIndex, flipIndex } = req.body;
+        const config = this.getConfig();
+        
+        if (!config.accounts[accountIndex]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!config.accounts[accountIndex].flipConfigs || !config.accounts[accountIndex].flipConfigs[flipIndex]) {
+          return res.status(404).json({ success: false, error: 'Flip not found' });
+        }
+
+        config.accounts[accountIndex].flipConfigs.splice(flipIndex, 1);
+        this.saveConfig(config);
+
+        console.log(`✅ Deleted flip ${flipIndex} for account ${accountIndex}`);
+        res.json({ success: true });
+      } catch (error) {
+        console.error('❌ Error deleting flip:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+  }
+
+  manageFlipList(req, res, listType, action) {
+    try {
+      if (!this.validatePassword(req.headers['x-password'])) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+
+      const index = parseInt(req.params.index);
+      const flipIndex = parseInt(req.params.flipIndex);
+      const config = this.getConfig();
+      
+      if (!config.accounts[index]) {
+        return res.status(404).json({ success: false, error: 'Account not found' });
+      }
+
+      if (!config.accounts[index].flipConfigs || !config.accounts[index].flipConfigs[flipIndex]) {
+        return res.status(404).json({ success: false, error: 'Flip not found' });
+      }
+
+      const flip = config.accounts[index].flipConfigs[flipIndex];
+      
+      if (!flip.config) {
+        flip.config = {};
+      }
+
+      const listKey = listType === 'whitelist' ? 'whitelist' : 'blacklistContaining';
+      const itemId = action === 'add' ? req.body.itemId : req.params.itemId;
+
+      if (!flip.config[listKey]) {
+        flip.config[listKey] = [];
+      }
+
+      if (action === 'add') {
+        if (!flip.config[listKey].includes(itemId)) {
+          flip.config[listKey].push(itemId);
+          console.log(`✅ Added ${itemId} to flip ${flipIndex} ${listType}`);
+        }
+      } else {
+        flip.config[listKey] = flip.config[listKey].filter(id => id !== itemId);
+        console.log(`✅ Removed ${itemId} from flip ${flipIndex} ${listType}`);
+      }
+
+      this.saveConfig(config);
+      res.json({ success: true, account: config.accounts[index] });
+    } catch (error) {
+      console.error(`❌ Error managing flip ${listType}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  getFlipTypeName(type) {
+    const names = {
+      'sell_order': 'Sell Order Flip',
+      'kat': 'Kat Flip',
+      'forge': 'Forge Flip',
+      'npc': 'NPC Flip',
+      'craft': 'Craft Flip'
+    };
+    return names[type] || 'Unknown Flip';
+  }
+
+  getDefaultFlipConfig(type) {
+    if (type === 'sell_order') {
+      return {
+        maxBuyPrice: 5000000,
+        minProfit: 10000,
+        minVolume: 1000,
+        maxFlips: 7,
+        maxRelist: 3,
+        maxBuyRelist: 3,
+        minOrder: 1,
+        maxOrder: 640,
+        minSpread: 0,
+        whitelist: [],
+        blacklistContaining: []
+      };
+    }
+    
+    // Para otros tipos, retornar config vacía
+    return {};
   }
 
   setupBotControl() {
@@ -548,6 +894,33 @@ class WebServer {
         res.json({ success: true, profits });
       } catch (error) {
         console.error('❌ Error getting profit history:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Bot money flow history (NEW!)
+    this.app.get('/api/bot/:index/moneyflow', (req, res) => {
+      try {
+        if (!this.validatePassword(req.headers['x-password'])) {
+          return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const index = parseInt(req.params.index);
+        const limit = parseInt(req.query.limit) || 100;
+        const config = this.getConfig();
+        
+        if (!config.accounts[index]) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        if (!this.botManager) {
+          return res.json({ success: true, transactions: [], message: 'Bot Manager not initialized' });
+        }
+
+        const transactions = this.botManager.getBotMoneyFlow(config.accounts[index].username, limit);
+        res.json({ success: true, transactions });
+      } catch (error) {
+        console.error('❌ Error getting money flow:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -781,6 +1154,10 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
+
 
 
 

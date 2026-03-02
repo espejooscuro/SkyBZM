@@ -14,6 +14,7 @@ let updateIntervals = new Map();
 let botCharts = new Map();
 let purseCharts = new Map();
 let cumulativeCharts = new Map();
+let moneyFlowCharts = new Map(); // 🔥 NEW: Money flow charts
 let expandedChart = new Map();
 let healthMonitorInterval = null; // 🔥 Monitor de salud global
 let lastHealthCheck = new Map(); // 🔥 Último chequeo de salud por bot
@@ -176,6 +177,7 @@ function logout() {
   botCharts.clear();
   purseCharts.clear();
   cumulativeCharts.clear();
+  moneyFlowCharts.clear(); // 🔥 NEW
   stopGlobalPolling();
   stopGlobalHealthMonitor(); // 🔥 Detener monitor de salud
   loginForm.classList.remove('hidden');
@@ -433,34 +435,17 @@ function renderBotConfigSection(account, index) {
   `;
 }
 
+
 function renderFlipperConfigSection(account, index) {
+  const flips = account.flipConfigs || [];
+  
   return `
-    <div class="config-section collapsible">
-      <div class="config-section-header" onclick="toggleConfigSection(this)">
-        <h3>$ Flip Config</h3>
-        <span class="config-expand">▼</span>
+    <div class="flips-container">
+      <div class="add-flip-btn" onclick="openAddFlipModal(${index})">
+        <div class="add-flip-icon">+</div>
+        <div class="add-flip-text">Add Flip</div>
       </div>
-      <div class="config-section-content">
-        ${renderFlipConfig(account.flips, index)}
-      </div>
-    </div>
-
-    <div class="lists-buttons-container">
-      <button class="list-editor-button whitelist-btn" onclick="openListEditorModal(${index}, 'whitelist')">
-        <span class="list-btn-icon">+</span>
-        <div class="list-btn-content">
-          <div class="list-btn-title">Whitelist Editor</div>
-          <div class="list-btn-count">${account.flips?.whitelist?.length || 0} items</div>
-        </div>
-      </button>
-
-      <button class="list-editor-button blacklist-btn" onclick="openListEditorModal(${index}, 'blacklist')">
-        <span class="list-btn-icon">−</span>
-        <div class="list-btn-content">
-          <div class="list-btn-title">Blacklist Editor</div>
-          <div class="list-btn-count">${account.flips?.blacklistContaining?.length || 0} items</div>
-        </div>
-      </button>
+      ${flips.map((flip, flipIndex) => renderFlipCard(account, accountIndex, flip, flipIndex)).join('')}
     </div>
   `;
 }
@@ -966,6 +951,16 @@ function renderStatsChart(account, index) {
           <div class="chart-loading"><div class="loading"></div></div>
         </div>
       </div>
+
+      <div class="mini-chart-card" onclick="toggleChartExpand(${index}, 'moneyflow')" id="moneyflow-chart-card-${index}">
+        <div class="mini-chart-header">
+          <h4>💸 Money Flow</h4>
+          <span class="expand-icon">⛶</span>
+        </div>
+        <div class="chart-container mini" id="moneyflow-chart-container-${index}">
+          <div class="chart-loading"><div class="loading"></div></div>
+        </div>
+      </div>
     </div>
 
     <div class="activity-logs">
@@ -1082,6 +1077,7 @@ function toggleBotCard(index) {
     
     const activeSection = activeBotSections.get(index);
     if (activeSection === 'earnings-stats') {
+      stopBotIntervals(index);
       loadBotData(index);
       loadActivityLogs(index);
       startBotIntervals(index);
@@ -1158,7 +1154,8 @@ async function loadBotData(accountIndex, isUpdate = false) {
   await Promise.all([
     loadProfitChart(accountIndex, isUpdate),
     loadCumulativeChart(accountIndex, isUpdate),
-    loadBotStats(accountIndex, isUpdate)
+    loadBotStats(accountIndex, isUpdate),
+    loadMoneyFlowChart(accountIndex, isUpdate) // 🔥 NEW
   ]);
 }
 
@@ -1623,6 +1620,153 @@ function renderCumulativeChart(accountIndex, profitData, isUpdate = false) {
   cumulativeCharts.set(accountIndex, chart);
 }
 
+// ==================== MONEY FLOW CHART ====================
+async function loadMoneyFlowChart(accountIndex, isUpdate = false) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+
+  try {
+    const response = await fetch(`${API_URL}/api/bot/${accountIndex}/moneyflow?limit=100`, {
+      method: 'GET',
+      headers: { 'x-password': password }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    renderMoneyFlowChart(accountIndex, data, isUpdate);
+  } catch (error) {
+    if (!isUpdate) {
+      console.error(`❌ Error loading money flow data:`, error);
+      const containerEl = document.getElementById(`moneyflow-chart-container-${accountIndex}`);
+      if (containerEl) containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💸</p><p>No data yet</p></div>';
+    }
+  }
+}
+
+function renderMoneyFlowChart(accountIndex, moneyFlowData, isUpdate = false) {
+  const containerEl = document.getElementById(`moneyflow-chart-container-${accountIndex}`);
+  if (!containerEl) return;
+
+  if (!moneyFlowData.transactions || moneyFlowData.transactions.length === 0) {
+    if (!isUpdate) containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💸</p><p>No transactions yet</p></div>';
+    return;
+  }
+
+  const transactions = moneyFlowData.transactions;
+  
+  // Build cumulative money spent over time
+  let totalSpent = 0;
+  const labels = [];
+  const values = [];
+  
+  transactions.forEach((tx, idx) => {
+    totalSpent += tx.amount;
+    labels.push(new Date(tx.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    values.push(totalSpent);
+  });
+
+  if (!document.getElementById(`moneyflow-canvas-${accountIndex}`)) {
+    containerEl.innerHTML = '<canvas id="moneyflow-canvas-' + accountIndex + '"></canvas>';
+  }
+  
+  const canvas = document.getElementById(`moneyflow-canvas-${accountIndex}`);
+  if (!canvas) return;
+
+  if (moneyFlowCharts.has(accountIndex)) moneyFlowCharts.get(accountIndex).destroy();
+
+  const ctx = canvas.getContext('2d');
+  
+  // 5B limit line
+  const fiveBillion = 5000000000;
+  
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Total Money Spent',
+          data: values,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: '#ef4444'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1C1C1C',
+          titleColor: '#ef4444',
+          bodyColor: '#FFF',
+          callbacks: { 
+            label: (ctx) => {
+              const spent = ctx.parsed.y;
+              const remaining = fiveBillion - spent;
+              return [
+                `Spent: ${formatNumber(spent)} coins`,
+                `Remaining: ${formatNumber(remaining)} coins`
+              ];
+            }
+          }
+        },
+        annotation: {
+          annotations: {
+            line1: {
+              type: 'line',
+              yMin: fiveBillion,
+              yMax: fiveBillion,
+              borderColor: '#ef4444',
+              borderWidth: 3,
+              borderDash: [10, 5],
+              label: {
+                content: '5B Limit',
+                enabled: true,
+                position: 'end',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                font: {
+                  size: 12,
+                  weight: 'bold'
+                }
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: { 
+          grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+          ticks: { 
+            color: '#AAA',
+            maxRotation: 45,
+            minRotation: 0
+          } 
+        },
+        y: { 
+          grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+          ticks: { 
+            color: '#AAA', 
+            callback: (value) => formatNumber(value)
+          },
+          suggestedMax: Math.max(...values, fiveBillion) * 1.1 // Show 10% above max or 5B
+        }
+      }
+    }
+  });
+  
+  moneyFlowCharts.set(accountIndex, chart);
+}
+
 // ===========================
 // REST SCHEDULE SYSTEM (REMOVED - Now per-bot configuration)
 // ===========================
@@ -1742,20 +1886,6 @@ function renderGeneralConfig(account, index) {
   `;
 }
 
-function updateListButtonCount(accountIndex, listType) {
-  const account = globalConfig.accounts[accountIndex];
-  if (!account) return;
-  
-  const count = listType === 'whitelist' 
-    ? (account.flips?.whitelist?.length || 0) 
-    : (account.flips?.blacklistContaining?.length || 0);
-  
-  const button = document.querySelector(`.${listType}-btn .list-btn-count`);
-  if (button) {
-    button.textContent = `${count} items`;
-  }
-}
-
 // ==================== LIST EDITOR MODAL ====================
 function openListEditorModal(accountIndex, listType) {
   const account = globalConfig.accounts[accountIndex];
@@ -1785,12 +1915,12 @@ function openListEditorModal(accountIndex, listType) {
       <div class="modal-body">
         <div class="item-editor">
           <div class="search-container">
-            <input type="text" class="item-search" id="modal-${listType}-search-${accountIndex}"
-              placeholder="Search items..." oninput="searchItemsModal(${accountIndex}, '${listType}', this.value)" autocomplete="off"/>
-            <div class="search-results" id="modal-${listType}-results-${accountIndex}"></div>
+            <input type="text" class="item-search" id="${listType}-search-${accountIndex}"
+              placeholder="Search items..." oninput="searchItems(${accountIndex}, '${listType}', this.value)" autocomplete="off"/>
+            <div class="search-results" id="${listType}-results-${accountIndex}"></div>
           </div>
-          <div class="items-grid" id="modal-${listType}-items-${accountIndex}">
-            ${list.map(itemId => renderItemCard(itemId, accountIndex, listType, true)).join('')}
+          <div class="items-grid" id="${listType}-items-${accountIndex}">
+            ${list.map(itemId => renderItemCard(itemId, accountIndex, listType)).join('')}
           </div>
         </div>
       </div>
@@ -1816,8 +1946,8 @@ function closeListEditorModal() {
   }
 }
 
-function searchItemsModal(accountIndex, listType, query) {
-  const resultsDiv = document.getElementById(`modal-${listType}-results-${accountIndex}`);
+function searchItems(accountIndex, listType, query) {
+  const resultsDiv = document.getElementById(`${listType}-results-${accountIndex}`);
   
   if (!query || query.length < 2) {
     resultsDiv.innerHTML = '';
@@ -1837,7 +1967,7 @@ function searchItemsModal(accountIndex, listType, query) {
   }
 
   resultsDiv.innerHTML = matches.map(item => `
-    <div class="search-result-item" onclick="addItemToListModal(${accountIndex}, '${listType}', '${escapeHtml(item.id)}')">
+    <div class="search-result-item" onclick="addItemToList(${accountIndex}, '${listType}', '${escapeHtml(item.id)}')">
       <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
         onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
       <div class="result-info">
@@ -1860,7 +1990,7 @@ function renderBotBrain(account, index) {
       <div class="brain-overlay">
         <div class="brain-header">
           <div class="brain-header-left">
-            <h3>🧠 Task Queue Brain</h3>
+            <h3>🧠 Task Queue</h3>
             <div id="brain-stats-${index}" class="brain-stats-inline">
               <!-- Compact stats will be populated here -->
             </div>
@@ -1988,9 +2118,8 @@ function initStarfield(canvasId, accountIndex) {
 }
 
 function stopStarfield(accountIndex) {
-  const animationId = starfields.get(accountIndex);
-  if (animationId) {
-    cancelAnimationFrame(animationId);
+  if (starfields.has(accountIndex)) {
+    cancelAnimationFrame(starfields.get(accountIndex));
     starfields.delete(accountIndex);
   }
 }
@@ -2085,7 +2214,7 @@ function renderBrainNodes(index, data) {
   if (!isAlive || bpm === 0) {
     ecgPoints = '0,10 60,10'; // Straight flat line
     bpmColor = '#ef4444'; // Critical red
-    bpmClass = 'flatline';
+    bpmClass = 'alive';
   } else {
     // Create realistic ECG pattern with quick rise and gradual fall
     const time = Date.now() / 100;
@@ -2652,20 +2781,17 @@ function toggleBrainFullscreen(index) {
     setTimeout(() => {
       const canvas = document.getElementById(`brain-nodes-${index}`)?.querySelector('canvas');
       if (canvas) {
-        const nodesContainer = document.getElementById(`brain-nodes-${index}`);
-        if (nodesContainer) {
-          const rect = nodesContainer.getBoundingClientRect();
-          const dpr = window.devicePixelRatio || 1;
-          canvas.width = rect.width * dpr;
-          canvas.height = rect.height * dpr;
-          canvas.style.width = rect.width + 'px';
-          canvas.style.height = rect.height + 'px';
-          
-          const ctx = canvas.getContext('2d');
-          ctx.scale(dpr, dpr);
-          
-          renderBrainCanvas(canvas);
-        }
+        const rect = document.getElementById(`brain-nodes-${index}`).getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        
+        renderBrainCanvas(canvas);
       }
     }, 100);
   }
@@ -2704,6 +2830,642 @@ function stopBrainPolling(accountIndex) {
 
 
 
+
+
+
+// ==================== MODULAR FLIP SYSTEM ====================
+
+function renderFlipperConfigSection(account, accountIndex) {
+  const flips = account.flipConfigs || [];
+  
+  return `
+    <div class="flips-container">
+      <div class="add-flip-btn" onclick="openAddFlipModal(${accountIndex})">
+        <div class="add-flip-icon">+</div>
+        <div class="add-flip-text">Add Flip</div>
+      </div>
+      ${flips.map((flip, flipIndex) => renderFlipCard(account, accountIndex, flip, flipIndex)).join('')}
+    </div>
+  `;
+}
+
+function renderFlipCard(account, accountIndex, flip, flipIndex) {
+  const flipType = flip.type || 'SELL_ORDER';
+  const isDevelopment = flipType !== 'SELL_ORDER';
+  
+  const typeColors = {
+    'SELL_ORDER': '#00ff88',
+    'KAT': '#fbbf24',
+    'FORGE': '#ef4444',
+    'NPC': '#3b82f6',
+    'CRAFT': '#a855f7'
+  };
+  
+  const typeLabels = {
+    'SELL_ORDER': 'Sell Order',
+    'KAT': 'Kat Flip',
+    'FORGE': 'Forge Flip',
+    'NPC': 'NPC Flip',
+    'CRAFT': 'Craft Flip'
+  };
+  
+  const typeIcons = {
+    'SELL_ORDER': `<svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>`,
+    'KAT': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`,
+    'FORGE': `<svg viewBox="0 0 24 24"><path d="M12.5 6.9c1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>`,
+    'NPC': `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>`,
+    'CRAFT': `<svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>`
+  };
+  
+  const color = typeColors[flipType] || '#888';
+  const label = typeLabels[flipType] || flipType;
+  const icon = typeIcons[flipType] || typeIcons['SELL_ORDER'];
+  
+  const whitelistCount = flip.whitelist?.length || 0;
+  const blacklistCount = flip.blacklistContaining?.length || 0;
+  const maxFlips = flip.maxFlips || 0;
+  const budget = flip.budget || 0;
+  
+  return `
+    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
+      <div class="flip-card-header">
+        <div class="flip-card-title">
+          <div class="flip-type-icon">${icon}</div>
+          <h3>${label}</h3>
+        </div>
+        <div class="flip-type-badge" style="background: ${color}; color: #000;">
+          ${isDevelopment ? 'DEV' : 'ACTIVE'}
+        </div>
+      </div>
+      
+      <div class="flip-card-body">
+        <div class="flip-stat">
+          <span class="flip-stat-label">Whitelist</span>
+          <span class="flip-stat-value positive">${whitelistCount}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Blacklist</span>
+          <span class="flip-stat-value warning">${blacklistCount}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Max Flips</span>
+          <span class="flip-stat-value">${maxFlips}</span>
+        </div>
+        <div class="flip-stat">
+          <span class="flip-stat-label">Budget</span>
+          <span class="flip-stat-value">${formatNumber(budget)}</span>
+        </div>
+      </div>
+      
+      <div class="flip-card-footer">
+        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Whitelist
+        </button>
+        <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'blacklist')">
+          <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+          Blacklist
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Add Flip Modal
+function openAddFlipModal(accountIndex) {
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'add-flip-modal';
+  
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <h2 class="flip-modal-title">
+          <svg viewBox="0 0 24 24" style="width: 28px; height: 28px; fill: #9b6ff7;">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          Add New Flip
+        </h2>
+        <button class="flip-modal-close" onclick="closeAddFlipModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flip-modal-body">
+        <div class="flip-type-selector">
+          <div class="flip-type-option ${true ? 'selected' : ''}" onclick="selectNewFlipType(${accountIndex}, 'SELL_ORDER')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Sell Order</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'KAT')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Kat Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'FORGE')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12.5 6.9c1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-.53.12-1.03.3-1.48.54l1.47 1.47c.41-.17.91-.27 1.51-.27zM5.33 4.06L4.06 5.33 7.5 8.77c0 2.08 1.56 3.21 3.91 3.91l3.51 3.51c-.34.48-1.05.91-2.42.91-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c.96-.18 1.82-.55 2.45-1.12l2.22 2.22 1.27-1.27L5.33 4.06z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Forge Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'NPC')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            </div>
+            <div class="flip-type-option-label">NPC Flip</div>
+          </div>
+          
+          <div class="flip-type-option" onclick="selectNewFlipType(${accountIndex}, 'CRAFT')">
+            <div class="flip-type-option-icon">
+              <svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+            </div>
+            <div class="flip-type-option-label">Craft Flip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+}
+
+function closeAddFlipModal() {
+  const modal = document.getElementById('add-flip-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+async function selectNewFlipType(accountIndex, flipType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account) return;
+  
+  if (!account.flipConfigs) account.flipConfigs = [];
+  
+  const newFlip = {
+    type: flipType,
+    enabled: true,
+    maxFlips: 5,
+    budget: 10000000,
+    minProfit: 100000,
+    whitelist: [],
+    blacklistContaining: []
+  };
+  
+  account.flipConfigs.push(newFlip);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      closeAddFlipModal();
+      showToast('✅ Flip created successfully', 'success');
+    } else {
+      showToast('❌ Failed to create flip', 'error');
+    }
+  } catch (error) {
+    console.error('Error creating flip:', error);
+    showToast('❌ Failed to create flip', 'error');
+  }
+}
+
+// Edit Flip Modal
+function openFlipEditModal(accountIndex, flipIndex) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const flipType = flip.type || 'SELL_ORDER';
+  const isDevelopment = flipType !== 'SELL_ORDER';
+  
+  if (isDevelopment) {
+    showToast('⚠️ This flip type is under development', 'info');
+    return;
+  }
+  
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'edit-flip-modal';
+  
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <h2 class="flip-modal-title">Edit ${flipType.replace('_', ' ')} Flip</h2>
+        <button class="flip-modal-close" onclick="closeFlipEditModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flip-modal-body">
+        <div class="config-grid" style="padding: 32px;">
+          ${renderFlipConfigFields(flip, accountIndex, flipIndex)}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFlipEditModal();
+  });
+}
+
+function closeFlipEditModal() {
+  const modal = document.getElementById('edit-flip-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function renderFlipConfigFields(flip, accountIndex, flipIndex) {
+  return `
+    <div class="config-group">
+      <label class="config-label">Max Flips</label>
+      <input 
+        type="number" 
+        class="config-input" 
+        value="${flip.maxFlips || 5}"
+        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'maxFlips', parseInt(this.value))"
+      />
+    </div>
+    
+    <div class="config-group">
+      <label class="config-label">Budget (coins)</label>
+      <input 
+        type="number" 
+        class="config-input" 
+        value="${flip.budget || 10000000}"
+        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'budget', parseInt(this.value))"
+      />
+    </div>
+    
+    <div class="config-group">
+      <label class="config-label">Min Profit (coins)</label>
+      <input 
+        type="number" 
+        class="config-input" 
+        value="${flip.minProfit || 100000}"
+        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'minProfit', parseInt(this.value))"
+      />
+    </div>
+    
+    <div class="config-group">
+      <label class="config-label">Enabled</label>
+      <input 
+        type="checkbox" 
+        class="config-checkbox" 
+        ${flip.enabled !== false ? 'checked' : ''}
+        onchange="updateFlipField(${accountIndex}, ${flipIndex}, 'enabled', this.checked)"
+      />
+    </div>
+    
+    <div class="config-actions" style="grid-column: 1 / -1; display: flex; gap: 12px; margin-top: 24px;">
+      <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})" style="flex: 1;">
+        Delete Flip
+      </button>
+      <button class="btn btn-primary" onclick="closeFlipEditModal()" style="flex: 1;">
+        Done
+      </button>
+    </div>
+  `;
+}
+
+async function updateFlipField(accountIndex, flipIndex, field, value) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  flip[field] = value;
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Updated', 'success');
+    } else {
+      showToast('❌ Failed to update', 'error');
+    }
+  } catch (error) {
+    console.error('Error updating flip:', error);
+    showToast('❌ Failed to update', 'error');
+  }
+}
+
+async function deleteFlip(accountIndex, flipIndex) {
+  if (!confirm('Are you sure you want to delete this flip?')) return;
+  
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  account.flipConfigs.splice(flipIndex, 1);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      closeFlipEditModal();
+      showToast('✅ Flip deleted', 'success');
+    } else {
+      showToast('❌ Failed to delete flip', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting flip:', error);
+    showToast('❌ Failed to delete flip', 'error');
+  }
+}
+
+// Whitelist/Blacklist Editor
+function openFlipListEditor(accountIndex, flipIndex, listType) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const list = listType === 'whitelist' ? flip.whitelist || [] : flip.blacklistContaining || [];
+  const title = listType === 'whitelist' ? 'Whitelist Items' : 'Blacklist Items';
+  const color = listType === 'whitelist' ? '#00ff88' : '#fbbf24';
+  
+  const modal = document.createElement('div');
+  modal.className = 'flip-modal';
+  modal.id = 'flip-list-editor-modal';
+  
+  modal.innerHTML = `
+    <div class="flip-modal-content">
+      <div class="flip-modal-header">
+        <h2 class="flip-modal-title" style="color: ${color};">${title}</h2>
+        <button class="flip-modal-close" onclick="closeFlipListEditor()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 6.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flip-modal-body">
+        <div class="flip-list-editor" style="padding: 32px;">
+          <div class="search-section" style="margin-bottom: 24px;">
+            <input 
+              type="text" 
+              class="config-input" 
+              placeholder="Search items..."
+              id="flip-${listType}-search-${accountIndex}-${flipIndex}"
+              oninput="searchFlipItems(${accountIndex}, ${flipIndex}, '${listType}', this.value)"
+              style="width: 100%;"
+            />
+            <div class="search-results" id="flip-${listType}-results-${accountIndex}-${flipIndex}"></div>
+          </div>
+          <div class="items-grid" id="flip-${listType}-items-${accountIndex}-${flipIndex}">
+            ${list.map(itemId => renderFlipItemCard(itemId, accountIndex, flipIndex, listType)).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  setTimeout(() => modal.style.opacity = '1', 10);
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFlipListEditor();
+  });
+}
+
+function closeFlipListEditor() {
+  const modal = document.getElementById('flip-list-editor-modal');
+  if (modal) {
+    modal.style.opacity = '0';
+    setTimeout(() => modal.remove(), 300);
+  }
+}
+
+function renderFlipItemCard(itemId, accountIndex, flipIndex, listType) {
+  const item = skyblockItems.find(i => i.id === itemId);
+  const itemName = item ? item.name : itemId;
+  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
+  
+  return `
+    <div class="item-card ${listType}">
+      <img src="${imageUrl}" alt="${escapeHtml(itemName)}" class="item-icon" 
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/barrier.png'"/>
+      <div class="item-info">
+        <div class="item-name">${escapeHtml(itemName)}</div>
+        <div class="item-id">${escapeHtml(itemId)}</div>
+      </div>
+      <button class="item-remove" onclick="removeFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(itemId)}')">×</button>
+    </div>
+  `;
+}
+
+function searchFlipItems(accountIndex, flipIndex, listType, query) {
+  const resultsDiv = document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`);
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const matches = skyblockItems
+    .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
+    .slice(0, 10);
+
+  if (matches.length === 0) {
+    resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
+    resultsDiv.style.display = 'block';
+    return;
+  }
+
+  resultsDiv.innerHTML = matches.map(item => `
+    <div class="search-result-item" onclick="addFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(item.id)}')">
+      <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
+      <div class="result-info">
+        <div class="result-name">${escapeHtml(item.name)}</div>
+        <div class="result-id">${escapeHtml(item.id)}</div>
+      </div>
+    </div>
+  `).join('');
+  
+  resultsDiv.style.display = 'block';
+}
+
+async function addFlipItem(accountIndex, flipIndex, listType, itemId) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const list = listType === 'whitelist' ? 'whitelist' : 'blacklistContaining';
+  if (!flip[list]) flip[list] = [];
+  
+  if (flip[list].includes(itemId)) {
+    showToast('Item already in list', 'info');
+    return;
+  }
+  
+  flip[list].push(itemId);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      document.getElementById(`flip-${listType}-search-${accountIndex}-${flipIndex}`).value = '';
+      document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`).innerHTML = '';
+      document.getElementById(`flip-${listType}-results-${accountIndex}-${flipIndex}`).style.display = 'none';
+      
+      const itemsContainer = document.getElementById(`flip-${listType}-items-${accountIndex}-${flipIndex}`);
+      if (itemsContainer) {
+        itemsContainer.innerHTML += renderFlipItemCard(itemId, accountIndex, flipIndex, listType);
+      }
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Item added', 'success');
+    } else {
+      showToast('❌ Failed to add item', 'error');
+    }
+  } catch (error) {
+    console.error('Error adding item:', error);
+    showToast('❌ Failed to add item', 'error');
+  }
+}
+
+async function removeFlipItem(accountIndex, flipIndex, listType, itemId) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  const list = listType === 'whitelist' ? 'whitelist' : 'blacklistContaining';
+  if (!flip[list]) return;
+  
+  flip[list] = flip[list].filter(id => id !== itemId);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      const itemsContainer = document.getElementById(`flip-${listType}-items-${accountIndex}-${flipIndex}`);
+      if (itemsContainer) {
+        itemsContainer.innerHTML = updated.flipConfigs[flipIndex][list].map(id => 
+          renderFlipItemCard(id, accountIndex, flipIndex, listType)
+        ).join('');
+      }
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Item removed', 'success');
+    } else {
+      showToast('❌ Failed to remove item', 'error');
+    }
+  } catch (error) {
+    console.error('Error removing item:', error);
+    showToast('❌ Failed to remove item', 'error');
+  }
+}
+
+function updateActiveHoursSlider(accountIndex, value) {
+  const valueEl = document.getElementById(`active-hours-value-${accountIndex}`);
+  if (valueEl) {
+    valueEl.textContent = value + 'h';
+  }
+  
+  const slider = document.getElementById(`active-hours-slider-${accountIndex}`);
+  if (slider) {
+    const percent = ((value - 1) / 22) * 100;
+    slider.style.setProperty('--slider-progress', `${percent}%`);
+  }
+}
 
 
 

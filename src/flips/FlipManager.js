@@ -1,6 +1,9 @@
 
 
 
+
+
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const CoflAPI = require('../utils/CoflAPI');
@@ -70,6 +73,10 @@ class FlipManager {
     // Profit tracking for charts
     this.profitHistory = []; // Array of { timestamp, profit, itemTag, item }
     this.maxProfitHistory = 100; // Keep last 100 profit records
+    
+    // 🔥 NEW: Money flow tracking for fourth chart
+    this.moneyFlowHistory = []; // Array of { timestamp, amount, type, itemTag, item }
+    this.maxMoneyFlowHistory = 200; // Keep last 200 transactions
     
     this.amount = null;
 
@@ -145,6 +152,7 @@ class FlipManager {
         }),
         activityLogs: this.activityLogs,
         profitHistory: this.profitHistory,
+        moneyFlowHistory: this.moneyFlowHistory, // 🔥 NEW
         queueState: queueState || this.queue.getState()
       };
       
@@ -196,10 +204,12 @@ class FlipManager {
       // Restaurar logs y profit history
       this.activityLogs = state.activityLogs || [];
       this.profitHistory = state.profitHistory || [];
+      this.moneyFlowHistory = state.moneyFlowHistory || []; // 🔥 NEW
       this.amount = state.amount;
       
       this.log(`✅ Restored ${this.activityLogs.length} activity logs`);
       this.log(`✅ Restored ${this.profitHistory.length} profit records`);
+      this.log(`✅ Restored ${this.moneyFlowHistory.length} money flow transactions`); // 🔥 NEW
       
       // Guardar flips para restaurar después
       if (state.flips && state.flips.length > 0) {
@@ -752,11 +762,14 @@ class FlipManager {
     if (buyOrderMatch) {
       const amount = buyOrderMatch[1];
       const itemName = buyOrderMatch[2].trim();
-      const totalCost = buyOrderMatch[3].replace(/,/g, '');
+      const totalCost = parseInt(buyOrderMatch[3].replace(/,/g, ''));
       const itemTag = this.flips.find(f => f.item && f.item.toLowerCase().includes(itemName.toLowerCase()))?.itemTag || null;
       
+      // 🔥 Record money spent on buy order
+      this.addMoneyFlowTransaction(totalCost, 'buy', itemTag, itemName);
+      
       this.addActivityLog(
-        `Buy Order Setup: ${amount}x ${itemName} for ${parseInt(totalCost).toLocaleString()} coins`,
+        `Buy Order Setup: ${amount}x ${itemName} for ${totalCost.toLocaleString()} coins`,
         itemTag
       );
     }
@@ -768,6 +781,9 @@ class FlipManager {
       const amount = parseInt(sellClaimMatch[2]);
       const itemName = sellClaimMatch[3].trim();
       const itemTag = this.flips.find(f => f.item && f.item.toLowerCase().includes(itemName.toLowerCase()))?.itemTag || itemName;
+      
+      // 🔥 Record money earned from selling (negative because it reduces total spent)
+      this.addMoneyFlowTransaction(-totalCoins, 'sell', itemTag, itemName);
       
       // 🔥 NEW PROFIT CALCULATION: Using API price at the moment of sale
       this.calculateProfitFromSale(itemTag, itemName, totalCoins, amount);
@@ -875,6 +891,32 @@ class FlipManager {
   // Get profit history for charts
   getProfitHistory(limit = 50) {
     return this.profitHistory.slice(0, limit);
+  }
+
+  // 🔥 NEW: Add money flow transaction
+  addMoneyFlowTransaction(amount, type, itemTag = null, itemName = null) {
+    const transaction = {
+      timestamp: Date.now(),
+      amount: amount, // Positive for money spent, negative for money earned
+      type: type, // 'buy', 'sell', 'buyrelist', 'sellrelist'
+      itemTag: itemTag,
+      item: itemName
+    };
+    
+    this.moneyFlowHistory.unshift(transaction); // Add to beginning
+    
+    // Keep only last N transactions
+    if (this.moneyFlowHistory.length > this.maxMoneyFlowHistory) {
+      this.moneyFlowHistory = this.moneyFlowHistory.slice(0, this.maxMoneyFlowHistory);
+    }
+    
+    const sign = amount > 0 ? '+' : '';
+    this.log(`💸 Money flow: ${sign}${amount.toLocaleString()} coins (${type}) for ${itemName || itemTag || 'unknown'}`);
+  }
+
+  // 🔥 NEW: Get money flow history
+  getMoneyFlow(limit = 100) {
+    return this.moneyFlowHistory.slice(0, limit);
   }
 
   // Get comprehensive stats for UI
@@ -1029,6 +1071,11 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
+
+
+
+
 
 
 

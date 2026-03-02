@@ -1,6 +1,8 @@
 
 
 
+
+
 const ContainerManager = require('../utils/ContainerManager');
 const ChatListener = require('../events/ChatListener');
 
@@ -381,7 +383,7 @@ class Flip {
       if (this.buyRelistCounter >= this.maxBuyRelist) {
         console.log(`❌ [BUY RELIST] Max buy relist reached (${this.buyRelistCounter}/${this.maxBuyRelist}) - Finishing flip`);
         this.isBuyRellisting = false;
-        await this.finishFlip(true, true);
+        await this.finishFlipInline(true, true);
         return;
       }
       
@@ -641,7 +643,7 @@ class Flip {
               !this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
             console.log("✅ [SELL RELIST] Order already filled!");
             this.orderFilled = true;
-            this.finishFlip(false, true);
+            await this.finishFlipInline(false, true);
             return;
           }
           
@@ -668,7 +670,7 @@ class Flip {
         this.ContainerManager.click({contains: `Sell Inventory Now`});
         console.log(`💸 [SELL RELIST] Selling inventory instantly...`);
         
-        this.finishFlip(false, true);
+        await this.finishFlipInline(false, true);
       }, {
         type: 'sellrelist-finish',
         item: this.item,
@@ -706,7 +708,7 @@ class Flip {
             !this.ContainerManager.hasItemInContainer({contains: "Cancel Order"})) {
           console.log("✅ [SELL RELIST] Order already filled!");
           this.orderFilled = true;
-          this.finishFlip(false, true);
+          await this.finishFlipInline(false, true);
           return;
         }
         
@@ -871,6 +873,8 @@ class Flip {
 }
 
 module.exports = Flip;
+
+
 
 
 

@@ -3,7 +3,6 @@
 
 
 
-
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -184,7 +183,7 @@ class Launcher {
         username,
         discordWebhook: discordWebhook || "",
         proxy,
-        flips,
+        flips: [],
         enabled: true,
         autoStart,
         restSchedule: {
@@ -241,6 +240,9 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
+
+
 
 
 
