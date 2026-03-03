@@ -3,6 +3,7 @@
 
 
 
+
 /* ==========================================
    FLIPPER CONFIG - POKEMON CARD STYLE
    Professional Vertical Card Design
@@ -194,6 +195,13 @@
   filter: drop-shadow(0 2px 4px rgba(155, 111, 247, 0.5));
 }
 
+.flip-type-icon img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 255, 136, 0.4));
+}
+
 .flip-card-title h3 {
   font-size: 18px;
   font-weight: 700;
@@ -206,7 +214,7 @@
 
 .flip-type-badge {
   position: absolute;
-  top: 24px;
+  top: 8px;
   right: 20px;
   padding: 6px 14px;
   border-radius: 12px;
@@ -1370,3 +1378,6 @@
     transform: translateY(0) scale(1);
   }
 }
+
+
+
