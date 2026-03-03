@@ -1,5 +1,9 @@
+
 /* ============================================
    NPC FLIP ADDON FUNCTIONS
+   
+   This file contains frontend utilities for NPC flips.
+   For backend logic, see SkyBZM/src/flips/NPCFlip.js
    ============================================ */
 
 // NPC Item Search
@@ -52,7 +56,8 @@ function selectNPCItem(accountIndex, flipIndex, itemId) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
   
-  flip.npcItem = itemId;
+  // ✅ Use "item" field for NPC flips (not "npcItem")
+  flip.item = itemId;
   
   fetch(`/api/account/${accountIndex}`, {
     method: 'PUT',
@@ -90,7 +95,7 @@ function clearNPCItem(accountIndex, flipIndex) {
   const flip = account.flipConfigs[flipIndex];
   if (!flip) return;
   
-  flip.npcItem = '';
+  flip.item = '';
   
   fetch(`/api/account/${accountIndex}`, {
     method: 'PUT',
@@ -167,3 +172,85 @@ async function deleteFlip(accountIndex, flipIndex) {
     showToast('❌ Failed to delete flip', 'error');
   }
 }
+
+/* ============================================
+   UTILITY FUNCTIONS FOR NPC FLIP EXTENSION
+   
+   Add custom functions below this line
+   ============================================ */
+
+/**
+ * Get NPC flip status for a specific account
+ * @param {number} accountIndex - Account index
+ * @returns {Promise<Object>} NPC flip status
+ */
+async function getNPCFlipStatus(accountIndex) {
+  try {
+    const res = await fetch(`/api/bot/${accountIndex}/npc-status`, {
+      headers: { 'x-password': password }
+    });
+    
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (error) {
+    console.error('Error fetching NPC flip status:', error);
+  }
+  
+  return null;
+}
+
+/**
+ * Manually trigger NPC buy (for testing)
+ * @param {number} accountIndex - Account index
+ */
+async function triggerNPCBuy(accountIndex) {
+  console.log(`🧪 [NPC] Manually triggering buy for account ${accountIndex}`);
+  
+  try {
+    const res = await fetch(`/api/bot/${accountIndex}/npc-buy`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      }
+    });
+    
+    if (res.ok) {
+      showToast('✅ NPC buy triggered', 'success');
+    } else {
+      showToast('❌ Failed to trigger NPC buy', 'error');
+    }
+  } catch (error) {
+    console.error('Error triggering NPC buy:', error);
+    showToast('❌ Failed to trigger NPC buy', 'error');
+  }
+}
+
+/**
+ * Manually trigger NPC sell (for testing)
+ * @param {number} accountIndex - Account index
+ */
+async function triggerNPCSell(accountIndex) {
+  console.log(`🧪 [NPC] Manually triggering sell for account ${accountIndex}`);
+  
+  try {
+    const res = await fetch(`/api/bot/${accountIndex}/npc-sell`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      }
+    });
+    
+    if (res.ok) {
+      showToast('✅ NPC sell triggered', 'success');
+    } else {
+      showToast('❌ Failed to trigger NPC sell', 'error');
+    }
+  } catch (error) {
+    console.error('Error triggering NPC sell:', error);
+    showToast('❌ Failed to trigger NPC sell', 'error');
+  }
+}
+

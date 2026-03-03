@@ -1,3 +1,5 @@
+
+
 /* ============================================
    BZM BOT MANAGER - Frontend Application
    ============================================ */
@@ -117,13 +119,215 @@ function escapeHtml(text) {
 
 // Get item image URL from Minecraft assets
 function getItemImageUrl(item) {
-  if (!item || !item.tag) {
-    return 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/block/stone.png';
+  if (!item) {
+    return 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png';
   }
   
-  // Convert tag to lowercase and replace : with /
-  const itemPath = item.tag.toLowerCase().replace(':', '/');
-  return `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/${itemPath}.png`;
+  // If item has custom skin texture (for heads/skulls)
+  if (item.skin && item.skin.value) {
+    try {
+      // Decode base64 skin data
+      const skinData = JSON.parse(atob(item.skin.value));
+      if (skinData.textures && skinData.textures.SKIN && skinData.textures.SKIN.url) {
+        // Extract texture hash from URL (last part after /)
+        const textureUrl = skinData.textures.SKIN.url;
+        const textureHash = textureUrl.split('/').pop();
+        
+        // Use mc-heads.net for 3D head rendering
+        return `https://mc-heads.net/head/${textureHash}`;
+      }
+    } catch (e) {
+      console.warn('Failed to decode skin texture:', e);
+    }
+  }
+  
+  // Fallback to material-based texture from minecraft-assets GitHub repo
+  let material = (item.material || 'STONE').toLowerCase();
+  
+  // Map old Minecraft IDs to new texture names
+  const materialMap = {
+    // Special items
+    'skull_item': 'skeleton_skull',
+    'web': 'cobweb',
+    
+    // Flowers - all types
+    'yellow_flower': 'dandelion',
+    'red_flower': 'poppy',
+    'red_rose': 'poppy',
+    'dandelion': 'dandelion',
+    'poppy': 'poppy',
+    'blue_orchid': 'blue_orchid',
+    'allium': 'allium',
+    'azure_bluet': 'azure_bluet',
+    'red_tulip': 'red_tulip',
+    'orange_tulip': 'orange_tulip',
+    'white_tulip': 'white_tulip',
+    'pink_tulip': 'pink_tulip',
+    'oxeye_daisy': 'oxeye_daisy',
+    'sunflower': 'sunflower',
+    'lilac': 'lilac',
+    'rose_bush': 'rose_bush',
+    'peony': 'peony',
+    'tall_grass': 'tall_grass',
+    'large_fern': 'large_fern',
+    'cornflower': 'cornflower',
+    'lily_of_the_valley': 'lily_of_the_valley',
+    'wither_rose': 'wither_rose',
+    
+    // Wood variants
+    'log': 'oak_log',
+    'log_2': 'acacia_log',
+    'wood': 'oak_planks',
+    
+    // Glass
+    'stained_glass': 'white_stained_glass',
+    'stained_glass_pane': 'white_stained_glass_pane',
+    'thin_glass': 'glass_pane',
+    
+    // Wool and carpet
+    'wool': 'white_wool',
+    'carpet': 'white_carpet',
+    
+    // Clay
+    'stained_clay': 'white_terracotta',
+    'hard_clay': 'terracotta',
+    
+    // Food items
+    'ink_sack': 'ink_sac',
+    'carrot_item': 'carrot',
+    'potato_item': 'potato',
+    'baked_potato': 'baked_potato',
+    'raw_fish': 'cod',
+    'cooked_fish': 'cooked_cod',
+    'pork': 'porkchop',
+    'grilled_pork': 'cooked_porkchop',
+    'raw_beef': 'beef',
+    'cooked_beef': 'cooked_beef',
+    'raw_chicken': 'chicken',
+    'cooked_chicken': 'cooked_chicken',
+    
+    // Seeds and crops
+    'seeds': 'wheat_seeds',
+    'melon_seeds': 'melon_seeds',
+    'pumpkin_seeds': 'pumpkin_seeds',
+    'nether_stalk': 'nether_wart',
+    'melon': 'melon_slice',
+    
+    // Saplings - all types
+    'sapling': 'oak_sapling',
+    'spruce_sapling': 'spruce_sapling',
+    'birch_sapling': 'birch_sapling',
+    'jungle_sapling': 'jungle_sapling',
+    'acacia_sapling': 'acacia_sapling',
+    'dark_oak_sapling': 'dark_oak_sapling',
+    
+    // Slabs - all types
+    'step': 'stone_slab',
+    'wood_step': 'oak_slab',
+    'stone_slab': 'stone_slab',
+    'stone_slab2': 'red_sandstone_slab',
+    'wooden_slab': 'oak_slab',
+    'oak_slab': 'oak_slab',
+    'spruce_slab': 'spruce_slab',
+    'birch_slab': 'birch_slab',
+    'jungle_slab': 'jungle_slab',
+    'acacia_slab': 'acacia_slab',
+    'dark_oak_slab': 'dark_oak_slab',
+    
+    // Golden tools
+    'gold_sword': 'golden_sword',
+    'gold_pickaxe': 'golden_pickaxe',
+    'gold_axe': 'golden_axe',
+    'gold_spade': 'golden_shovel',
+    'gold_hoe': 'golden_hoe',
+    'golden_sword': 'golden_sword',
+    'golden_pickaxe': 'golden_pickaxe',
+    'golden_axe': 'golden_axe',
+    'golden_shovel': 'golden_shovel',
+    'golden_spade': 'golden_shovel',
+    'golden_hoe': 'golden_hoe',
+    
+    // Golden armor
+    'gold_helmet': 'golden_helmet',
+    'gold_chestplate': 'golden_chestplate',
+    'gold_leggings': 'golden_leggings',
+    'gold_boots': 'golden_boots',
+    'golden_helmet': 'golden_helmet',
+    'golden_chestplate': 'golden_chestplate',
+    'golden_leggings': 'golden_leggings',
+    'golden_boots': 'golden_boots',
+    
+    // Wooden tools
+    'wood_sword': 'wooden_sword',
+    'wood_pickaxe': 'wooden_pickaxe',
+    'wood_axe': 'wooden_axe',
+    'wood_spade': 'wooden_shovel',
+    'wood_hoe': 'wooden_hoe',
+    'wooden_sword': 'wooden_sword',
+    'wooden_pickaxe': 'wooden_pickaxe',
+    'wooden_axe': 'wooden_axe',
+    'wooden_shovel': 'wooden_shovel',
+    'wooden_spade': 'wooden_shovel',
+    'wooden_hoe': 'wooden_hoe',
+    
+    // Other tools (stone, iron, diamond)
+    'stone_spade': 'stone_shovel',
+    'iron_spade': 'iron_shovel',
+    'diamond_spade': 'diamond_shovel',
+    
+    // Special items
+    'enchanted_book': 'enchanted_book',
+    'golden_carrot': 'golden_carrot',
+    'speckled_melon': 'glistering_melon_slice',
+    'sulphur': 'gunpowder',
+    'mycel': 'mycelium',
+    'ender_stone': 'end_stone',
+    'grass': 'grass_block',
+    'quartz_ore': 'nether_quartz_ore',
+    'nether_brick_item': 'nether_brick',
+    'nether_fence': 'nether_brick_fence',
+    'enchantment_table': 'enchanting_table',
+    'brewing_stand_item': 'brewing_stand',
+    'cauldron_item': 'cauldron',
+    
+    // Miscellaneous
+    'monster_egg': 'infested_stone',
+    'huge_mushroom_1': 'brown_mushroom_block',
+    'huge_mushroom_2': 'red_mushroom_block',
+    'iron_fence': 'iron_bars',
+    'snow': 'snow_block',
+    'snow_layer': 'snow',
+    'water_lily': 'lily_pad'
+  };
+  
+  if (materialMap[material]) {
+    material = materialMap[material];
+  }
+  
+  // Remove data values
+  material = material.split(':')[0];
+  
+  // Use GitHub for items (they look good as flat textures)
+  const baseUrl = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures';
+  return `${baseUrl}/item/${material}.png`;
+}
+
+// Helper to get block fallback URL
+function getBlockImageUrl(material) {
+  const materialMap = {
+    'log': 'oak_log',
+    'log_2': 'acacia_log',
+    'ender_stone': 'end_stone',
+    'mycel': 'mycelium',
+    'grass': 'grass_block',
+    'quartz_ore': 'nether_quartz_ore'
+  };
+  
+  const mapped = materialMap[material] || material;
+  const cleanMaterial = mapped.split(':')[0];
+  
+  // Use visage for 3D block rendering
+  return `https://visage.surgeplay.com/bust/512/${cleanMaterial}`;
 }
 
 // Update slider value display
@@ -161,6 +365,11 @@ async function loadSkyblockItems() {
     const data = await res.json();
     skyblockItems = data.items || [];
     console.log(`✅ Loaded ${skyblockItems.length} Skyblock items`);
+    
+    // Debug: Log first item structure
+    if (skyblockItems.length > 0) {
+      console.log('📦 Sample item structure:', skyblockItems[0]);
+    }
     
     if (skyblockItems.length === 0) {
       console.warn('⚠️ No items loaded from API');
@@ -415,7 +624,7 @@ function renderBotConfigSection(account, index) {
               <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(12, 24, 42, 0.4); border: 1px solid rgba(129, 62, 242, 0.15); border-radius: 10px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
-                    <path d="M17 10H7v2h10v-2zm2-7h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-5-5H7v2h7v-2z"/>
+                    <path d="M17 10H7v2h10v-2zm2-7h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-5-5H7v-2h7v2z"/>
                   </svg>
                   <div>
                     <div style="font-size: 14px; font-weight: 600; color: #fff;">Daily Rest</div>
@@ -461,7 +670,7 @@ function renderBotConfigSection(account, index) {
         </button>
         <button class="btn btn-primary" onclick="restartBot(${index})" style="flex: 1; background: rgba(129, 62, 242, 0.2); border: 1.5px solid rgba(129, 62, 242, 0.5); color: #9b6ff7; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor; vertical-align: middle; margin-right: 8px;">
-            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-2zm0 16H5V8h14v11zm-5-5H7v2h7v-2z"/>
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-2zm0 16H5V8h14v11zm-5-5H7v-2h7v2z"/>
           </svg>
           Restart Bot
         </button>
@@ -487,7 +696,6 @@ function renderFlipperConfigSection(account, index) {
 
 function renderFlipCard(account, accountIndex, flip, flipIndex) {
   const flipType = flip.type || 'SELL_ORDER';
-  const isDevelopment = flipType !== 'SELL_ORDER';
   
   const typeColors = {
     'SELL_ORDER': '#00ff88',
@@ -517,42 +725,99 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
   const label = typeLabels[flipType] || flipType;
   const icon = typeIcons[flipType] || typeIcons['SELL_ORDER'];
   
-  const whitelistCount = flip.whitelist?.length || 0;
-  const blacklistCount = flip.blacklistContaining?.length || 0;
-  const maxFlips = flip.maxFlips || 0;
-  const budget = flip.budget || 0;
+
+  // For NPC flips, use item image if available
+
+  let headerIcon = icon;
+
+  if (flipType === 'NPC' && flip.item) {
+
+    const item = skyblockItems.find(i => i.id === flip.item);
+
+    if (item) {
+
+      const imageUrl = getItemImageUrl(item);
+
+      const material = (item.material || 'stone').toLowerCase().split(':')[0];
+
+      const blockFallback = `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/block/${material}.png`;
+
+      headerIcon = `<img src="${imageUrl}" alt="${escapeHtml(item.name)}" style="width: 20px; height: 20px; image-rendering: pixelated;" onerror="this.onerror=null; this.src='${blockFallback}'"/>`;
+
+    }
+
+  }
   
-  return `
-    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
-      <div class="flip-card-header">
-        <div class="flip-card-title">
-          <div class="flip-type-icon">${icon}</div>
-          <h3>${label}</h3>
-        </div>
-        <div class="flip-type-badge" style="background: ${color}; color: #000;">
-          ${isDevelopment ? 'DEV' : 'ACTIVE'}
-        </div>
+  // For NPC flips, show different stats
+  let statsHTML;
+  if (flipType === 'NPC') {
+    const currentItem = flip.item || '';
+    let itemDisplay = 'Not set';
+    let itemImageUrl = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png';
+    
+    if (currentItem) {
+      const item = skyblockItems.find(i => i.id === currentItem);
+      if (item) {
+        itemDisplay = item.name;
+        itemImageUrl = getItemImageUrl(item);
+      } else {
+        itemDisplay = currentItem;
+      }
+    }
+    
+    statsHTML = `
+      <div class="flip-stat">
+        <span class="flip-stat-label">Item</span>
+        <span class="flip-stat-value">${escapeHtml(itemDisplay)}</span>
       </div>
-      
-      <div class="flip-card-body">
-        <div class="flip-stat">
-          <span class="flip-stat-label">Whitelist</span>
-          <span class="flip-stat-value positive">${whitelistCount}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Blacklist</span>
-          <span class="flip-stat-value warning">${blacklistCount}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Max Flips</span>
-          <span class="flip-stat-value">${maxFlips}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Budget</span>
-          <span class="flip-stat-value">${formatNumber(budget)}</span>
-        </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Force Sell</span>
+        <span class="flip-stat-value">${flip.forceSellAfter || 1} min</span>
       </div>
-      
+      <div class="flip-stat">
+        <span class="flip-stat-label">Status</span>
+        <span class="flip-stat-value ${flip.enabled ? 'positive' : 'warning'}">${flip.enabled ? 'Enabled' : 'Disabled'}</span>
+      </div>
+    `;
+  } else {
+    const whitelistCount = flip.whitelist?.length || 0;
+    const blacklistCount = flip.blacklistContaining?.length || 0;
+    const maxFlips = flip.maxFlips || 0;
+    const budget = flip.budget || 0;
+    
+    statsHTML = `
+      <div class="flip-stat">
+        <span class="flip-stat-label">Whitelist</span>
+        <span class="flip-stat-value positive">${whitelistCount}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Blacklist</span>
+        <span class="flip-stat-value warning">${blacklistCount}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Max Flips</span>
+        <span class="flip-stat-value">${maxFlips}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Budget</span>
+        <span class="flip-stat-value">${formatNumber(budget)}</span>
+      </div>
+    `;
+  }
+  
+  // For NPC flips, don't show whitelist/blacklist buttons
+  let footerHTML;
+  if (flipType === 'NPC') {
+    footerHTML = `
+      <div class="flip-card-footer" style="padding: 16px; text-align: center; color: rgba(255,255,255,0.6);">
+        <span>Click to configure</span>
+      </div>
+    `;
+  } else {
+    const whitelistCount = flip.whitelist?.length || 0;
+    const blacklistCount = flip.blacklistContaining?.length || 0;
+    
+    footerHTML = `
       <div class="flip-card-footer">
         <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
           <div class="list-btn-icon">
@@ -577,6 +842,26 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
           </div>
         </button>
       </div>
+    `;
+  }
+  
+  return `
+    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
+      <div class="flip-card-header">
+        <div class="flip-card-title">
+          <div class="flip-type-icon">${headerIcon}</div>
+          <h3>${label}</h3>
+        </div>
+        <div class="flip-type-badge" style="background: ${color}; color: #000;">
+          ACTIVE
+        </div>
+      </div>
+      
+      <div class="flip-card-body">
+        ${statsHTML}
+      </div>
+      
+      ${footerHTML}
     </div>
   `;
 }
@@ -661,15 +946,26 @@ async function selectNewFlipType(accountIndex, flipType) {
   
   if (!account.flipConfigs) account.flipConfigs = [];
   
-  const newFlip = {
-    type: flipType,
-    enabled: true,
-    maxFlips: 5,
-    budget: 10000000,
-    minProfit: 100000,
-    whitelist: [],
-    blacklistContaining: []
-  };
+  let newFlip;
+  
+  if (flipType === 'NPC') {
+    newFlip = {
+      type: flipType,
+      enabled: true,
+      item: "",
+      forceSellAfter: 1
+    };
+  } else {
+    newFlip = {
+      type: flipType,
+      enabled: true,
+      maxFlips: 5,
+      budget: 10000000,
+      minProfit: 100000,
+      whitelist: [],
+      blacklistContaining: []
+    };
+  }
   
   account.flipConfigs.push(newFlip);
   
@@ -712,12 +1008,6 @@ function openFlipEditModal(accountIndex, flipIndex) {
   if (!flip) return;
   
   const flipType = flip.type || 'SELL_ORDER';
-  const isDevelopment = flipType !== 'SELL_ORDER';
-  
-  if (isDevelopment) {
-    showToast('⚠️ This flip type is under development', 'info');
-    return;
-  }
   
   const modal = document.createElement('div');
   modal.className = 'flip-modal';
@@ -765,6 +1055,32 @@ function openFlipEditModal(accountIndex, flipIndex) {
   document.body.appendChild(modal);
   setTimeout(() => modal.style.opacity = '1', 10);
   
+  // Setup NPC item selector event listener AFTER modal is added to DOM
+  if (flipType === 'NPC') {
+    setTimeout(() => {
+      const selector = document.getElementById(`npc-item-display-${accountIndex}-${flipIndex}`);
+      const searchInput = document.getElementById(`npc-item-search-${accountIndex}-${flipIndex}`);
+      
+      if (selector && searchInput) {
+        selector.addEventListener('click', function() {
+          if (searchInput.style.display === 'none' || searchInput.style.display === '') {
+            searchInput.style.display = 'block';
+            searchInput.focus();
+            searchInput.value = '';
+          } else {
+            searchInput.style.display = 'none';
+            document.getElementById(`npc-item-results-${accountIndex}-${flipIndex}`).style.display = 'none';
+          }
+        });
+        
+        // Setup search input
+        searchInput.addEventListener('input', function() {
+          searchNPCItem(accountIndex, flipIndex, this.value);
+        });
+      }
+    }, 100);
+  }
+  
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeFlipEditModal();
   });
@@ -779,6 +1095,100 @@ function closeFlipEditModal() {
 }
 
 function renderFlipConfigFields(flip, accountIndex, flipIndex) {
+  const flipType = flip.type || 'SELL_ORDER';
+  
+  // NPC Flip specific configuration
+  if (flipType === 'NPC') {
+    const currentItem = flip.item || '';
+    let itemDisplay = 'Not set';
+    let itemImageUrl = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png';
+    
+    if (currentItem) {
+      const item = skyblockItems.find(i => i.id === currentItem);
+      if (item) {
+        itemDisplay = item.name;
+        itemImageUrl = getItemImageUrl(item);
+      } else {
+        itemDisplay = currentItem;
+      }
+    }
+    
+    return `
+      <!-- Configuration Parameters for NPC Flip -->
+      <div class="config-params-section">
+        <div class="section-title-bar">
+          <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #3b82f6;">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+          </svg>
+          <span>NPC Flip Configuration</span>
+        </div>
+        
+        <!-- Item Selector -->
+        <div style="margin-bottom: 24px;">
+          <label style="display: block; margin-bottom: 8px; color: #fff; font-size: 14px; font-weight: 600;">Item to Sell</label>
+          <div style="position: relative;">
+            <div id="npc-item-display-${accountIndex}-${flipIndex}" class="npc-item-selector" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(12, 24, 42, 0.6); border: 1px solid rgba(129, 62, 242, 0.3); border-radius: 8px; cursor: pointer;">
+              <img src="${itemImageUrl}" alt="${escapeHtml(itemDisplay)}" style="width: 32px; height: 32px; image-rendering: pixelated;" 
+                onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png'"/>
+              <div style="flex: 1;">
+                <div style="color: #fff; font-weight: 500;">${escapeHtml(itemDisplay)}</div>
+                ${currentItem ? `<div style="color: rgba(255,255,255,0.5); font-size: 12px;">${escapeHtml(currentItem)}</div>` : ''}
+              </div>
+              <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: rgba(255,255,255,0.5);">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+            </div>
+            <input 
+              type="text" 
+              class="config-input" 
+              placeholder="Search for an item..."
+              id="npc-item-search-${accountIndex}-${flipIndex}"
+              style="width: 100%; margin-top: 8px; display: none;"
+            />
+            <div class="flip-search-results" id="npc-item-results-${accountIndex}-${flipIndex}" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="config-sliders-grid">
+          <div class="slider-card">
+            <div class="slider-card-header">
+              <span class="slider-label">Force Sell After</span>
+              <span class="slider-current-value" id="flip-forceSellAfter-${accountIndex}-${flipIndex}">${flip.forceSellAfter || 1} min</span>
+            </div>
+            <div class="slider-track-wrapper">
+              <input type="range" class="modern-slider" 
+                style="--slider-color: #3b82f6;"
+                min="1" max="10" step="1" value="${flip.forceSellAfter || 1}"
+                oninput="updateSliderValue(this, 'flip-forceSellAfter-${accountIndex}-${flipIndex}', ' min')"
+                onchange="updateNPCFlipConfigAndRefresh(${accountIndex}, ${flipIndex}, 'forceSellAfter', parseInt(this.value))"/>
+              <div class="slider-range-labels">
+                <span>1 min</span>
+                <span>10 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="config-actions" style="margin-top: 32px;">
+        <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          Delete Flip
+        </button>
+        <button class="btn btn-primary" onclick="closeFlipEditModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+          </svg>
+          Save Changes
+        </button>
+      </div>
+    `;
+  }
+  
+  // Sell Order Flip configuration (original)
   const whitelistCount = flip.whitelist?.length || 0;
   const blacklistCount = flip.blacklistContaining?.length || 0;
   
@@ -885,6 +1295,206 @@ function renderFlipConfigFields(flip, accountIndex, flipIndex) {
   `;
 }
 
+// NPC Item Search
+function toggleNPCItemSearch(accountIndex, flipIndex) {
+  const searchInput = document.getElementById(`npc-item-search-${accountIndex}-${flipIndex}`);
+  const resultsDiv = document.getElementById(`npc-item-results-${accountIndex}-${flipIndex}`);
+  
+  if (searchInput.style.display === 'none' || searchInput.style.display === '') {
+    searchInput.style.display = 'block';
+    searchInput.focus();
+    searchInput.value = '';
+  } else {
+    searchInput.style.display = 'none';
+    resultsDiv.style.display = 'none';
+  }
+}
+
+function searchNPCItem(accountIndex, flipIndex, query) {
+  const resultsDiv = document.getElementById(`npc-item-results-${accountIndex}-${flipIndex}`);
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  
+  // Filter and score matches
+  const matches = skyblockItems
+    .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
+    .map(item => {
+      const nameLower = item.name.toLowerCase();
+      const idLower = item.id.toLowerCase();
+      let score = 0;
+      
+      // Exact match gets highest priority
+      if (nameLower === lowerQuery || idLower === lowerQuery) {
+        score = 1000;
+      }
+      // Starts with query gets high priority
+      else if (nameLower.startsWith(lowerQuery) || idLower.startsWith(lowerQuery)) {
+        score = 500;
+      }
+      // Contains query as whole word gets medium priority
+      else if (nameLower.includes(' ' + lowerQuery + ' ') || nameLower.startsWith(lowerQuery + ' ') || nameLower.endsWith(' ' + lowerQuery)) {
+        score = 250;
+      }
+      // Contains query anywhere gets low priority
+      else {
+        score = 100;
+      }
+      
+      // Bonus for shorter names (more specific)
+      score += Math.max(0, 100 - item.name.length);
+      
+      // Penalty for "Minion" in name
+      if (nameLower.includes('minion')) {
+        score -= 50;
+      }
+      
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map(result => result.item);
+
+  if (matches.length === 0) {
+    resultsDiv.innerHTML = '<div class="search-result-item">No items found</div>';
+    resultsDiv.style.display = 'block';
+    return;
+  }
+
+  resultsDiv.innerHTML = matches.map(item => {
+    const itemImageUrl = getItemImageUrl(item);
+    const material = (item.material || 'stone').toLowerCase();
+    const blockFallback = `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/block/${material.split(':')[0]}.png`;
+    
+    return `<div class="search-result-item" data-item-id="${item.id}">
+      <img src="${itemImageUrl}" alt="${escapeHtml(item.name)}" class="result-icon" 
+        onerror="this.onerror=null; this.src='${blockFallback}'"/>
+      <div class="result-info">
+        <div class="result-name">${escapeHtml(item.name)}</div>
+        <div class="result-id">${escapeHtml(item.id)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  
+  // Add click listeners to results
+  resultsDiv.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const itemId = this.getAttribute('data-item-id');
+      selectNPCItem(accountIndex, flipIndex, itemId);
+    });
+  });
+  
+  resultsDiv.style.display = 'block';
+}
+
+async function selectNPCItem(accountIndex, flipIndex, itemId) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  flip.item = itemId;
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      // Update the display in the modal
+      const item = skyblockItems.find(i => i.id === itemId);
+      if (item) {
+        const displayDiv = document.getElementById(`npc-item-display-${accountIndex}-${flipIndex}`);
+        if (displayDiv) {
+          displayDiv.innerHTML = `
+            <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" style="width: 32px; height: 32px; image-rendering: pixelated;" 
+              onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png'"/>
+            <div style="flex: 1;">
+              <div style="color: #fff; font-weight: 500;">${escapeHtml(item.name)}</div>
+              <div style="color: rgba(255,255,255,0.5); font-size: 12px;">${escapeHtml(item.id)}</div>
+            </div>
+            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: rgba(255,255,255,0.5);">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          `;
+        }
+      }
+      
+      // Hide search
+      const searchInput = document.getElementById(`npc-item-search-${accountIndex}-${flipIndex}`);
+      const resultsDiv = document.getElementById(`npc-item-results-${accountIndex}-${flipIndex}`);
+      if (searchInput) searchInput.style.display = 'none';
+      if (resultsDiv) resultsDiv.style.display = 'none';
+      
+      // Update the card in the main view
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Item selected', 'success');
+    } else {
+      showToast('❌ Failed to update item', 'error');
+    }
+  } catch (error) {
+    console.error('Error updating item:', error);
+    showToast('❌ Failed to update item', 'error');
+  }
+}
+
+async function updateNPCFlipConfigAndRefresh(accountIndex, flipIndex, field, value) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  const flip = account.flipConfigs[flipIndex];
+  if (!flip) return;
+  
+  flip[field] = value;
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      // Update the card in the main view
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Configuration updated', 'success');
+    } else {
+      showToast('❌ Failed to update configuration', 'error');
+    }
+  } catch (error) {
+    console.error('Error updating configuration:', error);
+    showToast('❌ Failed to update configuration', 'error');
+  }
+}
+
 // Whitelist/Blacklist Editor
 function openFlipListEditor(accountIndex, flipIndex, listType) {
   const account = globalConfig.accounts[accountIndex];
@@ -951,12 +1561,16 @@ function closeFlipListEditor() {
 function renderFlipItemCard(itemId, accountIndex, flipIndex, listType) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
-  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png';
+  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/stone.png';
+  
+  // Block fallback URL
+  const material = item ? (item.material || 'stone').toLowerCase().split(':')[0] : 'stone';
+  const blockFallback = `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/block/${material}.png`;
   
   return `
     <div class="item-card ${listType}">
       <img src="${imageUrl}" alt="${escapeHtml(itemName)}" class="item-icon" 
-        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/barrier.png'"/>
+        onerror="this.onerror=null; this.src='${blockFallback}'"/>
       <div class="item-info">
         <div class="item-name">${escapeHtml(itemName)}</div>
         <div class="item-id">${escapeHtml(itemId)}</div>
@@ -978,9 +1592,45 @@ function searchFlipItems(accountIndex, flipIndex, listType, query) {
   console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
 
   const lowerQuery = query.toLowerCase();
+  
+  // Filter and score matches
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
-    .slice(0, 10);
+    .map(item => {
+      const nameLower = item.name.toLowerCase();
+      const idLower = item.id.toLowerCase();
+      let score = 0;
+      
+      // Exact match gets highest priority
+      if (nameLower === lowerQuery || idLower === lowerQuery) {
+        score = 1000;
+      }
+      // Starts with query gets high priority
+      else if (nameLower.startsWith(lowerQuery) || idLower.startsWith(lowerQuery)) {
+        score = 500;
+      }
+      // Contains query as whole word gets medium priority
+      else if (nameLower.includes(' ' + lowerQuery + ' ') || nameLower.startsWith(lowerQuery + ' ') || nameLower.endsWith(' ' + lowerQuery)) {
+        score = 250;
+      }
+      // Contains query anywhere gets low priority
+      else {
+        score = 100;
+      }
+      
+      // Bonus for shorter names (more specific)
+      score += Math.max(0, 100 - item.name.length);
+      
+      // Penalty for "Minion" in name
+      if (nameLower.includes('minion')) {
+        score -= 50;
+      }
+      
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map(result => result.item);
 
   console.log(`📋 Found ${matches.length} matches`);
 
@@ -993,7 +1643,7 @@ function searchFlipItems(accountIndex, flipIndex, listType, query) {
   resultsDiv.innerHTML = matches.map(item => `
     <div class="search-result-item" onclick="addFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(item.id)}')">
       <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
-        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/stone.png'"/>
       <div class="result-info">
         <div class="result-name">${escapeHtml(item.name)}</div>
         <div class="result-id">${escapeHtml(item.id)}</div>
@@ -1376,11 +2026,7 @@ async function updateBotStatus(accountIndex) {
       statusIndicator.className = `bot-status-indicator ${statusClass}`;
       statusText.textContent = statusLabel;
       
-      // 🔥 Añadir tooltip con info de salud
-      if (health.timeSinceHeartbeat !== undefined) {
-        const timeSince = Math.floor(health.timeSinceHeartbeat / 1000);
-        statusText.title = `Last heartbeat: ${timeSince}s ago`;
-      }
+      // Don't show tooltip for offline bots
       
       startBtn.style.display = isOnline ? 'none' : 'inline-block';
       stopBtn.style.display = isOnline ? 'inline-block' : 'none';
@@ -1437,7 +2083,7 @@ function switchBotSection(accountIndex, section) {
   
   if (section === 'earnings-stats') {
     stopBotIntervals(accountIndex);
-    loadBotData(accountIndex);
+    loadBotData(accountIndex, true);
     loadActivityLogs(accountIndex);
     startBotIntervals(accountIndex);
   } else if (section === 'bot-brain') {
@@ -1532,14 +2178,12 @@ function renderProfitChartData(accountIndex, profitData, isUpdate = false) {
   if (!containerEl) return;
 
   if (!profitData.profits || profitData.profits.length === 0) {
-    if (!isUpdate) {
-      containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No profit data available yet.</p></div>';
-      document.getElementById(`global-total-profit-${accountIndex}`).textContent = '0';
-      document.getElementById(`global-avg-profit-${accountIndex}`).textContent = '0';
-      document.getElementById(`global-total-flips-${accountIndex}`).textContent = '0';
-      document.getElementById(`global-coins-hour-${accountIndex}`).textContent = '0';
-      document.getElementById(`global-best-flip-${accountIndex}`).textContent = '0';
-    }
+    containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No profit data available yet.</p></div>';
+    document.getElementById(`global-total-profit-${accountIndex}`).textContent = '0';
+    document.getElementById(`global-avg-profit-${accountIndex}`).textContent = '0';
+    document.getElementById(`global-total-flips-${accountIndex}`).textContent = '0';
+    document.getElementById(`global-coins-hour-${accountIndex}`).textContent = '0';
+    document.getElementById(`global-best-flip-${accountIndex}`).textContent = '0';
     return;
   }
 
@@ -1625,7 +2269,7 @@ function renderPurseChart(accountIndex, statsData, isUpdate = false) {
   if (!containerEl) return;
 
   if (!statsData.purseHistory || statsData.purseHistory.length === 0) {
-    if (!isUpdate) containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No purse data available yet.</p></div>';
+    containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No purse data available yet.</p></div>';
     return;
   }
 
@@ -1884,7 +2528,7 @@ function renderCumulativeChart(accountIndex, profitData, isUpdate = false) {
   if (!containerEl) return;
 
   if (!profitData.profits || profitData.profits.length === 0) {
-    if (!isUpdate) containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No data yet</p></div>';
+    containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💰</p><p>No data yet</p></div>';
     return;
   }
 
@@ -1978,7 +2622,7 @@ function renderMoneyFlowChart(accountIndex, moneyFlowData, isUpdate = false) {
   if (!containerEl) return;
 
   if (!moneyFlowData.transactions || moneyFlowData.transactions.length === 0) {
-    if (!isUpdate) containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💸</p><p>No transactions yet</p></div>';
+    containerEl.innerHTML = '<div class="chart-empty"><p class="chart-icon">💸</p><p>No transactions yet</p></div>';
     return;
   }
 
@@ -2110,7 +2754,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderGeneralConfig(account, index) {
   const restSchedule = account.restSchedule || {
     shortBreaks: { enabled: false, workDuration: 30, breakDuration: 5 },
-    dailyRest: { enabled: false, workHours: 16 }
+    dailyRest: { enabled: false, workHours: 8 }
   };
 
   return `
@@ -2287,9 +2931,45 @@ function searchItems(accountIndex, listType, query) {
   console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
 
   const lowerQuery = query.toLowerCase();
+  
+  // Filter and score matches
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
-    .slice(0, 10);
+    .map(item => {
+      const nameLower = item.name.toLowerCase();
+      const idLower = item.id.toLowerCase();
+      let score = 0;
+      
+      // Exact match gets highest priority
+      if (nameLower === lowerQuery || idLower === lowerQuery) {
+        score = 1000;
+      }
+      // Starts with query gets high priority
+      else if (nameLower.startsWith(lowerQuery) || idLower.startsWith(lowerQuery)) {
+        score = 500;
+      }
+      // Contains query as whole word gets medium priority
+      else if (nameLower.includes(' ' + lowerQuery + ' ') || nameLower.startsWith(lowerQuery + ' ') || nameLower.endsWith(' ' + lowerQuery)) {
+        score = 250;
+      }
+      // Contains query anywhere gets low priority
+      else {
+        score = 100;
+      }
+      
+      // Bonus for shorter names (more specific)
+      score += Math.max(0, 100 - item.name.length);
+      
+      // Penalty for "Minion" in name
+      if (nameLower.includes('minion')) {
+        score -= 50;
+      }
+      
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map(result => result.item);
 
   console.log(`📋 Found ${matches.length} matches`);
 
@@ -2302,7 +2982,7 @@ function searchItems(accountIndex, listType, query) {
   resultsDiv.innerHTML = matches.map(item => `
     <div class="search-result-item" onclick="addItemToList(${accountIndex}, '${listType}', '${escapeHtml(item.id)}')">
       <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
-        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png'"/>
       <div class="result-info">
         <div class="result-name">${escapeHtml(item.name)}</div>
         <div class="result-id">${escapeHtml(item.id)}</div>
@@ -2358,6 +3038,14 @@ function renderBotBrain(account, index) {
           <div class="legend-item">
             <div class="legend-color" style="background: #22c55e;"></div>
             <span>Sell Order</span>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #14b8a6;"></div>
+            <span>NPC Buy</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #06b6d4;"></div>
+            <span>NPC Sell</span>
+          </div>
           </div>
           <div class="legend-item">
             <div class="legend-color" style="background: #a855f7;"></div>
@@ -2734,6 +3422,8 @@ function getTaskColor(taskType) {
   
   // User's specified colors
   if (typeUpper.includes('ENTER') && typeUpper.includes('SKYBLOCK')) return '#3b82f6'; // Azul
+  if (typeUpper.includes('NPCBUY')) return '#14b8a6'; // Teal (NPC Buy)
+  if (typeUpper.includes('NPCSELL')) return '#06b6d4'; // Cyan (NPC Sell)
   if (typeUpper.includes('BUY') && !typeUpper.includes('RELIST')) return '#fb923c'; // Naranja (comprar)
   if (typeUpper.includes('RELIST')) return '#a855f7'; // Morado (cualquier relist)
   if (typeUpper.includes('CLAIM')) return '#fbbf24'; // Dorado
@@ -3156,6 +3846,47 @@ function stopBrainPolling(accountIndex) {
   }
 }
 
+async function deleteFlip(accountIndex, flipIndex) {
+  const account = globalConfig.accounts[accountIndex];
+  if (!account || !account.flipConfigs) return;
+  
+  if (!confirm('Are you sure you want to delete this flip configuration?')) {
+    return;
+  }
+  
+  account.flipConfigs.splice(flipIndex, 1);
+  
+  try {
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+    
+    if (res.ok) {
+      const updated = await res.json();
+      globalConfig.accounts[accountIndex] = updated;
+      
+      closeFlipEditModal();
+      
+      const section = document.getElementById(`flipper-config-${accountIndex}`);
+      if (section) {
+        section.innerHTML = renderFlipperConfigSection(updated, accountIndex);
+      }
+      
+      showToast('✅ Flip deleted successfully', 'success');
+    } else {
+      showToast('❌ Failed to delete flip', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting flip:', error);
+    showToast('❌ Failed to delete flip', 'error');
+  }
+}
+
 
 
 
@@ -3184,7 +3915,6 @@ function renderFlipperConfigSection(account, index) {
 
 function renderFlipCard(account, accountIndex, flip, flipIndex) {
   const flipType = flip.type || 'SELL_ORDER';
-  const isDevelopment = flipType !== 'SELL_ORDER';
   
   const typeColors = {
     'SELL_ORDER': '#00ff88',
@@ -3214,42 +3944,88 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
   const label = typeLabels[flipType] || flipType;
   const icon = typeIcons[flipType] || typeIcons['SELL_ORDER'];
   
-  const whitelistCount = flip.whitelist?.length || 0;
-  const blacklistCount = flip.blacklistContaining?.length || 0;
-  const maxFlips = flip.maxFlips || 0;
-  const budget = flip.budget || 0;
+
+  // For NPC flips, use item image if available
+
+  let headerIcon = icon;
+
+  if (flipType === 'NPC' && flip.item) {
+
+    const item = skyblockItems.find(i => i.id === flip.item);
+
+    if (item) {
+
+      const imageUrl = getItemImageUrl(item);
+
+      const material = (item.material || 'stone').toLowerCase().split(':')[0];
+
+      const blockFallback = `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/block/${material}.png`;
+
+      headerIcon = `<img src="${imageUrl}" alt="${escapeHtml(item.name)}" style="width: 20px; height: 20px; image-rendering: pixelated;" onerror="this.onerror=null; this.src='${blockFallback}'"/>`;
+
+    }
+
+  }
   
-  return `
-    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
-      <div class="flip-card-header">
-        <div class="flip-card-title">
-          <div class="flip-type-icon">${icon}</div>
-          <h3>${label}</h3>
-        </div>
-        <div class="flip-type-badge" style="background: ${color}; color: #000;">
-          ${isDevelopment ? 'DEV' : 'ACTIVE'}
-        </div>
+  // For NPC flips, show different stats
+  let statsHTML;
+  if (flipType === 'NPC') {
+    const itemName = flip.item || 'Not set';
+    const forceSellAfter = flip.forceSellAfter || 1;
+    
+    statsHTML = `
+      <div class="flip-stat">
+        <span class="flip-stat-label">Item</span>
+        <span class="flip-stat-value">${escapeHtml(itemName)}</span>
       </div>
-      
-      <div class="flip-card-body">
-        <div class="flip-stat">
-          <span class="flip-stat-label">Whitelist</span>
-          <span class="flip-stat-value positive">${whitelistCount}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Blacklist</span>
-          <span class="flip-stat-value warning">${blacklistCount}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Max Flips</span>
-          <span class="flip-stat-value">${maxFlips}</span>
-        </div>
-        <div class="flip-stat">
-          <span class="flip-stat-label">Budget</span>
-          <span class="flip-stat-value">${formatNumber(budget)}</span>
-        </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Force Sell</span>
+        <span class="flip-stat-value">${forceSellAfter} min</span>
       </div>
-      
+      <div class="flip-stat">
+        <span class="flip-stat-label">Status</span>
+        <span class="flip-stat-value ${flip.enabled ? 'positive' : 'warning'}">${flip.enabled ? 'Enabled' : 'Disabled'}</span>
+      </div>
+    `;
+  } else {
+    const whitelistCount = flip.whitelist?.length || 0;
+    const blacklistCount = flip.blacklistContaining?.length || 0;
+    const maxFlips = flip.maxFlips || 0;
+    const budget = flip.budget || 0;
+    
+    statsHTML = `
+      <div class="flip-stat">
+        <span class="flip-stat-label">Whitelist</span>
+        <span class="flip-stat-value positive">${whitelistCount}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Blacklist</span>
+        <span class="flip-stat-value warning">${blacklistCount}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Max Flips</span>
+        <span class="flip-stat-value">${maxFlips}</span>
+      </div>
+      <div class="flip-stat">
+        <span class="flip-stat-label">Budget</span>
+        <span class="flip-stat-value">${formatNumber(budget)}</span>
+      </div>
+    `;
+  }
+  
+  // For NPC flips, don't show whitelist/blacklist buttons
+  let footerHTML;
+  if (flipType === 'NPC') {
+    footerHTML = `
+      <div class="flip-card-footer" style="padding: 16px; text-align: center; color: rgba(255,255,255,0.6);">
+        <span>Click to configure</span>
+      </div>
+    `;
+  } else {
+    const whitelistCount = flip.whitelist?.length || 0;
+    const blacklistCount = flip.blacklistContaining?.length || 0;
+    
+    footerHTML = `
       <div class="flip-card-footer">
         <button class="flip-footer-btn" onclick="event.stopPropagation(); openFlipListEditor(${accountIndex}, ${flipIndex}, 'whitelist')">
           <div class="list-btn-icon">
@@ -3274,6 +4050,26 @@ function renderFlipCard(account, accountIndex, flip, flipIndex) {
           </div>
         </button>
       </div>
+    `;
+  }
+  
+  return `
+    <div class="flip-card" data-flip-index="${flipIndex}" onclick="openFlipEditModal(${accountIndex}, ${flipIndex})">
+      <div class="flip-card-header">
+        <div class="flip-card-title">
+          <div class="flip-type-icon">${headerIcon}</div>
+          <h3>${label}</h3>
+        </div>
+        <div class="flip-type-badge" style="background: ${color}; color: #000;">
+          ACTIVE
+        </div>
+      </div>
+      
+      <div class="flip-card-body">
+        ${statsHTML}
+      </div>
+      
+      ${footerHTML}
     </div>
   `;
 }
@@ -3358,15 +4154,26 @@ async function selectNewFlipType(accountIndex, flipType) {
   
   if (!account.flipConfigs) account.flipConfigs = [];
   
-  const newFlip = {
-    type: flipType,
-    enabled: true,
-    maxFlips: 5,
-    budget: 10000000,
-    minProfit: 100000,
-    whitelist: [],
-    blacklistContaining: []
-  };
+  let newFlip;
+  
+  if (flipType === 'NPC') {
+    newFlip = {
+      type: flipType,
+      enabled: true,
+      item: "",
+      forceSellAfter: 1
+    };
+  } else {
+    newFlip = {
+      type: flipType,
+      enabled: true,
+      maxFlips: 5,
+      budget: 10000000,
+      minProfit: 100000,
+      whitelist: [],
+      blacklistContaining: []
+    };
+  }
   
   account.flipConfigs.push(newFlip);
   
@@ -3409,12 +4216,6 @@ function openFlipEditModal(accountIndex, flipIndex) {
   if (!flip) return;
   
   const flipType = flip.type || 'SELL_ORDER';
-  const isDevelopment = flipType !== 'SELL_ORDER';
-  
-  if (isDevelopment) {
-    showToast('⚠️ This flip type is under development', 'info');
-    return;
-  }
   
   const modal = document.createElement('div');
   modal.className = 'flip-modal';
@@ -3462,6 +4263,32 @@ function openFlipEditModal(accountIndex, flipIndex) {
   document.body.appendChild(modal);
   setTimeout(() => modal.style.opacity = '1', 10);
   
+  // Setup NPC item selector event listener AFTER modal is added to DOM
+  if (flipType === 'NPC') {
+    setTimeout(() => {
+      const selector = document.getElementById(`npc-item-display-${accountIndex}-${flipIndex}`);
+      const searchInput = document.getElementById(`npc-item-search-${accountIndex}-${flipIndex}`);
+      
+      if (selector && searchInput) {
+        selector.addEventListener('click', function() {
+          if (searchInput.style.display === 'none' || searchInput.style.display === '') {
+            searchInput.style.display = 'block';
+            searchInput.focus();
+            searchInput.value = '';
+          } else {
+            searchInput.style.display = 'none';
+            document.getElementById(`npc-item-results-${accountIndex}-${flipIndex}`).style.display = 'none';
+          }
+        });
+        
+        // Setup search input
+        searchInput.addEventListener('input', function() {
+          searchNPCItem(accountIndex, flipIndex, this.value);
+        });
+      }
+    }, 100);
+  }
+  
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeFlipEditModal();
   });
@@ -3476,6 +4303,100 @@ function closeFlipEditModal() {
 }
 
 function renderFlipConfigFields(flip, accountIndex, flipIndex) {
+  const flipType = flip.type || 'SELL_ORDER';
+  
+  // NPC Flip specific configuration
+  if (flipType === 'NPC') {
+    const currentItem = flip.item || '';
+    let itemDisplay = 'Not set';
+    let itemImageUrl = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png';
+    
+    if (currentItem) {
+      const item = skyblockItems.find(i => i.id === currentItem);
+      if (item) {
+        itemDisplay = item.name;
+        itemImageUrl = getItemImageUrl(item);
+      } else {
+        itemDisplay = currentItem;
+      }
+    }
+    
+    return `
+      <!-- Configuration Parameters for NPC Flip -->
+      <div class="config-params-section">
+        <div class="section-title-bar">
+          <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #3b82f6;">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+          </svg>
+          <span>NPC Flip Configuration</span>
+        </div>
+        
+        <!-- Item Selector -->
+        <div style="margin-bottom: 24px;">
+          <label style="display: block; margin-bottom: 8px; color: #fff; font-size: 14px; font-weight: 600;">Item to Sell</label>
+          <div style="position: relative;">
+            <div id="npc-item-display-${accountIndex}-${flipIndex}" class="npc-item-selector" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(12, 24, 42, 0.6); border: 1px solid rgba(129, 62, 242, 0.3); border-radius: 8px; cursor: pointer;">
+              <img src="${itemImageUrl}" alt="${escapeHtml(itemDisplay)}" style="width: 32px; height: 32px; image-rendering: pixelated;" 
+                onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/barrier.png'"/>
+              <div style="flex: 1;">
+                <div style="color: #fff; font-weight: 500;">${escapeHtml(itemDisplay)}</div>
+                ${currentItem ? `<div style="color: rgba(255,255,255,0.5); font-size: 12px;">${escapeHtml(currentItem)}</div>` : ''}
+              </div>
+              <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: rgba(255,255,255,0.5);">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+            </div>
+            <input 
+              type="text" 
+              class="config-input" 
+              placeholder="Search for an item..."
+              id="npc-item-search-${accountIndex}-${flipIndex}"
+              style="width: 100%; margin-top: 8px; display: none;"
+            />
+            <div class="flip-search-results" id="npc-item-results-${accountIndex}-${flipIndex}" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="config-sliders-grid">
+          <div class="slider-card">
+            <div class="slider-card-header">
+              <span class="slider-label">Force Sell After</span>
+              <span class="slider-current-value" id="flip-forceSellAfter-${accountIndex}-${flipIndex}">${flip.forceSellAfter || 1} min</span>
+            </div>
+            <div class="slider-track-wrapper">
+              <input type="range" class="modern-slider" 
+                style="--slider-color: #3b82f6;"
+                min="1" max="10" step="1" value="${flip.forceSellAfter || 1}"
+                oninput="updateSliderValue(this, 'flip-forceSellAfter-${accountIndex}-${flipIndex}', ' min')"
+                onchange="updateNPCFlipConfigAndRefresh(${accountIndex}, ${flipIndex}, 'forceSellAfter', parseInt(this.value))"/>
+              <div class="slider-range-labels">
+                <span>1 min</span>
+                <span>10 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="config-actions" style="margin-top: 32px;">
+        <button class="btn btn-danger" onclick="deleteFlip(${accountIndex}, ${flipIndex})">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          Delete Flip
+        </button>
+        <button class="btn btn-primary" onclick="closeFlipEditModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+          </svg>
+          Save Changes
+        </button>
+      </div>
+    `;
+  }
+  
+  // Sell Order Flip configuration (original)
   const whitelistCount = flip.whitelist?.length || 0;
   const blacklistCount = flip.blacklistContaining?.length || 0;
   
@@ -3648,12 +4569,16 @@ function closeFlipListEditor() {
 function renderFlipItemCard(itemId, accountIndex, flipIndex, listType) {
   const item = skyblockItems.find(i => i.id === itemId);
   const itemName = item ? item.name : itemId;
-  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png';
+  const imageUrl = item ? getItemImageUrl(item) : 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/stone.png';
+  
+  // Block fallback URL
+  const material = item ? (item.material || 'stone').toLowerCase().split(':')[0] : 'stone';
+  const blockFallback = `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/block/${material}.png`;
   
   return `
     <div class="item-card ${listType}">
       <img src="${imageUrl}" alt="${escapeHtml(itemName)}" class="item-icon" 
-        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/barrier.png'"/>
+        onerror="this.onerror=null; this.src='${blockFallback}'"/>
       <div class="item-info">
         <div class="item-name">${escapeHtml(itemName)}</div>
         <div class="item-id">${escapeHtml(itemId)}</div>
@@ -3675,9 +4600,45 @@ function searchFlipItems(accountIndex, flipIndex, listType, query) {
   console.log(`🔍 Searching for "${query}" in ${skyblockItems.length} items`);
 
   const lowerQuery = query.toLowerCase();
+  
+  // Filter and score matches
   const matches = skyblockItems
     .filter(item => item.name.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery))
-    .slice(0, 10);
+    .map(item => {
+      const nameLower = item.name.toLowerCase();
+      const idLower = item.id.toLowerCase();
+      let score = 0;
+      
+      // Exact match gets highest priority
+      if (nameLower === lowerQuery || idLower === lowerQuery) {
+        score = 1000;
+      }
+      // Starts with query gets high priority
+      else if (nameLower.startsWith(lowerQuery) || idLower.startsWith(lowerQuery)) {
+        score = 500;
+      }
+      // Contains query as whole word gets medium priority
+      else if (nameLower.includes(' ' + lowerQuery + ' ') || nameLower.startsWith(lowerQuery + ' ') || nameLower.endsWith(' ' + lowerQuery)) {
+        score = 250;
+      }
+      // Contains query anywhere gets low priority
+      else {
+        score = 100;
+      }
+      
+      // Bonus for shorter names (more specific)
+      score += Math.max(0, 100 - item.name.length);
+      
+      // Penalty for "Minion" in name
+      if (nameLower.includes('minion')) {
+        score -= 50;
+      }
+      
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map(result => result.item);
 
   console.log(`📋 Found ${matches.length} matches`);
 
@@ -3690,7 +4651,7 @@ function searchFlipItems(accountIndex, flipIndex, listType, query) {
   resultsDiv.innerHTML = matches.map(item => `
     <div class="search-result-item" onclick="addFlipItem(${accountIndex}, ${flipIndex}, '${listType}', '${escapeHtml(item.id)}')">
       <img src="${getItemImageUrl(item)}" alt="${escapeHtml(item.name)}" class="result-icon" 
-        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/21w20a/assets/minecraft/textures/item/stone.png'"/>
+        onerror="this.src='https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.19/assets/minecraft/textures/item/stone.png'"/>
       <div class="result-info">
         <div class="result-name">${escapeHtml(item.name)}</div>
         <div class="result-id">${escapeHtml(item.id)}</div>
@@ -3817,6 +4778,12 @@ function updateListButtonCount(accountIndex, listType) {
     button.textContent = `${count} items`;
   }
 }
+
+
+
+
+
+
 
 
 

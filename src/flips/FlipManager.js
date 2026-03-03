@@ -2,6 +2,7 @@
 
 
 
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCFlip');
@@ -559,47 +560,38 @@ class FlipManager {
       return;
     }
     
-    if (!config.npcItem) {
+    if (!config.item && !config.npcItem) {
       this.log('  ⚠️ NPC Flip has no item configured, skipping...');
       return;
     }
     
-    this.log(`  🔵 Creating NPC Flip for item: ${config.npcItem}`);
+    const itemName = config.item || config.npcItem;
+    this.log(`  🔵 Creating NPC Flip for item: ${itemName}`);
     
-    const npcFlip = new NPCFlip(this.bot, config);
+    // Create NPC flip with all required parameters
+    const npcFlip = new NPCFlip(
+      this.bot,
+      this.chatListener,
+      config,
+      this.queue,
+      this.api
+    );
+    
     this.flips.push(npcFlip);
     
-    // Start the NPC flip execution loop
-    this.startNPCFlipLoop(npcFlip);
+    // Start the NPC flip execution
+    npcFlip.start();
     
     this.log(`  ✅ NPC Flip initialized and started`);
   }
 
   /**
    * Start execution loop for NPC Flip
+   * @deprecated - NPCFlip now manages its own loop via start()
    */
   async startNPCFlipLoop(npcFlip) {
-    const executeLoop = async () => {
-      try {
-        if (await npcFlip.canExecute()) {
-          await npcFlip.execute();
-        }
-        
-        // Check for force sell
-        await npcFlip.checkForceSell();
-        
-      } catch (error) {
-        this.log(`❌ Error in NPC flip loop: ${error.message}`);
-      }
-      
-      // Run every 30 seconds
-      if (npcFlip.enabled) {
-        setTimeout(executeLoop, 30000);
-      }
-    };
-    
-    // Start the loop
-    executeLoop();
+    // This method is no longer needed, keeping for backwards compatibility
+    this.log('⚠️ startNPCFlipLoop is deprecated, NPCFlip manages its own loop');
   }
 
   // Obtener flips activos en fase de compra
@@ -1165,6 +1157,7 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
 
 
 
