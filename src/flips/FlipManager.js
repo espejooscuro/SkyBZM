@@ -2,10 +2,9 @@
 
 
 
-
-
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
+const NPCFlip = require('./NPCFlip');
 const CoflAPI = require('../utils/CoflAPI');
 const ChatListener = require('../events/ChatListener');
 const fs = require('fs');
@@ -506,6 +505,101 @@ class FlipManager {
     };
 
     return flip;
+  }
+
+  /**
+   * Initialize flips from bot configuration
+   * Supports multiple flip types: SELL_ORDER, NPC, KAT, FORGE, CRAFT
+   */
+  initializeFlipsFromConfig(flipConfigs = []) {
+    if (!flipConfigs || flipConfigs.length === 0) {
+      this.log('No flip configurations provided');
+      return;
+    }
+    
+    this.log(`🎯 Initializing ${flipConfigs.length} flip configurations...`);
+    
+    for (const config of flipConfigs) {
+      const flipType = config.type || 'SELL_ORDER';
+      
+      try {
+        switch (flipType) {
+          case 'NPC':
+            this.initializeNPCFlip(config);
+            break;
+          
+          case 'SELL_ORDER':
+            // Standard flips are created via buildFlips()
+            this.log(`  → SELL_ORDER flips will be built dynamically`);
+            break;
+          
+          case 'KAT':
+          case 'FORGE':
+          case 'CRAFT':
+            this.log(`  ⚠️ ${flipType} flip type not yet implemented`);
+            break;
+          
+          default:
+            this.log(`  ⚠️ Unknown flip type: ${flipType}`);
+        }
+      } catch (error) {
+        this.log(`  ❌ Error initializing ${flipType} flip:`, error.message);
+      }
+    }
+    
+    this.log(`✅ Flip initialization complete`);
+  }
+
+  /**
+   * Initialize an NPC Flip
+   */
+  initializeNPCFlip(config) {
+    if (!config.enabled) {
+      this.log('  ⏭️ NPC Flip is disabled, skipping...');
+      return;
+    }
+    
+    if (!config.npcItem) {
+      this.log('  ⚠️ NPC Flip has no item configured, skipping...');
+      return;
+    }
+    
+    this.log(`  🔵 Creating NPC Flip for item: ${config.npcItem}`);
+    
+    const npcFlip = new NPCFlip(this.bot, config);
+    this.flips.push(npcFlip);
+    
+    // Start the NPC flip execution loop
+    this.startNPCFlipLoop(npcFlip);
+    
+    this.log(`  ✅ NPC Flip initialized and started`);
+  }
+
+  /**
+   * Start execution loop for NPC Flip
+   */
+  async startNPCFlipLoop(npcFlip) {
+    const executeLoop = async () => {
+      try {
+        if (await npcFlip.canExecute()) {
+          await npcFlip.execute();
+        }
+        
+        // Check for force sell
+        await npcFlip.checkForceSell();
+        
+      } catch (error) {
+        this.log(`❌ Error in NPC flip loop: ${error.message}`);
+      }
+      
+      // Run every 30 seconds
+      if (npcFlip.enabled) {
+        setTimeout(executeLoop, 30000);
+      }
+    };
+    
+    // Start the loop
+    executeLoop();
   }
 
   // Obtener flips activos en fase de compra
@@ -1071,6 +1165,8 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
+
 
 
 

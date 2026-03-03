@@ -3,7 +3,6 @@
 
 
 
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -291,6 +290,7 @@ class Bot {
       
       const flipsConfig = this.config.flips;
       
+      // 🔥 Pasar flipConfigs al FlipManager
       const manager = new FlipManager(this.bot, {
         username: this.name,
         purse: this.config.purse || 30_000_000,
@@ -303,10 +303,17 @@ class Bot {
         sellTimeout: flipsConfig.sellTimeout ?? 160000, 
         minOrder: flipsConfig.minOrder,
         maxOrder: flipsConfig.maxOrder,
-        minSpread: flipsConfig.minSpread
+        minSpread: flipsConfig.minSpread,
+        flipConfigs: this.accountConfig?.flipConfigs || [] // 🔥 Pasar las configuraciones de flip
       }, this.queue); // 🔥 Pasar el TaskQueue central del Bot
 
       this.flipManager = manager; // 🔥 Guardar referencia
+      
+      // 🔥 Inicializar flips desde configuración (NPC, KAT, etc.)
+      if (this.accountConfig?.flipConfigs && this.accountConfig.flipConfigs.length > 0) {
+        console.log(`🎯 [${this.name}] Initializing ${this.accountConfig.flipConfigs.length} flip configurations...`);
+        manager.initializeFlipsFromConfig(this.accountConfig.flipConfigs);
+      }
 
       // 🔥 Intentar cargar estado guardado antes de buildFlips
       const hasState = this.queue.hasStateToResume(); // 🔥 Usar this.queue del Bot
@@ -704,6 +711,7 @@ class Bot {
 module.exports = Bot;
 
 //"are you sure?"
+
 
 
 
