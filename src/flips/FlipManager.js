@@ -7,7 +7,7 @@
 
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
-const NPCFlip = require('./NPCFlip');
+const NPCFlip = require('./NPCflip');
 const CoflAPI = require('../utils/CoflAPI');
 const ChatListener = require('../events/ChatListener');
 const fs = require('fs');

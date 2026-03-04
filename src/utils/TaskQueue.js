@@ -1,3 +1,5 @@
+
+
 const fs = require('fs');
 const path = require('path');
 
@@ -14,6 +16,7 @@ class TaskQueue {
   enqueue(task, metadata = {}) {
     return new Promise((resolve, reject) => {
       const taskId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const priority = metadata.priority || 10; // Default priority = 10 (normal)
       
       const job = async () => {
         if (this.paused) {
@@ -26,7 +29,7 @@ class TaskQueue {
           this.currentTask = { id: taskId, metadata, startTime: Date.now() };
           this.saveState();
           
-          console.log(`[TaskQueue] Executing node: ${metadata.type || 'unknown'} for ${metadata.item || 'unknown'}`);
+          console.log(`[TaskQueue] Executing node: ${metadata.type || 'unknown'} for ${metadata.item || 'unknown'} (priority: ${priority})`);
           
           await task();
           
@@ -42,8 +45,23 @@ class TaskQueue {
         }
       };
       
-      // Agregar a la cola con metadata
-      this.queue.push({ id: taskId, job, metadata });
+      // Crear wrapper con prioridad
+      const taskWrapper = { id: taskId, job, metadata, priority };
+      
+      // 🔥 Insertar en la posición correcta según prioridad (menor número = mayor prioridad)
+      let insertIndex = this.queue.length;
+      for (let i = 0; i < this.queue.length; i++) {
+        if (priority < (this.queue[i].priority || 10)) {
+          insertIndex = i;
+          break;
+        }
+      }
+      
+      // Insertar en la posición correcta
+      this.queue.splice(insertIndex, 0, taskWrapper);
+      
+      console.log(`[TaskQueue] Task enqueued at position ${insertIndex} with priority ${priority}`);
+      
       this.saveState();
       this.run();
     });
@@ -73,7 +91,8 @@ class TaskQueue {
         currentTask: this.currentTask, // El nodo que se está ejecutando ahora
         queuedTasks: this.queue.map(t => ({
           id: t.id,
-          metadata: t.metadata
+          metadata: t.metadata,
+          priority: t.priority
         })),
         timestamp: Date.now()
       };
@@ -91,7 +110,8 @@ class TaskQueue {
       currentTask: this.currentTask,
       queuedTasks: this.queue.map(t => ({
         id: t.id,
-        metadata: t.metadata
+        metadata: t.metadata,
+        priority: t.priority
       }))
     };
   }
@@ -129,4 +149,6 @@ class TaskQueue {
 }
 
 module.exports = TaskQueue;
+
+
 

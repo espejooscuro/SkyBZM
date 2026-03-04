@@ -1,14 +1,12 @@
 
 
 
-
-
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
 const FlipManager = require("../flips/FlipManager");
 const ChatListener = require("../events/ChatListener");
+const RestScheduler = require("../utils/RestScheduler");
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const ContainerManager = require("../utils/ContainerManager");
 const fs = require("fs");
@@ -36,6 +34,7 @@ class Bot {
     // 🧹 Referencias para limpieza
     this.flipManager = null;
     this.boosterCookie = null;
+    this.restScheduler = null; // 🔥 Rest scheduler
     this.heartbeatInterval = null; // 🔥 Para limpieza
     this.lastHeartbeat = Date.now(); // 🔥 Timestamp del último heartbeat
     this.lastActivity = Date.now(); // 🔥 Timestamp de última actividad detectada
@@ -179,7 +178,18 @@ class Bot {
 
     this.bot.on("login", async () => {
       this.markActivity(); // 🔥 Marcar actividad
-      if (this.isLogged) return;
+      if (this.isLogged) {
+              
+       await delay(5000);
+        this.chat.send("/skyblock");
+        
+
+        await delay(5000);
+       
+        this.chat.send("/is");
+        await delay(5000);
+        return;     
+      } 
       this.isLogged = true;
 
       console.log(`[${this.name}] Connected to the server!`);
@@ -309,6 +319,12 @@ class Bot {
       }, this.queue); // 🔥 Pasar el TaskQueue central del Bot
 
       this.flipManager = manager; // 🔥 Guardar referencia
+      
+      // 🔥 Inicializar RestScheduler
+      const restConfig = this.accountConfig?.restSchedule || {};
+      const restScheduler = new RestScheduler(this, restConfig, this.queue);
+      this.restScheduler = restScheduler;
+      restScheduler.start(); // 🔥 Iniciar sistema de descansos
       
       // 🔥 Inicializar flips desde configuración (NPC, KAT, etc.)
       if (this.accountConfig?.flipConfigs && this.accountConfig.flipConfigs.length > 0) {
@@ -554,6 +570,13 @@ class Bot {
         this.flipManager = null;
       }
       
+      // 1.5. Destruir RestScheduler
+      if (this.restScheduler) {
+        console.log(`   🔥 Destroying RestScheduler...`);
+        this.restScheduler.destroy();
+        this.restScheduler = null;
+      }
+      
       // 2. Destruir BoosterCookie si tiene método destroy
       if (this.boosterCookie && typeof this.boosterCookie.destroy === 'function') {
         console.log(`   🍪 Destroying BoosterCookie...`);
@@ -587,75 +610,27 @@ class Bot {
 
   /**
    * 🚨 Maneja mensajes críticos del servidor (Limbo, restart, packets, etc.)
-   * Pausa nodos, desconecta, espera y reconecta automáticamente
+   * Encola un nodo de RESET con máxima prioridad
    */
   async handleCriticalMessage(message) {
     if (this.isReconnecting) {
-      console.log(`⏳ [${this.name}] Already reconnecting, ignoring message: ${message}`);
+      console.log(`⏳ [${this.name}] Already handling critical message, ignoring: ${message}`);
       return;
     }
 
     console.log(`\n🚨 [${this.name}] CRITICAL MESSAGE DETECTED: ${message}`);
-    console.log(`   → Initiating emergency reconnection sequence...`);
-
+    
     this.isReconnecting = true;
 
-    try {
-      // 1️⃣ PAUSAR los nodos (guarda el estado actual)
-      console.log(`\n⏸️ [${this.name}] Step 1: Pausing all nodes and saving state...`);
-      if (this.flipManager) {
-        this.flipManager.pause();
-        console.log(`   ✅ FlipManager paused, state saved`);
-      }
-
-      // 2️⃣ DESCONECTAR el bot
-      console.log(`\n🔌 [${this.name}] Step 2: Disconnecting from server...`);
-      if (this.bot) {
-        // Limpiar listeners para evitar que se disparen durante la reconexión
-        if (this.chat) {
-          this.chat.removeListeners();
-        }
-        
-        this.bot.removeAllListeners();
-        this.bot.end();
-        console.log(`   ✅ Disconnected`);
-      }
-
-      // 3️⃣ ESPERAR antes de reconectar
-      const waitTime = this.reconnectDelay;
-      console.log(`\n⏳ [${this.name}] Step 3: Waiting ${waitTime / 1000} seconds before reconnecting...`);
-      await delay(waitTime);
-
-      // 4️⃣ RECONECTAR
-      console.log(`\n🔄 [${this.name}] Step 4: Reconnecting to server...`);
-      await this.reconnect();
-
-      console.log(`\n✅ [${this.name}] Reconnection sequence completed successfully!`);
-      this.reconnectAttempts = 0; // Reset counter on success
-
-    } catch (error) {
-      console.error(`\n❌ [${this.name}] Error during reconnection sequence:`, error.message);
-      
-      this.reconnectAttempts++;
-      
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        console.log(`\n🔁 [${this.name}] Retry attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
-        this.isReconnecting = false;
-        
-        // Esperar más tiempo antes de reintentar (backoff exponencial)
-        const retryDelay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-        console.log(`   ⏳ Waiting ${retryDelay / 1000} seconds before retry...`);
-        await delay(retryDelay);
-        
-        // Intentar de nuevo
-        await this.handleCriticalMessage(`Retry attempt ${this.reconnectAttempts}`);
-      } else {
-        console.error(`\n💀 [${this.name}] Max reconnection attempts reached. Bot stopped.`);
-        this.isReconnecting = false;
-      }
-    } finally {
-      this.isReconnecting = false;
+    // 🔥 Usar RestScheduler para encolar nodo de RESET con máxima prioridad
+    if (this.restScheduler) {
+      this.restScheduler.enqueueReset(message);
+      console.log(`   ✅ RESET node enqueued with maximum priority`);
+    } else {
+      console.error(`   ❌ No RestScheduler available, cannot enqueue reset`);
     }
+    
+    this.isReconnecting = false;
   }
 
   /**
@@ -723,6 +698,11 @@ class Bot {
 module.exports = Bot;
 
 //"are you sure?"
+
+
+
+
+
 
 
 

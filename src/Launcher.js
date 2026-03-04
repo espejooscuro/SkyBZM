@@ -3,6 +3,7 @@
 
 
 
+
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -86,8 +87,8 @@ class Launcher {
           account.restSchedule = {
             shortBreaks: {
               enabled: false,
-              workMinutes: 30,
-              restMinutes: 5
+              workDuration: 10,
+              breakDuration: 3
             },
             dailyRest: {
               enabled: false,
@@ -189,8 +190,8 @@ class Launcher {
         restSchedule: {
           shortBreaks: {
             enabled: false,
-            workMinutes: 30,
-            restMinutes: 5
+            workDuration: 10,
+            breakDuration: 3
           },
           dailyRest: {
             enabled: false,
@@ -240,6 +241,7 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
 
 
 

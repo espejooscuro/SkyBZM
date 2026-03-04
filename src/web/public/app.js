@@ -2,7 +2,6 @@
 
 
 
-
 /* ============================================
    BZM BOT MANAGER - Frontend Application
    ============================================ */
@@ -617,6 +616,7 @@ function renderBotConfigSection(account, index) {
                         <span>30 min</span>
                       </div>
                     </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -655,6 +655,87 @@ function renderBotConfigSection(account, index) {
                       <span>1 hour</span>
                       <span>23 hours</span>
                     </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SOCKS5 Proxy -->
+            <div style="margin-top: 24px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(12, 24, 42, 0.4); border: 1px solid rgba(129, 62, 242, 0.15); border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #9b6ff7;">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                  </svg>
+                  <div>
+                    <div style="font-size: 14px; font-weight: 600; color: #fff;">SOCKS5 Proxy</div>
+                    <div style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">Route bot traffic through proxy server</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" ${account.proxy ? 'checked' : ''} 
+                    onchange="toggleBotOption(${index}, 'proxy', this.checked); if (this.checked) { updateProxyConfig(${index}, 'host', ''); } else { updateConfig(${index}, 'proxy', null); }">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="toggle-content ${account.proxy ? 'active' : ''}" id="proxy-${index}">
+                <div style="background: rgba(12, 24, 42, 0.4); border: 1px solid rgba(129, 62, 242, 0.15); border-radius: 10px; padding: 20px; margin-top: 12px;">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+                    <!-- Host -->
+                    <div class="input-group">
+                      <label class="input-label" style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
+                        Host
+                      </label>
+                      <input type="text" 
+                        class="config-input" 
+                        placeholder="e.g., 62.164.246.140"
+                        value="${account.proxy?.host || ''}"
+                        onchange="updateProxyConfig(${index}, 'host', this.value)"
+                        style="width: 100%; padding: 12px; background: rgba(5, 16, 35, 0.6); border: 1px solid rgba(129, 62, 242, 0.2); border-radius: 8px; color: #fff; font-size: 14px; transition: all 0.3s ease;">
+                    </div>
+
+                    <!-- Port -->
+                    <div class="input-group">
+                      <label class="input-label" style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px;">
+                        Port
+                      </label>
+                      <input type="number" 
+                        class="config-input" 
+                        placeholder="e.g., 7865"
+                        value="${account.proxy?.port || ''}"
+                        onchange="updateProxyConfig(${index}, 'port', parseInt(this.value))"
+                        style="width: 100%; padding: 12px; background: rgba(5, 16, 35, 0.6); border: 1px solid rgba(129, 62, 242, 0.2); border-radius: 8px; color: #fff; font-size: 14px; transition: all 0.3s ease;">
+                    </div>
+
+                    <!-- Username -->
+                    <div class="input-group">
+                      <label class="input-label" style="font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px; display: block;">
+                        Username
+                      </label>
+                      <input type="text" 
+                        class="config-input" 
+                        placeholder="Optional"
+                        value="${account.proxy?.username || ''}"
+                        onchange="updateProxyConfig(${index}, 'username', this.value)"
+                        style="width: 100%; padding: 12px; background: rgba(5, 16, 35, 0.6); border: 1px solid rgba(129, 62, 242, 0.2); border-radius: 8px; color: #fff; font-size: 14px; transition: all 0.3s ease;">
+                    </div>
+
+                    <!-- Password -->
+                    <div class="input-group">
+                      <label class="input-label" style="font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px; display: block;">
+                        Password
+                      </label>
+                      <input type="password" 
+                        class="config-input" 
+                        placeholder="Optional"
+                        value="${account.proxy?.password || ''}"
+                        onchange="updateProxyConfig(${index}, 'password', this.value)"
+                        style="width: 100%; padding: 12px; background: rgba(5, 16, 35, 0.6); border: 1px solid rgba(129, 62, 242, 0.2); border-radius: 8px; color: #fff; font-size: 14px; transition: all 0.3s ease;">
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -1876,6 +1957,52 @@ async function updateRestSchedule(accountIndex, path, value) {
   }
 }
 
+
+async function updateProxyConfig(accountIndex, field, value) {
+  try {
+    const account = globalConfig.accounts[accountIndex];
+    if (!account) {
+      showToast('Account not found', 'error');
+      return;
+    }
+
+    // Initialize proxy object if it doesn't exist
+    if (!account.proxy) {
+      account.proxy = {
+        host: '',
+        port: 0,
+        type: 5, // SOCKS5
+        username: '',
+        password: ''
+      };
+    }
+
+    // Update the specific field
+    account.proxy[field] = value;
+
+    // Send to server
+    const res = await fetch(`/api/account/${accountIndex}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-password': password
+      },
+      body: JSON.stringify(account)
+    });
+
+    if (!res.ok) throw new Error('Failed to update proxy config');
+
+    const updated = await res.json();
+    
+    // Update local account
+    globalConfig.accounts[accountIndex] = updated;
+    showToast('Proxy configuration updated', 'success');
+  } catch (error) {
+    console.error('Proxy config update error:', error);
+    showToast('Failed to update proxy configuration', 'error');
+  }
+}
+
 // ==================== STATS & CHARTS ====================
 function renderStatsChart(account, index) {
   return `
@@ -2446,6 +2573,12 @@ async function botControl(accountIndex, action, message) {
     
     const result = await response.json();
     showToast(result.message || result.error, result.success ? 'success' : 'error');
+    
+    // Actualizar el estado de los botones después de la acción
+    setTimeout(() => {
+      updateBotStatus(accountIndex);
+    }, 500);
+    
   } catch (error) {
     console.error(`Error ${action} bot:`, error);
     showToast(`Failed to ${action} bot: ${error.message}`, 'error');
@@ -3065,6 +3198,18 @@ function renderBotBrain(account, index) {
           <div class="legend-item">
             <div class="legend-color" style="background: #6b7280;"></div>
             <span>Completed</span>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #0ea5e9;"></div>
+            <span>Short Break</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #6366f1;"></div>
+            <span>Daily Rest</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #dc2626;"></div>
+            <span>Reset</span>
+          </div>
           </div>
         </div>
       </div>
@@ -3433,14 +3578,20 @@ function getTaskColor(taskType) {
   if (typeUpper.includes('CLAIM')) return '#fbbf24'; // Dorado
   if (typeUpper.includes('SELL') && !typeUpper.includes('RELIST')) return '#22c55e'; // Verde
   if (typeUpper.includes('CHECK')) return '#8b5cf6'; // Púrpura para check
+  
+  // 🔥 NEW: Break/Rest/Reset colors
+  if (typeUpper.includes('DAILYREST')) return '#6366f1'; // Indigo para daily rest
+  if (typeUpper.includes('SHORTBREAK')) return '#0ea5e9'; // Sky blue para short break
+  if (typeUpper.includes('RESET')) return '#dc2626'; // Rojo intenso para reset (prioridad máxima)
   if (typeUpper.includes('FINISH')) return '#ef4444'; // Rojo
   
   return '#8b8b8b'; // Gris por defecto
 }
 
 function getTaskIcon(taskType, isCurrent, isCompleted) {
-  if (isCompleted) return '✓';
+  
   if (isCurrent) return '⟳';
+  if (isCompleted) return '✓';
   
   return '○'; // For queued tasks
 }
@@ -4782,6 +4933,8 @@ function updateListButtonCount(accountIndex, listType) {
     button.textContent = `${count} items`;
   }
 }
+
+
 
 
 
