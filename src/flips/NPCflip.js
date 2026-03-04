@@ -1,3 +1,9 @@
+
+
+
+
+
+
 const ContainerManager = require('../utils/ContainerManager');
 const Flip = require('./Flip');
 
@@ -18,7 +24,7 @@ class NPCFlip extends Flip {
     // Call parent with minimal data
     super(bot, chatListener, {
       itemTag: config.item || config.npcItem || 'UNKNOWN',
-      item: config.item || config.npcItem || 'Unknown Item',
+      item: 'Loading...', // Will be updated after fetching
       buyPrice: 0,
       sellPrice: 0
     }, queue, api, 0, 0, 0, 0, 0);
@@ -27,19 +33,89 @@ class NPCFlip extends Flip {
     this.chatListener = chatListener;
     this.ContainerManager = new ContainerManager(bot);
     // NPC Flip specific config
-    this.npcItem = config.item || config.npcItem || '';
+    this.npcItemTag = config.item || config.npcItem || ''; // Store the item tag
+    this.npcItem = 'Loading...'; // Will be populated with the actual item name
     this.forceSellAfter = (config.forceSellAfter || 5) * 60 * 1000; // Convert minutes to ms
     this.enabled = config.enabled !== false;
     
     // State tracking
-    this.purchasedItems = new Map(); // Track when items were purchased { timestamp, amount }
+    this.purchasedItems = new Map(); // Track when items were purchased { timestamp, amount, timer }
     this.isProcessing = false;
     this.lastBuyTime = 0;
     this.buyInterval = 60 * 1000; // Buy every 1 minute (configurable)
+    this.activePurchases = new Set(); // Track which purchases are already being sold
     
-    this.log(`✅ NPCFlip initialized`);
-    this.log(`  Item: ${this.npcItem}`);
-    this.log(`  Force sell after: ${config.forceSellAfter || 5} minutes`);
+    // Fetch the actual item name from the API
+    this.fetchItemName();
+    
+    // Setup chat listener for buy order filled messages
+    this.setupBuyOrderListener();
+  }
+  
+  /**
+   * Setup listener for "buy order was filled" messages
+   */
+  setupBuyOrderListener() {
+    this.chatListener.onMessageContains('buy order', (msg) => {
+      const text = msg.message.toLowerCase();
+      
+      // Check if message contains item name and "buy order" and "was filled"
+      if (text.includes(this.npcItem.toLowerCase()) && 
+          text.includes('buy order') && 
+          text.includes('was filled')) {
+        
+        this.log(`✅ Buy order filled!`);
+        
+        // Find the most recent purchase and trigger sell
+        if (this.purchasedItems.size > 0) {
+          // Get the most recent purchase that hasn't been processed yet
+          const entries = Array.from(this.purchasedItems.entries())
+            .filter(([id]) => !this.activePurchases.has(id));
+          
+          if (entries.length === 0) {
+            return;
+          }
+          
+          const [purchaseId, purchaseData] = entries[entries.length - 1];
+          
+          // Cancel the force-sell timer
+          if (purchaseData.timer) {
+            clearTimeout(purchaseData.timer);
+          }
+          
+          // Mark as being processed
+          this.activePurchases.add(purchaseId);
+          
+          this.log(`🔔 Triggering sell process...`);
+          this.enqueueSell(purchaseId, purchaseData);
+        }
+      }
+    });
+  }
+  
+  /**
+   * Fetch the actual item name using getBazaarSnapshot
+   */
+  async fetchItemName() {
+    try {
+      if (!this.npcItemTag) {
+        this.npcItem = 'Unknown Item';
+        this.log('⚠️ No item tag provided');
+        return;
+      }
+      
+      const snapshot = await this.api.getBazaarSnapshot(this.npcItemTag);
+      this.npcItem = snapshot.item;
+      this.item = snapshot.item;
+      this.itemTag = snapshot.itemTag;
+      
+      this.log(`✅ NPC Flip ready: ${this.npcItem} (force sell: ${this.forceSellAfter / 60000}m)`);
+    } catch (error) {
+      this.log(`❌ Error fetching item name: ${error.message}`);
+      this.npcItem = this.npcItemTag;
+      this.item = this.npcItemTag;
+      this.log(`✅ NPC Flip ready: ${this.npcItem} (fallback)`);
+    }
   }
   
   log(...args) {
@@ -49,14 +125,17 @@ class NPCFlip extends Flip {
   /**
    * Start the NPC flip cycle (called once when initialized)
    */
-  start() {
+  async start() {
     this.log('🚀 Starting NPC flip cycle...');
+    
+    // Wait for item name to be fetched before starting
+    if (this.npcItem === 'Loading...') {
+      this.log('⏳ Waiting for item name to load...');
+      await this.fetchItemName();
+    }
     
     // Enqueue initial buy task
     this.enqueueBuy();
-    
-    // Start the check loop for force selling
-    this.startCheckLoop();
   }
   
   /**
@@ -72,69 +151,111 @@ class NPCFlip extends Flip {
     
     this.queue.enqueue(
       async () => {
-        this.log('🛒 [BUY NODE] Executing NPC buy task');
-        this.log('  → TODO: Navigate to NPC');
-        this.log('  → TODO: Open NPC shop');
-        this.log('  → TODO: Purchase items');
+        this.log(`🛒 [BUY NODE] Executing buy for ${this.npcItem}`);
         
         // ⏱️ Add delay so node is visible in Interactive Map
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // First, check if buy order already exists
+        this.log('  🔍 Checking for existing buy orders...');
+        this.ContainerManager.closeContainer();
+        await delay(1300);
+        this.chatListener.send('/managebazaarorders');
+        await delay(1300);
+        
+        // Check if buy order exists in current window
+        const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
+          contains: `buy ${this.npcItem.toLowerCase()}`, 
+          type: "container" 
+        });
+        
+        if (hasBuyOrder) {
+          this.log(`  ✅ Found existing buy order for ${this.npcItem}, skipping to SELL`);
+          this.ContainerManager.closeContainer();
+          await delay(500);
+          
+          // Create a purchase ID and enqueue sell immediately
+          const purchaseId = `${this.npcItem}_${Date.now()}`;
+          const amount = 71000; // Default amount
+          
+          this.purchasedItems.set(purchaseId, {
+            timestamp: Date.now(),
+            amount: amount,
+            timer: null
+          });
+          
+          this.activePurchases.add(purchaseId);
+          const data = this.purchasedItems.get(purchaseId);
+          this.enqueueSell(purchaseId, data);
+          
+          return true;
+        }
+        
+        this.log('  ❌ No existing buy order found, creating new one...');
+        this.ContainerManager.closeContainer();
+        await delay(500);
         
         // Simulate purchase
         const purchaseId = `${this.npcItem}_${Date.now()}`;
-        const amount = 710; 
+        const amount = 71000; 
         
         /*        Buy LOGIC          */
 
-        if (!this.active) return; 
-        this.ChatListener.send(`/bz ${this.npcItem}`);
+        if (!this.enabled) return; 
+        this.chatListener.send(`/bz ${this.npcItem}`);
         await delay(1500);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.click({customName: this.npcItem, type: "container" });
         await delay(1000);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.click({customName: "Create Buy Order", type: "container" });
         await delay(1000);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.click({customName: "Custom Amount", type: "container" });
         await delay(1000);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.interactWithSign(amount);
         await delay(1000);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.click({customName: "Top Order +0.1", type: "container" });
         await delay(1850);
-        if (!this.active) return;
+        if (!this.enabled) return;
         const lore = this.ContainerManager.getItemDescription({customName: "Buy Order"}, true);
         const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
         this.instaBuyPrice = price;
-        console.log(price);
-        if (!this.active) return;
+        if (!this.enabled) return;
         this.ContainerManager.click({customName: "Buy Order", type: "container" });
-        console.log(`Finished buying ${this.item}...`);
         await delay(1000);
-        if (!this.active) return;
-
-
-
-
-
-
-
+        if (!this.enabled) return;
 
         this.purchasedItems.set(purchaseId, {
           timestamp: Date.now(),
-          amount: amount
+          amount: amount,
+          timer: null // Will be set below
         });
+        
+        // Set up force-sell timer
+        const forceSellTimer = setTimeout(() => {
+          if (!this.activePurchases.has(purchaseId) && this.purchasedItems.has(purchaseId)) {
+            this.log(`⏰ Force sell triggered after ${this.forceSellAfter / 60000} minutes`);
+            
+            // Mark as being processed
+            this.activePurchases.add(purchaseId);
+            
+            // Enqueue sell task
+            const data = this.purchasedItems.get(purchaseId);
+            this.enqueueSell(purchaseId, data);
+          }
+        }, this.forceSellAfter);
+        
+        // Store the timer ID
+        this.purchasedItems.get(purchaseId).timer = forceSellTimer;
         
         this.lastBuyTime = Date.now();
         
-        this.log(`  ✅ Simulated purchase: ${amount}x ${this.npcItem}`);
+        this.log(`✅ Buy order placed for ${amount}x ${this.npcItem}`);
         
-        // Enqueue next buy task after interval
-        setTimeout(() => {
-          this.enqueueBuy();
-        }, this.buyInterval);
+        // Note: Next buy will be enqueued after SELL completes
         
         return true;
       },
@@ -155,20 +276,170 @@ class NPCFlip extends Flip {
     
     this.queue.enqueue(
       async () => {
-        this.log('💸 [SELL NODE] Executing NPC sell task');
-        this.log(`  → Item: ${this.npcItem}`);
-        this.log(`  → Amount: ${purchaseData.amount}`);
-        this.log('  → TODO: Open bazaar');
-        this.log('  → TODO: Create sell order');
-        this.log('  → TODO: Monitor fill status');
+        this.log('💸 [SELL NODE] Selling ${this.npcItem}');
         
         // ⏱️ Add delay so node is visible in Interactive Map
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const buyOrderName = `BUY ${this.npcItem}`;
+        let finishedCollecting = false;
+        
+        // Open /managebazaarorders once
+        this.log('  → Opening bazaar orders...');
+        this.ContainerManager.closeContainer();
+        await delay(1300);
+        this.chatListener.send('/managebazaarorders');
+        await delay(1300);
+        
+        this.log('  → Claiming all buy orders...');
+        
+        // Main collection loop - stay in same GUI and claim all available orders
+        let claimedCount = 0;
+        while (!finishedCollecting) {
+          if (!this.enabled) break;
+          
+          // Check if buy order exists in current window
+          const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
+            contains: `buy ${this.npcItem.toLowerCase()}`, 
+            type: "container" 
+          });
+          
+          if (!hasBuyOrder) {
+            this.log(`  ✅ Claimed ${claimedCount} buy orders`);
+            finishedCollecting = true;
+            break;
+          }
+          
+          // Check if inventory is mostly full
+          if (this.ContainerManager.isInventoryMostlyFull()) {
+            const startTime = Date.now();
+            while (this.ContainerManager.isInventoryMostlyFull()) {
+              if (Date.now() - startTime >= 3000) {
+                this.log('  ⚠️ Inventory full, stopping collection');
+                finishedCollecting = true;
+                break;
+              }
+              await delay(50);
+            }
+            if (finishedCollecting) break;
+          }
+          
+          // Click on buy order to claim it (stay in same window)
+          await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
+          await delay(800); // Wait for claim to process
+          claimedCount++;
+          
+          // Check again if more orders exist (without closing/reopening)
+          await delay(200);
+        }
+        
+        // Close container after all claiming is done
+        this.ContainerManager.closeContainer();
+        await delay(500);
+        
+        // Now sell items via booster cookie
+        if (this.enabled) {
+          this.log('  → Opening booster cookie...');
+          this.ContainerManager.closeContainer();
+          await delay(1000);
+          this.chatListener.send('/boostercookie');
+          
+          let containerOpened = false;
+          let attempts = 0;
+          const maxWaitAttempts = 10;
+          
+          while (!containerOpened && attempts < maxWaitAttempts) {
+            await delay(500);
+            const containerName = this.ContainerManager.getOpenContainerName() || '';
+            if (containerName.includes('cookie') || containerName.includes('booster')) {
+              containerOpened = true;
+            }
+            attempts++;
+          }
+          
+          if (!containerOpened) {
+            this.log('  ❌ Failed to open booster cookie');
+            this.purchasedItems.delete(purchaseId);
+            this.activePurchases.delete(purchaseId);
+            return false;
+          }
+          
+          this.log(`  💰 Selling ${this.npcItem}...`);
+          
+          const allInventoryItems = this.ContainerManager.getValidInventoryItems();
+          const itemsToClick = allInventoryItems.filter(item => {
+            if (!item || !item.customName) return false;
+            const cleanName = this.cleanItemName(item.customName);
+            return cleanName.toLowerCase().includes(this.npcItem.toLowerCase());
+          });
+          
+          for (const item of itemsToClick) {
+            if (!this.enabled) break;
+            
+            const itemName = this.cleanItemName(item.customName);
+            let clickAttempts = 0;
+            const maxAttempts = 20;
+            
+            let lastClickedSlot = null;
+            
+            while (this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' }) && 
+                   clickAttempts < maxAttempts) {
+              if (!this.enabled) break;
+              
+              const currentInventoryItems = this.ContainerManager.getValidInventoryItemsFromWindow();
+              const matchingItem = currentInventoryItems.find(i => {
+                if (!i || !i.customName) return false;
+                const cleanName = this.cleanItemName(i.customName);
+                return cleanName.toLowerCase().includes(itemName.toLowerCase());
+              });
+              
+              if (!matchingItem) {
+                break;
+              }
+              
+              const targetSlot = matchingItem.slot;
+              const targetWindowSlot = matchingItem.windowSlot;
+              
+              if (lastClickedSlot === targetSlot) {
+                await delay(800);
+                
+                const recheckItems = this.ContainerManager.getValidInventoryItemsFromWindow();
+                const recheck = recheckItems.find(i => 
+                  i.slot === targetSlot && 
+                  this.cleanItemName(i.customName).toLowerCase().includes(itemName.toLowerCase())
+                );
+                
+                if (!recheck) {
+                  lastClickedSlot = null;
+                  continue;
+                }
+              }
+              
+              await this.ContainerManager.click({}, 0, 0, targetWindowSlot);
+              
+              lastClickedSlot = targetSlot;
+              await delay(500);
+              clickAttempts++;
+            }
+            
+            this.log(`  ✅ Sold ${itemName} (${clickAttempts} clicks)`);
+          }
+          
+          this.ContainerManager.closeContainer();
+          await delay(500);
+        }
         
         // Remove from tracking
         this.purchasedItems.delete(purchaseId);
+        this.activePurchases.delete(purchaseId);
         
-        this.log(`  ✅ Simulated sell: ${purchaseData.amount}x ${this.npcItem}`);
+        this.log(`✅ Sell complete for ${this.npcItem}`);
+        
+        // Enqueue next buy task to continue the cycle
+        if (this.enabled) {
+          this.log('🔄 Enqueueing next buy task...');
+          this.enqueueBuy();
+        }
         
         return true;
       },
@@ -182,39 +453,12 @@ class NPCFlip extends Flip {
   }
   
   /**
-   * Start the loop that checks for force-sell conditions
+   * Clean item name (remove color codes, etc.)
    */
-  startCheckLoop() {
-    const checkInterval = 10 * 1000; // Check every 10 seconds
-    
-    const checkFn = () => {
-      if (!this.enabled) return;
-      
-      this.checkForceSell();
-      
-      setTimeout(checkFn, checkInterval);
-    };
-    
-    setTimeout(checkFn, checkInterval);
-  }
-  
-  /**
-   * Check if any purchased items need to be force-sold
-   */
-  checkForceSell() {
-    const now = Date.now();
-    
-    for (const [purchaseId, purchaseData] of this.purchasedItems.entries()) {
-      const timeSincePurchase = now - purchaseData.timestamp;
-      
-      if (timeSincePurchase >= this.forceSellAfter) {
-        this.log(`⏰ Force sell triggered for ${purchaseId}`);
-        this.log(`  → Held for ${Math.round(timeSincePurchase / 60000)} minutes`);
-        
-        // Enqueue sell task
-        this.enqueueSell(purchaseId, purchaseData);
-      }
-    }
+  cleanItemName(name) {
+    if (!name) return '';
+    // Remove Minecraft color codes (§x)
+    return name.replace(/§[0-9a-fk-or]/gi, '').trim();
   }
   
   /**
@@ -237,9 +481,13 @@ class NPCFlip extends Flip {
    */
   updateConfig(newConfig) {
     if (newConfig.item !== undefined || newConfig.npcItem !== undefined) {
-      this.npcItem = newConfig.item || newConfig.npcItem;
-      this.itemTag = this.npcItem;
-      this.log(`📝 Updated item to: ${this.npcItem}`);
+      const newItemTag = newConfig.item || newConfig.npcItem;
+      if (newItemTag !== this.npcItemTag) {
+        this.npcItemTag = newItemTag;
+        this.itemTag = newItemTag;
+        this.log(`📝 Updated item to: ${newItemTag}`);
+        this.fetchItemName(); // Refetch the item name
+      }
     }
     
     if (newConfig.forceSellAfter !== undefined) {
@@ -248,8 +496,15 @@ class NPCFlip extends Flip {
     }
     
     if (newConfig.enabled !== undefined) {
+      const wasEnabled = this.enabled;
       this.enabled = newConfig.enabled;
       this.log(`📝 Flip ${this.enabled ? 'enabled' : 'disabled'}`);
+      
+      // If enabling after being disabled, start the cycle
+      if (!wasEnabled && this.enabled) {
+        this.log('🔄 Restarting NPC flip cycle...');
+        this.enqueueBuy();
+      }
     }
   }
   
@@ -259,11 +514,61 @@ class NPCFlip extends Flip {
   destroy() {
     this.log('🧹 Destroying NPC flip...');
     this.enabled = false;
+    
+    // Cancel all pending force-sell timers
+    for (const [purchaseId, purchaseData] of this.purchasedItems.entries()) {
+      if (purchaseData.timer) {
+        clearTimeout(purchaseData.timer);
+        this.log(`  ⏰ Cancelled timer for ${purchaseId}`);
+      }
+    }
+    
     this.purchasedItems.clear();
+    this.activePurchases.clear();
     this.isProcessing = false;
+    
+    this.log('  ✅ Cleanup complete');
   }
 }
 
 module.exports = NPCFlip;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

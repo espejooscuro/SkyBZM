@@ -1,3 +1,9 @@
+
+
+
+
+
+
 const util = require('util');
 const fs = require('fs');
 const path = require('path');
@@ -224,6 +230,84 @@ hasItemInContainer(filters = {}) {
    */
   getValidInventoryItems() {
     return this._getValidItems(false);
+  }
+
+  /**
+   * Returns valid items from player inventory reading directly from currentWindow
+   * This bypasses bot.inventory cache and gets fresh data
+   * @returns {Array}
+   */
+  getValidInventoryItemsFromWindow() {
+    const window = this.bot.currentWindow;
+    if (!window) {
+      return [];
+    }
+
+    const totalSlots = window.slots.length;
+    const inventorySize = 36;
+    const containerSize = totalSlots - inventorySize;
+
+    // Player inventory in currentWindow starts at containerSize
+    // Slots: containerSize to (totalSlots - 1)
+    const result = [];
+
+    for (let windowSlot = containerSize; windowSlot < totalSlots; windowSlot++) {
+      const item = window.slots[windowSlot];
+
+      if (!item || item.name === "stained_glass_pane" || item.name === "black_stained_glass_pane") {
+        continue;
+      }
+
+      // Calculate the bot.inventory slot number for consistency
+      // Window slots: [containerSize ... containerSize+26] = inventory slots 9-35 (main)
+      // Window slots: [containerSize+27 ... containerSize+35] = inventory slots 0-8 (hotbar)
+      let inventorySlot;
+      if (windowSlot < containerSize + 27) {
+        // Main inventory
+        inventorySlot = (windowSlot - containerSize) + 9;
+      } else {
+        // Hotbar
+        inventorySlot = (windowSlot - containerSize - 27);
+      }
+
+      let customNameRaw = item.formattedDisplayName || item.customName || item.displayName || item.name;
+
+      // Extract custom name from components
+      if (item.components && Array.isArray(item.components)) {
+        const customNameComponent = item.components.find(c => c.type === "custom_name");
+        if (customNameComponent?.data) {
+          const nameData = customNameComponent.data;
+          if (nameData.type === "compound" && nameData.value) {
+            const mainText = nameData.value.text?.value || "";
+            let extraText = "";
+            if (nameData.value.extra?.value?.value && Array.isArray(nameData.value.extra.value.value)) {
+              extraText = nameData.value.extra.value.value
+                .map(e => e.text?.value || "")
+                .join("");
+            }
+            const extracted = (mainText + extraText).trim();
+            if (extracted) customNameRaw = extracted;
+          } else if (typeof nameData === "string") {
+            customNameRaw = nameData;
+          }
+        }
+      }
+
+      const plainName = this._cleanText(customNameRaw);
+
+      result.push({
+        slot: inventorySlot, // Use inventory slot for consistency
+        windowSlot: windowSlot, // Add window slot for reference
+        originalName: item.name,
+        customName: customNameRaw,
+        customNameClean: plainName,
+        plainName,
+        quantity: item.count,
+        rawJSON: item
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -519,9 +603,10 @@ _parseDurationToMs(durationLine) {
    * @param {Object} filters
    * @param {number} mouseButton
    * @param {number} mode
+   * @param {number} specificSlot - If provided, clicks this exact slot without searching
    * @returns {Promise<boolean>}
    */
-  async click(filters = {}, mouseButton = 0, mode = 0) {
+  async click(filters = {}, mouseButton = 0, mode = 0, specificSlot = null) {
   await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
 
   const window = this.bot.currentWindow;
@@ -530,38 +615,64 @@ _parseDurationToMs(durationLine) {
     return false;
   }
 
-  const containerItems = this._getValidItems(true);
-  const inventoryItems = this._getValidItems(false);
-  const allItems = [
-    ...containerItems.map(item => ({ ...item, type: 'container' })),
-    ...inventoryItems.map(item => ({ ...item, type: 'inventory' }))
-  ];
+  let realSlot;
 
-  const foundItem = allItems.find(item => this._matchesFilters(item, filters));
+  // If a specific window slot is provided, use it directly
+  if (specificSlot !== null && specificSlot !== undefined) {
+    realSlot = specificSlot;
+  } else {
+    // Original search logic
+    const containerItems = this._getValidItems(true);
+    const inventoryItems = this._getValidItems(false);
+    const allItems = [
+      ...containerItems.map(item => ({ ...item, type: 'container' })),
+      ...inventoryItems.map(item => ({ ...item, type: 'inventory' }))
+    ];
 
-  if (!foundItem) {
-    const containerName = this.getOpenContainerName() || 'unknown container';
-    console.error(`❌ Click aborted: item not found in container ${containerName}`);
-    console.error('🔍 Filters used:', filters);
-    console.error('📦 Container items:');
-    containerItems.forEach(item => {
-      console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
-    });
-    console.error('📦 Inventory items:');
-    inventoryItems.forEach(item => {
-      console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
-    });
-    return false;
-  }
+    const foundItem = allItems.find(item => this._matchesFilters(item, filters));
 
-  let realSlot = foundItem.slot;
-
-  if (foundItem.type === 'inventory') {
-    // Ajuste para hotbar
-    if (realSlot >= 0 && realSlot <= 8) {
-      realSlot += 36;
+    if (!foundItem) {
+      const containerName = this.getOpenContainerName() || 'unknown container';
+      console.error(`❌ Click aborted: item not found in container ${containerName}`);
+      console.error('🔍 Filters used:', filters);
+      console.error('📦 Container items:');
+      containerItems.forEach(item => {
+        console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
+      });
+      console.error('📦 Inventory items:');
+      inventoryItems.forEach(item => {
+        console.error(`  • Slot ${item.slot} → "${item.plainName}" x${item.quantity}`);
+      });
+      return false;
     }
-    // Slots 9–35 ya coinciden con currentWindow
+
+    realSlot = foundItem.slot;
+
+    if (foundItem.type === 'inventory') {
+      const originalSlot = realSlot;
+      
+      // Calculate container size (slots before inventory)
+      const totalSlots = window.slots.length;
+      const inventorySize = 36; // Standard player inventory (27 main + 9 hotbar)
+      const containerSize = totalSlots - inventorySize;
+      
+      // Inventory slots in bot.inventory are 0-35 (9-35 are main inventory, 0-8 are hotbar)
+      // In currentWindow, they start after the container slots
+      
+      if (realSlot >= 9 && realSlot <= 35) {
+        // Main inventory slots (9-35) → add container size
+        realSlot = containerSize + realSlot - 9;
+      } else if (realSlot >= 0 && realSlot <= 8) {
+        // Hotbar slots (0-8) → they come after main inventory in currentWindow
+        realSlot = containerSize + 27 + realSlot;
+      }
+    }
+  }
+  
+  // Verify the slot actually contains what we expect
+  const slotItem = window.slots[realSlot];
+  if (!slotItem) {
+    console.log(`⚠️ [DEBUG] Slot ${realSlot} is EMPTY!`);
   }
 
   try {
@@ -682,3 +793,9 @@ _parseDurationToMs(durationLine) {
 }
 
 module.exports = ContainerManager;
+
+
+
+
+
+

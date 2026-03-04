@@ -3,6 +3,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -313,6 +314,17 @@ class Bot {
       if (this.accountConfig?.flipConfigs && this.accountConfig.flipConfigs.length > 0) {
         console.log(`🎯 [${this.name}] Initializing ${this.accountConfig.flipConfigs.length} flip configurations...`);
         manager.initializeFlipsFromConfig(this.accountConfig.flipConfigs);
+      }
+
+      // 🔥 Check if there are SELL_ORDER flips configured
+      const hasSellOrderFlips = this.accountConfig?.flipConfigs?.some(
+        config => config.type === 'SELL_ORDER' || !config.type
+      ) ?? false;
+      
+      // Only build flips if SELL_ORDER flips are configured
+      if (!hasSellOrderFlips) {
+        console.log(`📝 [${this.name}] No SELL_ORDER flips configured, skipping buildFlips()`);
+        return;
       }
 
       // 🔥 Intentar cargar estado guardado antes de buildFlips
@@ -711,6 +723,7 @@ class Bot {
 module.exports = Bot;
 
 //"are you sure?"
+
 
 
 

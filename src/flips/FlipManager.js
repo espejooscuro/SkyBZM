@@ -3,6 +3,8 @@
 
 
 
+
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCFlip');
@@ -512,7 +514,7 @@ class FlipManager {
    * Initialize flips from bot configuration
    * Supports multiple flip types: SELL_ORDER, NPC, KAT, FORGE, CRAFT
    */
-  initializeFlipsFromConfig(flipConfigs = []) {
+  async initializeFlipsFromConfig(flipConfigs = []) {
     if (!flipConfigs || flipConfigs.length === 0) {
       this.log('No flip configurations provided');
       return;
@@ -526,7 +528,7 @@ class FlipManager {
       try {
         switch (flipType) {
           case 'NPC':
-            this.initializeNPCFlip(config);
+            await this.initializeNPCFlip(config);
             break;
           
           case 'SELL_ORDER':
@@ -554,7 +556,7 @@ class FlipManager {
   /**
    * Initialize an NPC Flip
    */
-  initializeNPCFlip(config) {
+  async initializeNPCFlip(config) {
     if (!config.enabled) {
       this.log('  ⏭️ NPC Flip is disabled, skipping...');
       return;
@@ -579,8 +581,8 @@ class FlipManager {
     
     this.flips.push(npcFlip);
     
-    // Start the NPC flip execution
-    npcFlip.start();
+    // Wait for item name to be fetched before starting
+    await npcFlip.start();
     
     this.log(`  ✅ NPC Flip initialized and started`);
   }
@@ -1157,6 +1159,8 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
+
 
 
 
