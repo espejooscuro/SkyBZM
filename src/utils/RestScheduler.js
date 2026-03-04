@@ -1,4 +1,3 @@
-
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -30,15 +29,14 @@ class RestScheduler {
     
     // State
     this.sessionStartTime = Date.now();
-    this.lastShortBreak = null;
+    this.lastShortBreak = Date.now(); // 🔥 Iniciar con tiempo actual para respetar workDuration
     this.isResting = false;
+    this.hasScheduledLogin = false; // 🔥 Flag para evitar múltiples logins
     
     this.log('✅ RestScheduler initialized');
     this.log(`   Short Breaks: ${this.shortBreaksEnabled ? 'ENABLED' : 'DISABLED'}`);
     if (this.shortBreaksEnabled) {
       this.log(`   → Work ${this.workDuration}min, rest ${this.breakDuration}min`);
-      this.log(`   → Break duration: ${this.breakDuration}min`);
-      this.log(`   → Work duration: ${this.workDuration}min`);
     }
     this.log(`   Daily Rest: ${this.dailyRestEnabled ? 'ENABLED' : 'DISABLED'}`);
     if (this.dailyRestEnabled) {
@@ -47,7 +45,7 @@ class RestScheduler {
   }
   
   log(...args) {
-    console.log(`[${this.bot?.username || 'RestScheduler'}]`, ...args);
+    console.log(`[RestScheduler]`, ...args);
   }
   
   /**
@@ -73,9 +71,10 @@ class RestScheduler {
   scheduleNextShortBreak() {
     if (!this.shortBreaksEnabled) return;
     
-    // Clear existing timer
+    // 🔥 Evitar programar múltiples timers
     if (this.shortBreakTimer) {
-      clearTimeout(this.shortBreakTimer);
+      this.log('⚠️ Short break already scheduled, skipping duplicate');
+      return;
     }
     
     const workTimeMs = this.workDuration * 60 * 1000;
@@ -83,6 +82,7 @@ class RestScheduler {
     this.log(`⏰ Next short break scheduled in ${this.workDuration} minutes`);
     
     this.shortBreakTimer = setTimeout(() => {
+      this.shortBreakTimer = null; // Limpiar referencia
       this.enqueueShortBreak();
     }, workTimeMs);
   }
@@ -93,9 +93,10 @@ class RestScheduler {
   scheduleNextDailyRest() {
     if (!this.dailyRestEnabled) return;
     
-    // Clear existing timer
+    // 🔥 Evitar programar múltiples timers
     if (this.dailyRestTimer) {
-      clearTimeout(this.dailyRestTimer);
+      this.log('⚠️ Daily rest already scheduled, skipping duplicate');
+      return;
     }
     
     const workTimeMs = this.workHours * 60 * 60 * 1000;
@@ -103,6 +104,7 @@ class RestScheduler {
     this.log(`⏰ Daily rest scheduled in ${this.workHours} hours`);
     
     this.dailyRestTimer = setTimeout(() => {
+      this.dailyRestTimer = null; // Limpiar referencia
       this.enqueueDailyRest();
     }, workTimeMs);
   }
@@ -111,6 +113,22 @@ class RestScheduler {
    * Enqueue a SHORT BREAK node
    */
   enqueueShortBreak() {
+    // 🔥 Validación: no encolar si ya estamos en descanso
+    if (this.isResting) {
+      this.log('⚠️ Already resting, skipping SHORT BREAK enqueue');
+      return;
+    }
+    
+    // 🔥 Validación: respetar el tiempo de trabajo mínimo
+    const timeSinceLastBreak = Date.now() - this.lastShortBreak;
+    const workTimeMs = this.workDuration * 60 * 1000;
+    
+    if (timeSinceLastBreak < workTimeMs) {
+      const remainingTime = Math.ceil((workTimeMs - timeSinceLastBreak) / 60000);
+      this.log(`⚠️ Not enough work time, need ${remainingTime} more minutes before break`);
+      return;
+    }
+    
     this.log('😴 Enqueueing SHORT BREAK node...');
     
     const breakDurationMs = this.breakDuration * 60 * 1000;
@@ -119,7 +137,7 @@ class RestScheduler {
       async () => {
         this.log('💤 [SHORT BREAK NODE] Starting short break...');
         this.isResting = true;
-        this.bot.isResting = true; // Flag for Bot.js
+        this.bot.isResting = true;
         
         // Pause all flip operations
         if (this.bot.flipManager) {
@@ -139,7 +157,12 @@ class RestScheduler {
         
         // Reconnect to server
         this.log('   🔄 Reconnecting to server...');
+        this.hasScheduledLogin = false; // Reset flag antes de reconectar
         await this.bot.reconnect();
+        
+        // Esperar a que el login se complete
+        this.log('   ⏳ Waiting for Skyblock login to complete...');
+        await delay(15000); // 15 segundos para login + chunks
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -149,7 +172,7 @@ class RestScheduler {
         
         this.isResting = false;
         this.bot.isResting = false;
-        this.lastShortBreak = Date.now();
+        this.lastShortBreak = Date.now(); // 🔥 Actualizar timestamp DESPUÉS del break
         
         this.log('✅ Short break completed, bot resumed');
         
@@ -171,6 +194,12 @@ class RestScheduler {
    * Enqueue a DAILY REST node
    */
   enqueueDailyRest() {
+    // 🔥 Validación: no encolar si ya estamos en descanso
+    if (this.isResting) {
+      this.log('⚠️ Already resting, skipping DAILY REST enqueue');
+      return;
+    }
+    
     this.log('😴 Enqueueing DAILY REST node...');
     
     const restDurationMs = this.restHours * 60 * 60 * 1000;
@@ -199,7 +228,12 @@ class RestScheduler {
         
         // Reconnect to server
         this.log('   🔄 Reconnecting to server...');
+        this.hasScheduledLogin = false; // Reset flag antes de reconectar
         await this.bot.reconnect();
+        
+        // Esperar a que el login se complete
+        this.log('   ⏳ Waiting for Skyblock login to complete...');
+        await delay(15000);
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -258,7 +292,12 @@ class RestScheduler {
         
         // Reconnect to server
         this.log('   🔄 Reconnecting to server...');
+        this.hasScheduledLogin = false; // Reset flag
         await this.bot.reconnect();
+        
+        // Esperar a que el login se complete
+        this.log('   ⏳ Waiting for Skyblock login to complete...');
+        await delay(15000);
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -327,4 +366,3 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
-

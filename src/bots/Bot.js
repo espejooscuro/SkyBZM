@@ -1,6 +1,8 @@
 
 
 
+
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -178,26 +180,91 @@ class Bot {
 
     this.bot.on("login", async () => {
       this.markActivity(); // 🔥 Marcar actividad
-      if (this.isLogged) {
-              
-       await delay(5000);
-        this.chat.send("/skyblock");
-        
-
-        await delay(5000);
-       
-        this.chat.send("/is");
-        await delay(5000);
-        return;     
-      } 
-      this.isLogged = true;
-
-      console.log(`[${this.name}] Connected to the server!`);
       
       // 🔥 Reset packet timestamp on successful login
       this.lastPacketReceived = Date.now();
       this.lastActivity = Date.now();
       this.lastHeartbeat = Date.now();
+      
+      // 🔥 RECONEXIÓN: Si ya está logged, solo encolar login con máxima prioridad
+      if (this.isLogged) {
+        console.log(`🔄 [${this.name}] Reconnection detected, enqueueing login with maximum priority...`);
+        
+        // 🔥 Si estamos en break, ejecutar login directamente sin encolar
+        if (this.restScheduler?.isResting) {
+          console.log(`[${this.name}] Bot is resting, executing login directly...`);
+          
+          if (this.restScheduler.hasScheduledLogin) {
+            console.log(`⚠️ [${this.name}] Login already executed, skipping duplicate`);
+            return;
+          }
+          
+          this.restScheduler.hasScheduledLogin = true;
+          
+          console.log(`[${this.name}] Re-entering Skyblock...`);
+          await delay(5000);
+          
+          if (!this.chat || !this.bot || this.bot.ended) {
+            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
+            return;
+          }
+          
+          this.chat.send("/skyblock");
+          await delay(5000);
+          
+          if (!this.chat || !this.bot || this.bot.ended) {
+            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
+            return;
+          }
+          
+          this.chat.send("/is");
+          await delay(5000);
+          console.log(`✅ [${this.name}] Reconnected to Skyblock!`);
+          return;
+        }
+        
+        // 🔥 Si NO estamos en break, encolar el login normalmente
+        if (this.restScheduler?.hasScheduledLogin) {
+          console.log(`⚠️ [${this.name}] Login already scheduled, skipping duplicate`);
+          return;
+        }
+        
+        this.restScheduler.hasScheduledLogin = true;
+        
+        await this.queue.enqueue(async () => {
+          console.log(`[${this.name}] Re-entering Skyblock...`);
+          await delay(5000);
+          
+          if (!this.chat || !this.bot || this.bot.ended) {
+            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
+            return;
+          }
+          
+          this.chat.send("/skyblock");
+          await delay(5000);
+          
+          if (!this.chat || !this.bot || this.bot.ended) {
+            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
+            return;
+          }
+          
+          this.chat.send("/is");
+          await delay(5000);
+          console.log(`✅ [${this.name}] Reconnected to Skyblock!`);
+          
+          this.restScheduler.hasScheduledLogin = false; // Reset flag
+        }, { 
+          type: 'login', 
+          item: 'Re-entering Skyblock',
+          priority: 1 // 🔥 Máxima prioridad (menor número = mayor prioridad)
+        });
+        
+        return; // 🔥 IMPORTANTE: No inicializar nada más
+      }
+      
+      // 🔥 PRIMER LOGIN: Inicialización completa
+      this.isLogged = true;
+      console.log(`[${this.name}] Connected to the server!`);
       
       // 🔥 HEARTBEAT MANUAL para mantener la conexión viva
       console.log(`💓 [${this.name}] Starting heartbeat system...`);
@@ -698,6 +765,10 @@ class Bot {
 module.exports = Bot;
 
 //"are you sure?"
+
+
+
+
 
 
 
