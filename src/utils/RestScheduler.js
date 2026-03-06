@@ -1,3 +1,5 @@
+
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -31,7 +33,6 @@ class RestScheduler {
     this.sessionStartTime = Date.now();
     this.lastShortBreak = Date.now(); // 🔥 Iniciar con tiempo actual para respetar workDuration
     this.isResting = false;
-    this.hasScheduledLogin = false; // 🔥 Flag para evitar múltiples logins
     
     this.log('✅ RestScheduler initialized');
     this.log(`   Short Breaks: ${this.shortBreaksEnabled ? 'ENABLED' : 'DISABLED'}`);
@@ -110,6 +111,157 @@ class RestScheduler {
   }
   
   /**
+   * Reconnect to the server and login to Skyblock
+   */
+  async reconnectAndLogin() {
+    const mineflayer = require('mineflayer');
+    const ChatListener = require('../events/ChatListener');
+    const socks = require('socks').SocksClient;
+    const { ProxyAgent } = require('proxy-agent');
+    
+    this.log('   🔄 Reconnecting to server...');
+    
+    // 🔥 Obtener config del proxy
+    const proxy = this.bot.config?.proxy;
+    const server = 'mc.hypixel.net';
+    const port = 25565;
+    
+    // 🔥 Crear nuevo bot de mineflayer directamente
+    this.bot.bot = mineflayer.createBot({
+      host: server,
+      port,
+      username: this.bot.name,
+      auth: "microsoft",
+      version: "1.21.11",
+      hideErrors: true,
+      
+      checkTimeoutInterval: 60000,
+      keepAlive: true,
+      
+      clientOptions: {
+        keepAlive: true,
+        keepAliveInitialDelay: 120000
+      },
+
+      connect: (client) => {
+        if (!proxy) {
+          console.log(`⚠️  [${this.bot.name}] NO PROXY - Direct connection to ${server}`);
+          client.connect(server, port);
+          return;
+        }
+
+        console.log(`🔌 [${this.bot.name}] Initiating SOCKS5 connection...`);
+        console.log(`   📍 Proxy: ${proxy.host}:${proxy.port}`);
+        console.log(`   🎯 Destination: ${server}:${port}`);
+
+        socks.createConnection({
+          proxy: {
+            host: proxy.host,
+            port: Number(proxy.port),
+            type: 5,
+            userId: proxy.username,
+            password: proxy.password
+          },
+          command: "connect",
+          destination: {
+            host: server,
+            port: Number(port)
+          },
+          timeout: 30000
+        }, (err, info) => {
+          if (err) {
+            console.error(`❌ [${this.bot.name}] SOCKS5 Proxy connection FAILED:`, err.message);
+            return;
+          }
+
+          console.log(`✅ [${this.bot.name}] SOCKS5 connection established!`);
+          
+          info.socket.setKeepAlive(true, 60000);
+          info.socket.setTimeout(0);
+          
+          if (info.socket.setNoDelay) {
+            info.socket.setNoDelay(true);
+          }
+
+          client.setSocket(info.socket);
+          client.emit("connect");
+        });
+      },
+
+      agent: proxy
+        ? new ProxyAgent(`socks5://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`)
+        : undefined
+    });
+    
+    // 🔥 Crear nuevo ChatListener
+    this.bot.chat = new ChatListener(this.bot.bot, {
+      watchList: ["sold", "bought", "coins", "flip", "skyblock", "joined", "Hypixel", "Sending to", "Bazaar"],
+      callback: (msg) => {
+        console.log(msg.message);
+      }
+    });
+    
+    // 🔥 Listener for CRITICAL messages
+    this.bot.chat.onMessageContains(/limbo|packets too fast|server will restart soon|game update|server is too laggy/i, (msg) => {
+      this.bot.handleCriticalMessage(msg.message);
+    });
+    
+    this.log('   ⏳ Waiting for spawn...');
+    
+    // 🔥 Esperar el evento spawn
+    await new Promise((resolve, reject) => {
+      const spawnHandler = () => {
+        this.log('   ✅ Spawn received!');
+        this.bot.bot.removeListener('spawn', spawnHandler);
+        this.bot.bot.removeListener('end', endHandler);
+        this.bot.bot.removeListener('error', errorHandler);
+        resolve();
+      };
+      
+      const endHandler = () => {
+        this.log('   ❌ Bot disconnected before spawn!');
+        this.bot.bot.removeListener('spawn', spawnHandler);
+        this.bot.bot.removeListener('error', errorHandler);
+        reject(new Error('Bot disconnected before spawn'));
+      };
+      
+      const errorHandler = (err) => {
+        if (err.name === "PartialReadError") return;
+        this.log(`   ❌ Error during spawn: ${err.message}`);
+      };
+      
+      this.bot.bot.once('spawn', spawnHandler);
+      this.bot.bot.once('end', endHandler);
+      this.bot.bot.on('error', errorHandler);
+      
+      // Timeout de 60 segundos
+      setTimeout(() => {
+        this.bot.bot.removeListener('spawn', spawnHandler);
+        this.bot.bot.removeListener('end', endHandler);
+        this.bot.bot.removeListener('error', errorHandler);
+        reject(new Error('Spawn timeout after 60 seconds'));
+      }, 60000);
+    });
+    
+    // 🔥 Dar 3 segundos para que chunks se carguen
+    await delay(3000);
+    
+    this.log('   ✅ Bot connected and ready!');
+    
+    // Ejecutar /skyblock
+    this.log('   🌍 Executing /skyblock...');
+    this.bot.chat.send('/skyblock');
+    await delay(5000);
+    
+    // Ejecutar /is
+    this.log('   🏝️ Executing /is...');
+    this.bot.chat.send('/is');
+    await delay(5000);
+    
+    this.log('   ✅ Login sequence completed!');
+  }
+  
+  /**
    * Enqueue a SHORT BREAK node
    */
   enqueueShortBreak() {
@@ -155,14 +307,8 @@ class RestScheduler {
         this.log(`   ⏳ Resting for ${this.breakDuration} minutes...`);
         await delay(breakDurationMs);
         
-        // Reconnect to server
-        this.log('   🔄 Reconnecting to server...');
-        this.hasScheduledLogin = false; // Reset flag antes de reconectar
-        await this.bot.reconnect();
-        
-        // Esperar a que el login se complete
-        this.log('   ⏳ Waiting for Skyblock login to complete...');
-        await delay(15000); // 15 segundos para login + chunks
+        // Reconnect and login
+        await this.reconnectAndLogin();
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -226,14 +372,8 @@ class RestScheduler {
         this.log(`   ⏳ Resting for ${this.restHours} hours...`);
         await delay(restDurationMs);
         
-        // Reconnect to server
-        this.log('   🔄 Reconnecting to server...');
-        this.hasScheduledLogin = false; // Reset flag antes de reconectar
-        await this.bot.reconnect();
-        
-        // Esperar a que el login se complete
-        this.log('   ⏳ Waiting for Skyblock login to complete...');
-        await delay(15000);
+        // Reconnect and login
+        await this.reconnectAndLogin();
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -290,14 +430,8 @@ class RestScheduler {
         this.log('   ⏳ Waiting 30 seconds before reconnect...');
         await delay(30000);
         
-        // Reconnect to server
-        this.log('   🔄 Reconnecting to server...');
-        this.hasScheduledLogin = false; // Reset flag
-        await this.bot.reconnect();
-        
-        // Esperar a que el login se complete
-        this.log('   ⏳ Waiting for Skyblock login to complete...');
-        await delay(15000);
+        // Reconnect and login
+        await this.reconnectAndLogin();
         
         // Resume flip operations
         if (this.bot.flipManager) {
@@ -366,3 +500,6 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
+
+
+

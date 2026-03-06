@@ -30,6 +30,7 @@ class Bot {
     this.queue = new TaskQueue();
     this.chat = null;
     this.isLogged = false;
+    this.isInitializing = false; // 🔥 Flag para prevenir doble inicialización
     this.config = null;
     this.accountConfig = accountConfig; // 🔥 Configuración específica del account
     
@@ -186,84 +187,15 @@ class Bot {
       this.lastActivity = Date.now();
       this.lastHeartbeat = Date.now();
       
-      // 🔥 RECONEXIÓN: Si ya está logged, solo encolar login con máxima prioridad
-      if (this.isLogged) {
-        console.log(`🔄 [${this.name}] Reconnection detected, enqueueing login with maximum priority...`);
-        
-        // 🔥 Si estamos en break, ejecutar login directamente sin encolar
-        if (this.restScheduler?.isResting) {
-          console.log(`[${this.name}] Bot is resting, executing login directly...`);
-          
-          if (this.restScheduler.hasScheduledLogin) {
-            console.log(`⚠️ [${this.name}] Login already executed, skipping duplicate`);
-            return;
-          }
-          
-          this.restScheduler.hasScheduledLogin = true;
-          
-          console.log(`[${this.name}] Re-entering Skyblock...`);
-          await delay(5000);
-          
-          if (!this.chat || !this.bot || this.bot.ended) {
-            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
-            return;
-          }
-          
-          this.chat.send("/skyblock");
-          await delay(5000);
-          
-          if (!this.chat || !this.bot || this.bot.ended) {
-            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
-            return;
-          }
-          
-          this.chat.send("/is");
-          await delay(5000);
-          console.log(`✅ [${this.name}] Reconnected to Skyblock!`);
-          return;
-        }
-        
-        // 🔥 Si NO estamos en break, encolar el login normalmente
-        if (this.restScheduler?.hasScheduledLogin) {
-          console.log(`⚠️ [${this.name}] Login already scheduled, skipping duplicate`);
-          return;
-        }
-        
-        this.restScheduler.hasScheduledLogin = true;
-        
-        await this.queue.enqueue(async () => {
-          console.log(`[${this.name}] Re-entering Skyblock...`);
-          await delay(5000);
-          
-          if (!this.chat || !this.bot || this.bot.ended) {
-            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
-            return;
-          }
-          
-          this.chat.send("/skyblock");
-          await delay(5000);
-          
-          if (!this.chat || !this.bot || this.bot.ended) {
-            console.warn(`[${this.name}] Bot destroyed during reconnection, aborting`);
-            return;
-          }
-          
-          this.chat.send("/is");
-          await delay(5000);
-          console.log(`✅ [${this.name}] Reconnected to Skyblock!`);
-          
-          this.restScheduler.hasScheduledLogin = false; // Reset flag
-        }, { 
-          type: 'login', 
-          item: 'Re-entering Skyblock',
-          priority: 1 // 🔥 Máxima prioridad (menor número = mayor prioridad)
-        });
-        
-        return; // 🔥 IMPORTANTE: No inicializar nada más
+      // 🔥 RECONEXIÓN: Si ya está logged O inicializando, IGNORAR
+      // Las reconexiones se manejan SOLO en RestScheduler.reconnectAndLogin()
+      if (this.isLogged || this.isInitializing) {
+        console.log(`🔄 [${this.name}] Reconnection detected - ignoring login event (handled by RestScheduler)`);
+        return;
       }
       
-      // 🔥 PRIMER LOGIN: Inicialización completa
-      this.isLogged = true;
+      // 🔥 PRIMER LOGIN: Marcar como inicializando INMEDIATAMENTE
+      this.isInitializing = true;
       console.log(`[${this.name}] Connected to the server!`);
       
       // 🔥 HEARTBEAT MANUAL para mantener la conexión viva
@@ -344,6 +276,7 @@ class Bot {
         // 🔥 Safety check: Verify bot still exists
         if (!this.chat || !this.bot || this.bot.ended) {
           console.warn(`[${this.name}] Bot destroyed during startup, aborting task`);
+          this.isInitializing = false; // Reset flag
           return;
         }
         
@@ -352,6 +285,7 @@ class Bot {
         
         if (!this.chat || !this.bot || this.bot.ended) {
           console.warn(`[${this.name}] Bot destroyed during startup, aborting task`);
+          this.isInitializing = false; // Reset flag
           return;
         }
         
@@ -360,6 +294,10 @@ class Bot {
         console.log(`[${this.name}] Bot ready!`);  
         let items = containerManager._getValidItems(false);
         console.log(items);
+        
+        // 🔥 AHORA sí marcamos como logged (después del primer login exitoso)
+        this.isLogged = true;
+        this.isInitializing = false; // Ya no está inicializando
       }, { type: 'login', item: 'Entering Skyblock' });
 
       const booster = new AutoBoosterCookie(this.bot, this.chat, this.queue);
@@ -725,78 +663,9 @@ class Bot {
   markActivity() {
     this.lastActivity = Date.now();
   }
-
-  /**
-   * 🔄 Reconecta el bot manteniendo el estado guardado
-   */
-  async reconnect() {
-    console.log(`🔄 [${this.name}] Starting reconnection process...`);
-
-    // Limpiar instancia anterior completamente
-    this.bot = null;
-    this.chat = null;
-    this.isLogged = false;
-
-    // Reiniciar el bot (esto crea nueva instancia y nuevos listeners)
-    this.init();
-
-    // Esperar a que el bot esté completamente conectado
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Reconnection timeout after 60 seconds'));
-      }, 60000);
-
-      // Esperar a que termine el proceso de login completo
-      const checkLogin = setInterval(() => {
-        if (this.isLogged && this.flipManager) {
-          clearInterval(checkLogin);
-          clearTimeout(timeout);
-          
-          console.log(`✅ [${this.name}] Bot reconnected and ready!`);
-          console.log(`   → FlipManager status: ${this.flipManager.flips.length} active flips`);
-          
-          resolve();
-        }
-      }, 1000);
-    });
-  }
 }
 
 module.exports = Bot;
-
-//"are you sure?"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -193,7 +193,7 @@ class NPCFlip extends Flip {
         
         this.log('  ❌ No existing buy order found, creating new one...');
         this.ContainerManager.closeContainer();
-        await delay(500);
+        await delay(1000);
         
         // Simulate purchase
         const purchaseId = `${this.npcItem}_${Date.now()}`;
