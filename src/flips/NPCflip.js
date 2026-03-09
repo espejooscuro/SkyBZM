@@ -328,7 +328,9 @@ class NPCFlip extends Flip {
           await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
           await delay(800); // Wait for claim to process
           claimedCount++;
-          
+          if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
+            await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
+          }
           // Check again if more orders exist (without closing/reopening)
           await delay(200);
         }
