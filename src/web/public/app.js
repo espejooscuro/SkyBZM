@@ -386,8 +386,8 @@ async function loadSkyblockItems() {
 async function handleLogin(e) {
   e.preventDefault();
   const pwd = passwordInput.value;
-  const submitBtn = form.querySelector('.btn');
-  const originalText = submitBtn.textContent;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<span class="loading"></span>';
 
@@ -414,7 +414,7 @@ async function handleLogin(e) {
     console.error('Login error:', error);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
+    submitBtn.innerHTML = originalText;
   }
 }
 
