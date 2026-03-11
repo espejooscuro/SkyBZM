@@ -2206,11 +2206,6 @@ function switchBotSection(accountIndex, section) {
     if (element) element.classList.toggle('active', sectionName === section);
   });
   
-  // Stop starfield if switching away from bot-brain
-  if (section !== 'bot-brain') {
-    stopStarfield(accountIndex);
-  }
-  
   if (section === 'earnings-stats') {
     stopBotIntervals(accountIndex);
     loadBotData(accountIndex, true);
@@ -2218,9 +2213,7 @@ function switchBotSection(accountIndex, section) {
     startBotIntervals(accountIndex);
   } else if (section === 'bot-brain') {
     stopBotIntervals(accountIndex);
-    // Initialize starfield and start brain polling
     setTimeout(() => {
-      initStarfield(`brain-starfield-${accountIndex}`, accountIndex);
       loadBotBrain(accountIndex);
       startBrainPolling(accountIndex);
     }, 100);
@@ -3134,163 +3127,66 @@ function searchItems(accountIndex, listType, query) {
 function renderBotBrain(account, index) {
   return `
     <div class="bot-brain-container" id="brain-container-${index}">
-      <canvas id="brain-starfield-${index}" class="brain-starfield"></canvas>
-      
-      <div class="brain-overlay">
-        <div class="brain-header">
-          <div class="brain-header-left">
-            <h3>🧠 Task Queue</h3>
-            <div id="brain-stats-${index}" class="brain-stats-inline">
-              <!-- Compact stats will be populated here -->
-            </div>
-          </div>
-          <div class="brain-header-controls">
-            <button class="brain-fullscreen-btn" id="brain-fullscreen-${index}" title="Fullscreen" onclick="toggleBrainFullscreen(${index})">
-              <span class="fullscreen-icon">⛶</span>
-            </button>
-            <div class="brain-status" id="brain-status-${index}">
-              <span class="status-dot"></span>
-              <span class="status-text">Idle</span>
-            </div>
+      <div class="brain-header">
+        <div class="brain-header-left">
+          <h3>🧠 Bot Brain</h3>
+          <p class="brain-subtitle">Visual overview of executed, running and queued nodes</p>
+        </div>
+        <div class="brain-header-right">
+          <div id="brain-stats-${index}" class="brain-stats-inline"></div>
+          <div class="brain-status" id="brain-status-${index}">
+            <span class="status-dot"></span>
+            <span class="status-text">Idle</span>
           </div>
         </div>
+      </div>
 
-        <div class="brain-nodes-container" id="brain-nodes-${index}">
-          <div class="brain-nodes-placeholder">
-            <div class="placeholder-icon">🌌</div>
-            <div class="placeholder-text">No active tasks</div>
-          </div>
+      <div class="brain-layout">
+        <div class="brain-summary" id="brain-summary-${index}">
+          <!-- High level numbers injected by JS -->
         </div>
 
-        <div class="brain-legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background: #3b82f6;"></div>
-            <span>Enter Skyblock</span>
+        <div class="brain-columns">
+          <div class="brain-column">
+            <div class="brain-column-header">
+              <span class="brain-column-title">Current task</span>
+              <span class="brain-column-pill live">LIVE</span>
+            </div>
+            <div class="brain-task-list" id="brain-current-${index}">
+              <div class="brain-empty">
+                <span class="brain-empty-icon">🕒</span>
+                <span class="brain-empty-text">No task running</span>
+              </div>
+            </div>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #fb923c;"></div>
-            <span>Buy Order</span>
+
+          <div class="brain-column">
+            <div class="brain-column-header">
+              <span class="brain-column-title">Queued nodes</span>
+            </div>
+            <div class="brain-task-list" id="brain-queued-${index}">
+              <div class="brain-empty">
+                <span class="brain-empty-icon">📥</span>
+                <span class="brain-empty-text">Queue is empty</span>
+              </div>
+            </div>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #22c55e;"></div>
-            <span>Sell Order</span>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #14b8a6;"></div>
-            <span>NPC Buy</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #06b6d4;"></div>
-            <span>NPC Sell</span>
-          </div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #a855f7;"></div>
-            <span>Relist</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #fbbf24;"></div>
-            <span>Claim</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #8b5cf6;"></div>
-            <span>Check</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #6b7280;"></div>
-            <span>Completed</span>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #0ea5e9;"></div>
-            <span>Short Break</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #6366f1;"></div>
-            <span>Daily Rest</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #dc2626;"></div>
-            <span>Reset</span>
-          </div>
+
+          <div class="brain-column">
+            <div class="brain-column-header">
+              <span class="brain-column-title">Recently executed</span>
+            </div>
+            <div class="brain-task-list" id="brain-completed-${index}">
+              <div class="brain-empty">
+                <span class="brain-empty-icon">✅</span>
+                <span class="brain-empty-text">No recent nodes yet</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   `;
-}
-
-// Starfield animation
-const starfields = new Map();
-
-function initStarfield(canvasId, accountIndex) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  canvas.style.width = rect.width + 'px';
-  canvas.style.height = rect.height + 'px';
-  
-  // Scale context for high DPI
-  ctx.scale(dpr, dpr);
-
-  const stars = [];
-  const numStars = 80;
-
-  for (let i = 0; i < numStars; i++) {
-    stars.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      radius: Math.random() * 1 + 0.3, // Más pequeñas: entre 0.3 y 1.3
-      vx: (Math.random() - 0.5) * 0.15,
-      vy: (Math.random() - 0.5) * 0.15,
-      opacity: Math.random() * 0.3 + 0.2 // Más tenues: entre 0.2 y 0.5
-    });
-  }
-
-  function animate() {
-    // Fondo negro sólido sin estela
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    stars.forEach(star => {
-      star.x += star.vx;
-      star.y += star.vy;
-
-      if (star.x < 0 || star.x > canvas.width) star.vx *= -1;
-      if (star.y < 0 || star.y > canvas.height) star.vy *= -1;
-
-      // Glow effect más sutil
-      const gradient = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.radius * 4);
-      gradient.addColorStop(0, `rgba(255, 255, 255, ${star.opacity})`);
-      gradient.addColorStop(0.5, `rgba(255, 255, 255, ${star.opacity * 0.2})`);
-      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius * 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Estrella central más brillante
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
-      ctx.fill();
-    });
-
-    const animationId = requestAnimationFrame(animate);
-    starfields.set(accountIndex, animationId);
-  }
-
-  animate();
-}
-
-function stopStarfield(accountIndex) {
-  if (starfields.has(accountIndex)) {
-    cancelAnimationFrame(starfields.get(accountIndex));
-    starfields.delete(accountIndex);
-  }
 }
 
 // Load and update brain data
@@ -3301,23 +3197,12 @@ async function loadBotBrain(index) {
     });
     
     const data = await response.json();
-    console.log('[Bot Brain] API Response:', data);
-    
     if (!data.success) {
       console.error('[Bot Brain] API Error:', data.error || data.message);
       renderBrainNodes(index, null);
       return;
     }
 
-    console.log('[Bot Brain] Queue Length:', data.queueLength);
-    console.log('[Bot Brain] Current Task:', data.currentTask);
-    console.log('[Bot Brain] Queued Tasks:', data.queuedTasks?.length || 0);
-    
-    // Extra debugging
-    if (data.currentTask) {
-      console.log('[Bot Brain] ✅ SHOWING CURRENT TASK:', data.currentTask.metadata);
-    }
-    
     // Update status
     const statusEl = document.getElementById(`brain-status-${index}`);
     if (statusEl) {
@@ -3338,31 +3223,59 @@ async function loadBotBrain(index) {
   }
 }
 
-// Brain visualization state
-let brainState = {
-  nodes: [],
-  scale: 1,
-  offsetX: 0,
-  offsetY: 0,
-  isDragging: false,
-  lastX: 0,
-  lastY: 0,
-  animationFrame: null,
-  previousNodes: [],
-  previousTaskId: null
-};
-
 function renderBrainNodes(index, data) {
-  const container = document.getElementById(`brain-nodes-${index}`);
-  if (!container) return;
+  const currentEl = document.getElementById(`brain-current-${index}`);
+  const queuedEl = document.getElementById(`brain-queued-${index}`);
+  const completedEl = document.getElementById(`brain-completed-${index}`);
+  const summaryEl = document.getElementById(`brain-summary-${index}`);
 
   if (!data || !data.success) {
-    container.innerHTML = `
-      <div class="brain-nodes-placeholder">
-        <div class="placeholder-icon">🌌</div>
-        <div class="placeholder-text">Bot offline</div>
-      </div>
-    `;
+    if (summaryEl) {
+      summaryEl.innerHTML = `
+        <div class="brain-summary-grid">
+          <div class="brain-summary-card">
+            <span class="brain-summary-label">Queue length</span>
+            <span class="brain-summary-value">0</span>
+          </div>
+          <div class="brain-summary-card">
+            <span class="brain-summary-label">Running</span>
+            <span class="brain-summary-value">0</span>
+          </div>
+          <div class="brain-summary-card">
+            <span class="brain-summary-label">Recent executed</span>
+            <span class="brain-summary-value">0</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (currentEl) {
+      currentEl.innerHTML = `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">🌌</span>
+          <span class="brain-empty-text">Bot offline</span>
+        </div>
+      `;
+    }
+
+    if (queuedEl) {
+      queuedEl.innerHTML = `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">📥</span>
+          <span class="brain-empty-text">Queue unavailable</span>
+        </div>
+      `;
+    }
+
+    if (completedEl) {
+      completedEl.innerHTML = `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">✅</span>
+          <span class="brain-empty-text">No history</span>
+        </div>
+      `;
+    }
+
     return;
   }
 
@@ -3455,38 +3368,9 @@ function renderBrainNodes(index, data) {
     `;
   }
 
-  // Build complete task list
+  // Build simple lists for current, queued and completed tasks
   const tasks = [];
-  
-  // Get previous nodes if they exist (to maintain completed tasks)
-  const previousCompleted = brainState.nodes.filter(n => n.status === 'completed');
-  
-  // Add completed tasks from previous state (keep last 5)
-  previousCompleted.slice(-5).forEach(task => {
-    tasks.push({
-      ...task,
-      status: 'completed'
-    });
-  });
-  
-  // If current task changed or cleared, and there was a previous current task, mark it as completed
-  if (brainState.previousTaskId && 
-      (!data.currentTask?.id || brainState.previousTaskId !== data.currentTask.id)) {
-    const previousCurrent = brainState.nodes.find(n => n.id === brainState.previousTaskId);
-    if (previousCurrent && !tasks.find(t => t.id === brainState.previousTaskId)) {
-      tasks.push({
-        ...previousCurrent,
-        status: 'completed'
-      });
-    }
-  }
-  
-  // Limit to last 5 completed
-  const completedTasks = tasks.filter(t => t.status === 'completed').slice(-5);
-  tasks.length = 0;
-  tasks.push(...completedTasks);
-  
-  // Add current task
+
   if (data.currentTask && 
       data.currentTask.metadata && 
       data.currentTask.metadata.type && 
@@ -3497,13 +3381,12 @@ function renderBrainNodes(index, data) {
       position: 0
     });
   }
-  
-  // Add ALL queued tasks
+
   if (data.queuedTasks && data.queuedTasks.length > 0) {
     data.queuedTasks.forEach((task, idx) => {
-      if (task && 
-          task.metadata && 
-          task.metadata.type && 
+      if (task &&
+          task.metadata &&
+          task.metadata.type &&
           task.metadata.type !== 'unknown') {
         tasks.push({
           ...task,
@@ -3514,55 +3397,100 @@ function renderBrainNodes(index, data) {
     });
   }
 
-  console.log('[Bot Brain] Rendering nodes:', {
-    total: tasks.length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    current: tasks.filter(t => t.status === 'current').length,
-    queued: tasks.filter(t => t.status === 'queued').length
-  });
+  const completedHistory = (data.completedTasks || []).slice(-6).map(task => ({
+    ...task,
+    status: 'completed'
+  }));
 
-  // Detect if this is initial render or an update
-  const isInitialRender = brainState.nodes.length === 0;
-  const taskChanged = brainState.previousTaskId && brainState.previousTaskId !== data.currentTask?.id && data.currentTask;
-  
-  // Update state
-  brainState.previousNodes = [...brainState.nodes];
-  brainState.nodes = tasks;
-  brainState.previousTaskId = data.currentTask?.id;
+  const allTasks = [...completedHistory, ...tasks];
 
-  // Create or get canvas
-  let canvas = container.querySelector('canvas');
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.className = 'brain-canvas';
-    container.innerHTML = '';
-    container.appendChild(canvas);
-    
-    // Setup canvas with proper DPI scaling
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
-    
-    // Scale context for high DPI
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    
-    // Initial centering on CURRENT task
-    brainState.offsetX = rect.width / 2;
-    brainState.offsetY = rect.height / 2;
-    
-    // Setup controls
-    setupBrainControls(canvas, container);
+  const currentTasks = allTasks.filter(t => t.status === 'current');
+  const queuedTasks = allTasks.filter(t => t.status === 'queued');
+  const completedTasks = allTasks.filter(t => t.status === 'completed');
+
+  const renderTaskCard = (task, status, indexInList) => {
+    const type = (task.metadata?.type || 'unknown').toString();
+    const label = (task.metadata?.label || type).toString();
+    const color = getTaskColor(type);
+    const icon = getTaskIcon(type, status === 'current', status === 'completed');
+    const createdAt = task.metadata?.createdAt || task.timestamp || Date.now();
+
+    const timeAgo = typeof formatTimeAgo === 'function'
+      ? formatTimeAgo(createdAt)
+      : new Date(createdAt).toLocaleTimeString();
+
+    return `
+      <div class="brain-task-card brain-task-${status}">
+        <div class="brain-task-main">
+          <div class="brain-task-icon" style="background: ${color}1a; color: ${color};">
+            ${icon}
+          </div>
+          <div class="brain-task-text">
+            <div class="brain-task-title">
+              <span>${escapeHtml(label)}</span>
+              <span class="brain-task-type" style="color: ${color};">${escapeHtml(type)}</span>
+            </div>
+            <div class="brain-task-meta">
+              <span>#${indexInList + 1}</span>
+              <span>•</span>
+              <span>${timeAgo}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="brain-summary-grid">
+        <div class="brain-summary-card">
+          <span class="brain-summary-label">Queue length</span>
+          <span class="brain-summary-value">${data.queueLength || queuedTasks.length}</span>
+        </div>
+        <div class="brain-summary-card">
+          <span class="brain-summary-label">Running</span>
+          <span class="brain-summary-value ${currentTasks.length ? 'text-positive' : ''}">${currentTasks.length}</span>
+        </div>
+        <div class="brain-summary-card">
+          <span class="brain-summary-label">Recent executed</span>
+          <span class="brain-summary-value">${completedTasks.length}</span>
+        </div>
+      </div>
+    `;
   }
 
-  // If task changed, animate slide
-  if (taskChanged && !isInitialRender) {
-    animateSlideTransition(canvas);
-  } else {
-    renderBrainCanvas(canvas);
+  if (currentEl) {
+    currentEl.innerHTML = currentTasks.length
+      ? currentTasks.map((t, i) => renderTaskCard(t, 'current', i)).join('')
+      : `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">🕒</span>
+          <span class="brain-empty-text">No task running</span>
+        </div>
+      `;
+  }
+
+  if (queuedEl) {
+    queuedEl.innerHTML = queuedTasks.length
+      ? queuedTasks.map((t, i) => renderTaskCard(t, 'queued', i)).join('')
+      : `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">📥</span>
+          <span class="brain-empty-text">Queue is empty</span>
+        </div>
+      `;
+  }
+
+  if (completedEl) {
+    completedEl.innerHTML = completedTasks.length
+      ? completedTasks.slice(-6).reverse().map((t, i) => renderTaskCard(t, 'completed', i)).join('')
+      : `
+        <div class="brain-empty">
+          <span class="brain-empty-icon">✅</span>
+          <span class="brain-empty-text">No recent nodes yet</span>
+        </div>
+      `;
   }
 }
 
@@ -3910,81 +3838,24 @@ function truncateText(ctx, text, maxWidth) {
   return truncated + '...';
 }
 
-// Brain polling
-const brainPollingIntervals = new Map();
-const brainTaskHistories = new Map(); // Store completed tasks with timestamps
-
 function toggleBrainFullscreen(index) {
   const container = document.getElementById(`brain-container-${index}`);
-  const fullscreenBtn = document.getElementById(`brain-fullscreen-${index}`);
-  const icon = fullscreenBtn?.querySelector('.fullscreen-icon');
-  
-  if (!container) {
-    console.error('Brain container not found:', `brain-container-${index}`);
-    return;
-  }
-  
+  if (!container) return;
+
   if (!document.fullscreenElement) {
-    container.requestFullscreen().then(() => {
-      if (icon) icon.textContent = '⛶';
-      // Resize canvas when entering fullscreen
-      setTimeout(() => {
-        const canvas = document.getElementById(`brain-nodes-${index}`)?.querySelector('canvas');
-        if (canvas) {
-          const rect = document.getElementById(`brain-nodes-${index}`).getBoundingClientRect();
-          const dpr = window.devicePixelRatio || 1;
-          canvas.width = rect.width * dpr;
-          canvas.height = rect.height * dpr;
-          canvas.style.width = rect.width + 'px';
-          canvas.style.height = rect.height + 'px';
-          
-          const ctx = canvas.getContext('2d');
-          ctx.scale(dpr, dpr);
-          
-          // Re-center view
-          brainState.offsetX = rect.width / 2;
-          brainState.offsetY = rect.height / 2;
-          
-          renderBrainCanvas(canvas);
-        }
-      }, 100);
-    }).catch(err => {
-      console.error('Error entering fullscreen:', err);
-      showToast('❌ Fullscreen not available', 'error');
-    });
+    container.requestFullscreen().catch(() => {});
   } else {
-    document.exitFullscreen();
-    if (icon) icon.textContent = '⛶';
-    // Resize canvas back when exiting fullscreen
-    setTimeout(() => {
-      const canvas = document.getElementById(`brain-nodes-${index}`)?.querySelector('canvas');
-      if (canvas) {
-        const rect = document.getElementById(`brain-nodes-${index}`).getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
-        
-        const ctx = canvas.getContext('2d');
-        ctx.scale(dpr, dpr);
-        
-        renderBrainCanvas(canvas);
-      }
-    }, 100);
+    document.exitFullscreen().catch(() => {});
   }
 }
+
+const brainPollingIntervals = new Map();
 
 function startBrainPolling(accountIndex) {
   if (brainPollingIntervals.has(accountIndex)) {
     clearInterval(brainPollingIntervals.get(accountIndex));
   }
-  
-  // Initialize task history for this account
-  if (!brainTaskHistories.has(accountIndex)) {
-    brainTaskHistories.set(accountIndex, []);
-  }
-  
+
   const interval = setInterval(() => {
     if (expandedBots.has(accountIndex) && activeBotSections.get(accountIndex) === 'bot-brain') {
       loadBotBrain(accountIndex);
