@@ -6,10 +6,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⛏️ SkyBZM - Minecraft Bot Panel</title>
-  <link rel="stylesheet" href="/styles-discord.css?v=20260215235001">
-  <link rel="stylesheet" href="/styles-brain.css?v=20260215235001">
-  <link rel="stylesheet" href="/styles-flipper.css?v=20260215235001">
+  <title>SkyBZM - Bot Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles-discord.css?v=20260311001">
+  <link rel="stylesheet" href="/styles-brain.css?v=20260311001">
+  <link rel="stylesheet" href="/styles-flipper.css?v=20260311001">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
@@ -19,25 +22,24 @@
     <!-- Login Form -->
     <div id="loginForm">
       <div class="logo">
-        <h1>⛏️ SKYBZM</h1>
-        <p>MINECRAFT BOT CONTROL PANEL</p>
-        <p style="margin-top: 8px; font-size: 8px; color: #666;">v1.0.0 - HYPIXEL SKYBLOCK</p>
+        <h1>SkyBZM</h1>
+        <p>Bot Control Panel</p>
       </div>
 
       <div id="error" class="error"></div>
 
       <form id="passwordForm">
         <div class="form-group">
-          <label for="password">ENTER PASSWORD</label>
+          <label for="password">Password</label>
           <input 
             type="password" 
             id="password" 
-            placeholder="***********"
+            placeholder="Enter your password"
             required
             autocomplete="off"
           >
         </div>
-        <button type="submit" class="btn">LOGIN</button>
+        <button type="submit" class="btn">Sign In</button>
       </form>
     </div>
 
