@@ -1,3 +1,6 @@
+
+
+
 {
   "name": "skybzm",
   "version": "1.0.0",
@@ -5,17 +8,21 @@
   "main": "src/Launcher.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "prestart": "node scripts/build-web.js",
     "start": "node src/Launcher.js",
+    "web:build": "cd src/web/public && npm install && npm run build",
+    "prebuild": "npm run web:build",
     "build": "pkg . --compress GZip",
-    "build:win": "pkg . --targets node18-win-x64 --compress GZip --output dist/SkyBZM-win.exe",
-    "build:linux": "pkg . --targets node18-linux-x64 --compress GZip --output dist/SkyBZM-linux",
-    "build:mac": "pkg . --targets node18-macos-x64 --compress GZip --output dist/SkyBZM-macos",
-    "build:all": "pkg . --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --compress GZip --out-path dist"
+    "build:win": "npm run web:build && pkg . --targets node18-win-x64 --compress GZip --output dist/SkyBZM-win.exe",
+    "build:linux": "npm run web:build && pkg . --targets node18-linux-x64 --compress GZip --output dist/SkyBZM-linux",
+    "build:mac": "npm run web:build && pkg . --targets node18-macos-x64 --compress GZip --output dist/SkyBZM-macos",
+    "build:all": "npm run web:build && pkg . --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --compress GZip --out-path dist"
   },
   "bin": "src/Launcher.js",
   "pkg": {
     "assets": [
-      "src/web/public/**/*",
+      "src/web/public/dist/**/*",
+      "src/web/public/index.html",
       "node_modules/mineflayer/lib/plugins/**/*",
       "node_modules/minecraft-data/**/*",
       "node_modules/prismarine-*/**/*"
@@ -60,3 +67,6 @@
     "pkg": "^5.8.1"
   }
 }
+
+
+

@@ -3,6 +3,7 @@
 
 
 
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -267,17 +268,20 @@ class WebServer {
       }
     });
     
-    // Serve index.html for all non-API routes (SPA fallback)
-    this.app.get('*', (req, res) => {
+    // Serve index.html for all other routes (SPA fallback)
+    // Express 5 compatible - use a middleware instead of wildcard route
+    this.app.use((req, res, next) => {
+      // If we got here, no route matched and static files weren't found
+      // Serve index.html for SPA routing
       const distIndexPath = path.join(__dirname, 'public', 'dist', 'index.html');
       const publicIndexPath = path.join(__dirname, 'public', 'index.html');
       
       if (fs.existsSync(distIndexPath)) {
-        res.sendFile(distIndexPath);
+        return res.sendFile(distIndexPath);
       } else if (fs.existsSync(publicIndexPath)) {
-        res.sendFile(publicIndexPath);
+        return res.sendFile(publicIndexPath);
       } else {
-        res.status(404).send('Application not found. Please run npm run build.');
+        return res.status(404).send('Application not found. Please build the web interface first.');
       }
     });
   }
@@ -1163,6 +1167,9 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
 
 
 
