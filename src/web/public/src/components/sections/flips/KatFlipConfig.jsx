@@ -1,105 +1,132 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { CardHeader, CardBody } from '../../ui/Card';
-import { Input, Switch } from '../../ui/Input';
-import { Button } from '../../ui/Button';
-import './FlipConfig.css';
+import { useState } from 'react';
 
-export function KatFlipConfig({ accountIndex, flipIndex, config }) {
-  const { password } = useAuth();
-  const [localConfig, setLocalConfig] = useState({
-    useKatFlower: false,
-    pet: '',
-    ...config
-  });
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+function KatFlipConfig({ bot, updateBot }) {
+  const [enabled, setEnabled] = useState(bot.flips?.kat?.enabled || false);
+  const [selectedPets, setSelectedPets] = useState(bot.flips?.kat?.pets || []);
+  const [minProfit, setMinProfit] = useState(bot.flips?.kat?.minProfit || 100000);
+  const [maxUpgradeTime, setMaxUpgradeTime] = useState(bot.flips?.kat?.maxUpgradeTime || 24);
 
-  useEffect(() => {
-    setLocalConfig({ 
-      useKatFlower: false,
-      pet: '',
-      ...config 
+  const availablePets = [
+    'ENDERMAN', 'SPIDER', 'WOLF', 'BAT', 'BLAZE', 'CHICKEN',
+    'HORSE', 'JERRY', 'OCELOT', 'PIG', 'RABBIT', 'SHEEP',
+    'SILVERFISH', 'WITHER_SKELETON', 'SKELETON', 'ZOMBIE',
+    'ENDER_DRAGON', 'PHOENIX', 'GRIFFIN', 'LEGENDARY_PARROT'
+  ];
+
+  const handleToggle = (e) => {
+    const newEnabled = e.target.checked;
+    setEnabled(newEnabled);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        kat: { ...bot.flips?.kat, enabled: newEnabled }
+      }
     });
-  }, [config]);
-
-  const handleChange = (field, value) => {
-    setLocalConfig(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveSuccess(false);
-
-    try {
-      for (const [key, value] of Object.entries(localConfig)) {
-        await fetch(`/api/account/${accountIndex}/flips/${flipIndex}/config`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-password': password
-          },
-          body: JSON.stringify({ key, value })
-        });
+  const handlePetToggle = (pet) => {
+    const newPets = selectedPets.includes(pet)
+      ? selectedPets.filter(p => p !== pet)
+      : [...selectedPets, pet];
+    
+    setSelectedPets(newPets);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        kat: { ...bot.flips?.kat, pets: newPets }
       }
+    });
+  };
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error saving Kat flip config:', err);
-    } finally {
-      setSaving(false);
-    }
+  const handleMinProfitChange = (e) => {
+    const value = e.target.value;
+    setMinProfit(value);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        kat: { ...bot.flips?.kat, minProfit: value }
+      }
+    });
+  };
+
+  const handleMaxUpgradeTimeChange = (e) => {
+    const value = e.target.value;
+    setMaxUpgradeTime(value);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        kat: { ...bot.flips?.kat, maxUpgradeTime: value }
+      }
+    });
   };
 
   return (
-    <div className="flip-config-container">
-      <CardHeader>
-        <div className="flip-config-header">
-          <div>
-            <h3>🐱 Kat Flip Configuration</h3>
-            <p className="flip-config-description">Configure Kat flip settings</p>
+    <div className="flip-config-section fade-in">
+      <div className="section-header">
+        <h3>
+          <i className="fas fa-cat"></i>
+          Kat Flip Settings
+        </h3>
+        <label className="toggle-switch">
+          <input type="checkbox" checked={enabled} onChange={handleToggle} />
+          <span className="toggle-slider"></span>
+        </label>
+      </div>
+
+      {enabled && (
+        <div>
+          <div className="form-grid" style={{ marginBottom: '25px' }}>
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-coins"></i>
+                Minimum Profit
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="100000"
+                value={minProfit}
+                onChange={handleMinProfitChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-clock"></i>
+                Max Upgrade Time (hours)
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="24"
+                value={maxUpgradeTime}
+                onChange={handleMaxUpgradeTimeChange}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              <i className="fas fa-paw"></i>
+              Select Pets to Flip
+            </label>
+            <div className="checkbox-group">
+              {availablePets.map(pet => (
+                <label key={pet} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedPets.includes(pet)}
+                    onChange={() => handlePetToggle(pet)}
+                  />
+                  <span className="checkbox-label">{pet.replace(/_/g, ' ')}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
-      </CardHeader>
-
-      <CardBody>
-        <div className="flip-config-form">
-          <Input
-            label="Pet"
-            value={localConfig.pet || ''}
-            onChange={(e) => handleChange('pet', e.target.value)}
-            placeholder="Enter pet ID"
-            helperText="The pet to use for Kat flip"
-            fullWidth
-          />
-
-          <Switch
-            label="Use Kat Flower"
-            checked={localConfig.useKatFlower || false}
-            onChange={(e) => handleChange('useKatFlower', e.target.checked)}
-          />
-
-          <div className="flip-config-actions">
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={saving}
-              onClick={handleSave}
-              icon="💾"
-            >
-              Save Configuration
-            </Button>
-
-            {saveSuccess && (
-              <div className="save-success-message">
-                ✅ Configuration saved successfully!
-              </div>
-            )}
-          </div>
-        </div>
-      </CardBody>
+      )}
     </div>
   );
 }
+
+export default KatFlipConfig;

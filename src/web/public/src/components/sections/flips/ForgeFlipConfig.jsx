@@ -1,97 +1,175 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { CardHeader, CardBody } from '../../ui/Card';
-import { Input } from '../../ui/Input';
-import { Button } from '../../ui/Button';
-import './FlipConfig.css';
+import { useState } from 'react';
 
-export function ForgeFlipConfig({ accountIndex, flipIndex, config }) {
-  const { password } = useAuth();
-  const [localConfig, setLocalConfig] = useState({
-    item: '',
-    ...config
-  });
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+function ForgeFlipConfig({ bot, updateBot }) {
+  const [enabled, setEnabled] = useState(bot.flips?.forge?.enabled || false);
+  const [items, setItems] = useState(bot.flips?.forge?.items || [
+    { name: '', materials: '', forgeTime: '', profit: '' }
+  ]);
+  const [minProfit, setMinProfit] = useState(bot.flips?.forge?.minProfit || 75000);
+  const [maxForgeTime, setMaxForgeTime] = useState(bot.flips?.forge?.maxForgeTime || 12);
 
-  useEffect(() => {
-    setLocalConfig({ 
-      item: '',
-      ...config 
+  const handleToggle = (e) => {
+    const newEnabled = e.target.checked;
+    setEnabled(newEnabled);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        forge: { ...bot.flips?.forge, enabled: newEnabled }
+      }
     });
-  }, [config]);
-
-  const handleChange = (field, value) => {
-    setLocalConfig(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveSuccess(false);
+  const handleAddItem = () => {
+    setItems([...items, { name: '', materials: '', forgeTime: '', profit: '' }]);
+  };
 
-    try {
-      for (const [key, value] of Object.entries(localConfig)) {
-        await fetch(`/api/account/${accountIndex}/flips/${flipIndex}/config`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-password': password
-          },
-          body: JSON.stringify({ key, value })
-        });
+  const handleRemoveItem = (index) => {
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        forge: { ...bot.flips?.forge, items: newItems }
       }
+    });
+  };
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error saving forge flip config:', err);
-    } finally {
-      setSaving(false);
-    }
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        forge: { ...bot.flips?.forge, items: newItems }
+      }
+    });
+  };
+
+  const handleMinProfitChange = (e) => {
+    const value = e.target.value;
+    setMinProfit(value);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        forge: { ...bot.flips?.forge, minProfit: value }
+      }
+    });
+  };
+
+  const handleMaxForgeTimeChange = (e) => {
+    const value = e.target.value;
+    setMaxForgeTime(value);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        forge: { ...bot.flips?.forge, maxForgeTime: value }
+      }
+    });
   };
 
   return (
-    <div className="flip-config-container">
-      <CardHeader>
-        <div className="flip-config-header">
-          <div>
-            <h3>⚒️ Forge Flip Configuration</h3>
-            <p className="flip-config-description">Configure forge flip settings</p>
+    <div className="flip-config-section fade-in">
+      <div className="section-header">
+        <h3>
+          <i className="fas fa-fire"></i>
+          Forge Flip Settings
+        </h3>
+        <label className="toggle-switch">
+          <input type="checkbox" checked={enabled} onChange={handleToggle} />
+          <span className="toggle-slider"></span>
+        </label>
+      </div>
+
+      {enabled && (
+        <div>
+          <div className="form-grid" style={{ marginBottom: '25px' }}>
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-coins"></i>
+                Minimum Profit
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="75000"
+                value={minProfit}
+                onChange={handleMinProfitChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-clock"></i>
+                Max Forge Time (hours)
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="12"
+                value={maxForgeTime}
+                onChange={handleMaxForgeTimeChange}
+              />
+            </div>
           </div>
-        </div>
-      </CardHeader>
 
-      <CardBody>
-        <div className="flip-config-form">
-          <Input
-            label="Item"
-            value={localConfig.item || ''}
-            onChange={(e) => handleChange('item', e.target.value)}
-            placeholder="Enter item ID to forge"
-            helperText="The item to forge and flip"
-            fullWidth
-          />
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="form-label">
+              <i className="fas fa-info-circle"></i>
+              Forge Item Matrix (Item Name, Materials, Forge Time, Min Profit)
+            </label>
+          </div>
 
-          <div className="flip-config-actions">
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={saving}
-              onClick={handleSave}
-              icon="💾"
-            >
-              Save Configuration
-            </Button>
-
-            {saveSuccess && (
-              <div className="save-success-message">
-                ✅ Configuration saved successfully!
+          <div className="matrix-grid">
+            {items.map((item, index) => (
+              <div key={index} className="matrix-row" style={{ gridTemplateColumns: '2fr 2fr 1fr 1fr 80px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Item name (e.g., REFINED_DIAMOND)"
+                  value={item.name}
+                  onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Materials (comma separated)"
+                  value={item.materials}
+                  onChange={(e) => handleItemChange(index, 'materials', e.target.value)}
+                />
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="Time (hrs)"
+                  value={item.forgeTime}
+                  onChange={(e) => handleItemChange(index, 'forgeTime', e.target.value)}
+                />
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="Min profit"
+                  value={item.profit}
+                  onChange={(e) => handleItemChange(index, 'profit', e.target.value)}
+                />
+                <button
+                  className="remove-btn"
+                  onClick={() => handleRemoveItem(index)}
+                  disabled={items.length === 1}
+                >
+                  <i className="fas fa-trash"></i>
+                </button>
               </div>
-            )}
+            ))}
           </div>
+
+          <button className="add-btn" onClick={handleAddItem}>
+            <i className="fas fa-plus"></i>
+            Add Forge Item
+          </button>
         </div>
-      </CardBody>
+      )}
     </div>
   );
 }
+
+export default ForgeFlipConfig;

@@ -1,138 +1,131 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Card, CardHeader, CardBody } from '../ui/Card';
 import './BotStats.css';
 
-export function BotStats({ accountIndex }) {
-  const { password } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [logs, setLogs] = useState([]);
+function BotStats({ bot }) {
+  const stats = bot.stats || {
+    totalFlips: 0,
+    successfulFlips: 0,
+    failedFlips: 0,
+    totalProfit: 0,
+    avgProfit: 0,
+    bestFlip: 0
+  };
 
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`/api/bot/${accountIndex}/stats`, {
-        headers: { 'x-password': password }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setStats(data);
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
+  const successRate = stats.totalFlips > 0 
+    ? ((stats.successfulFlips / stats.totalFlips) * 100).toFixed(1)
+    : 0;
+
+  const statCards = [
+    {
+      label: 'Total Flips',
+      value: stats.totalFlips.toLocaleString(),
+      icon: 'sync-alt',
+      color: 'purple',
+      suffix: ''
+    },
+    {
+      label: 'Success Rate',
+      value: successRate,
+      icon: 'chart-line',
+      color: 'green',
+      suffix: '%'
+    },
+    {
+      label: 'Total Profit',
+      value: stats.totalProfit.toLocaleString(),
+      icon: 'coins',
+      color: 'yellow',
+      suffix: ' coins'
+    },
+    {
+      label: 'Avg Profit',
+      value: stats.avgProfit.toLocaleString(),
+      icon: 'chart-bar',
+      color: 'blue',
+      suffix: ' coins'
+    },
+    {
+      label: 'Best Flip',
+      value: stats.bestFlip.toLocaleString(),
+      icon: 'trophy',
+      color: 'orange',
+      suffix: ' coins'
+    },
+    {
+      label: 'Failed Flips',
+      value: stats.failedFlips.toLocaleString(),
+      icon: 'times-circle',
+      color: 'red',
+      suffix: ''
     }
-  };
-
-  const fetchLogs = async () => {
-    try {
-      const response = await fetch(`/api/bot/${accountIndex}/logs?limit=50`, {
-        headers: { 'x-password': password }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setLogs(data.logs || []);
-      }
-    } catch (err) {
-      console.error('Error fetching logs:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-    fetchLogs();
-    const interval = setInterval(() => {
-      fetchStats();
-      fetchLogs();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [accountIndex, password]);
-
-  const formatCoins = (amount) => {
-    if (!amount) return '0';
-    return new Intl.NumberFormat('en-US').format(Math.floor(amount));
-  };
-
-  const formatTime = (ms) => {
-    if (!ms) return '0s';
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
-  };
+  ];
 
   return (
-    <div className="bot-stats">
-      <div className="section-header">
-        <h1>Statistics</h1>
-        <p>Monitor your bot performance</p>
+    <div className="bot-stats-card">
+      <div className="card-header">
+        <div className="card-title">
+          <i className="fas fa-chart-pie"></i>
+          <span>Performance Statistics</span>
+        </div>
+        <button className="refresh-btn" onClick={() => window.location.reload()}>
+          <i className="fas fa-sync-alt"></i>
+          <span>Refresh</span>
+        </button>
       </div>
 
       <div className="stats-grid">
-        <Card>
-          <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(251, 113, 133, 0.1)' }}>💰</div>
-            <div className="stat-info">
-              <span className="stat-label">Current Purse</span>
-              <span className="stat-value">{formatCoins(stats?.currentPurse)} coins</span>
+        {statCards.map((stat, index) => (
+          <div 
+            key={index} 
+            className={`stat-card ${stat.color}`}
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
+            <div className="stat-icon">
+              <i className={`fas fa-${stat.icon}`}></i>
+            </div>
+            <div className="stat-content">
+              <div className="stat-label">{stat.label}</div>
+              <div className="stat-value">
+                {stat.value}
+                <span className="stat-suffix">{stat.suffix}</span>
+              </div>
             </div>
           </div>
-        </Card>
-
-        <Card>
-          <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(134, 239, 172, 0.1)' }}>📈</div>
-            <div className="stat-info">
-              <span className="stat-label">Total Profit</span>
-              <span className="stat-value" style={{ color: stats?.currentProfit > 0 ? 'var(--accent-success)' : 'var(--accent-error)' }}>
-                {stats?.currentProfit > 0 ? '+' : ''}{formatCoins(stats?.currentProfit)} coins
-              </span>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(192, 132, 252, 0.1)' }}>⏱️</div>
-            <div className="stat-info">
-              <span className="stat-label">Coins/Hour</span>
-              <span className="stat-value">{formatCoins(stats?.coinsPerHour)}</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(96, 165, 250, 0.1)' }}>🕐</div>
-            <div className="stat-info">
-              <span className="stat-label">Runtime</span>
-              <span className="stat-value">{formatTime(stats?.runtime)}</span>
-            </div>
-          </div>
-        </Card>
+        ))}
       </div>
 
-      <Card className="logs-card">
-        <CardHeader>
-          <h3>Activity Logs</h3>
-        </CardHeader>
-        <CardBody>
-          <div className="logs-container">
-            {logs.length === 0 ? (
-              <div className="logs-empty">No activity logs yet</div>
-            ) : (
-              logs.map((log, idx) => (
-                <div key={idx} className="log-item">
-                  <span className="log-time">
-                    {new Date(log.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span className="log-message">{log.message}</span>
+      <div className="recent-flips">
+        <div className="recent-flips-header">
+          <h3>
+            <i className="fas fa-history"></i>
+            Recent Flips
+          </h3>
+        </div>
+        <div className="flips-list">
+          {(!bot.recentFlips || bot.recentFlips.length === 0) ? (
+            <div className="no-flips">
+              <i className="fas fa-inbox"></i>
+              <p>No recent flips to display</p>
+            </div>
+          ) : (
+            bot.recentFlips.slice(0, 5).map((flip, index) => (
+              <div key={index} className="flip-item" style={{ animationDelay: `${index * 0.1}s` }}>
+                <div className="flip-icon">
+                  <i className={`fas fa-${flip.success ? 'check-circle' : 'times-circle'}`}></i>
                 </div>
-              ))
-            )}
-          </div>
-        </CardBody>
-      </Card>
+                <div className="flip-info">
+                  <div className="flip-name">{flip.item}</div>
+                  <div className="flip-time">{flip.time}</div>
+                </div>
+                <div className={`flip-profit ${flip.success ? 'positive' : 'negative'}`}>
+                  {flip.success ? '+' : '-'}{Math.abs(flip.profit).toLocaleString()} coins
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
+
+export default BotStats;

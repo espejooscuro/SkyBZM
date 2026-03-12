@@ -1,121 +1,133 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Card, CardHeader, CardBody } from '../ui/Card';
-import { Button } from '../ui/Button';
+import { useState } from 'react';
 import './BotControl.css';
 
-export function BotControl({ accountIndex }) {
-  const { password, config } = useAuth();
-  const [status, setStatus] = useState({ connected: false, exists: false });
-  const [loading, setLoading] = useState({ start: false, stop: false, restart: false });
+function BotControl({ bot, updateBot }) {
+  const [isStarting, setIsStarting] = useState(false);
 
-  const fetchStatus = async () => {
+  const handleStart = async () => {
+    setIsStarting(true);
     try {
-      const response = await fetch(`/api/bot/${accountIndex}/status`, {
-        headers: { 'x-password': password }
-      });
-      const data = await response.json();
-      setStatus(data);
+      const res = await fetch(`/api/bots/${bot.id}/start`, { method: 'POST' });
+      const data = await res.json();
+      updateBot(bot.id, { status: 'running' });
     } catch (err) {
-      console.error('Error fetching status:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
-  }, [accountIndex, password]);
-
-  const handleAction = async (action) => {
-    setLoading(prev => ({ ...prev, [action]: true }));
-    try {
-      await fetch(`/api/bot/${accountIndex}/${action}`, {
-        method: 'POST',
-        headers: { 'x-password': password }
-      });
-      setTimeout(fetchStatus, 1000);
-    } catch (err) {
-      console.error(`Error ${action} bot:`, err);
+      console.error('Error starting bot:', err);
     } finally {
-      setLoading(prev => ({ ...prev, [action]: false }));
+      setIsStarting(false);
     }
   };
 
-  const account = config?.accounts?.[accountIndex];
+  const handleStop = async () => {
+    try {
+      const res = await fetch(`/api/bots/${bot.id}/stop`, { method: 'POST' });
+      const data = await res.json();
+      updateBot(bot.id, { status: 'stopped' });
+    } catch (err) {
+      console.error('Error stopping bot:', err);
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      const res = await fetch(`/api/bots/${bot.id}/pause`, { method: 'POST' });
+      const data = await res.json();
+      updateBot(bot.id, { status: 'paused' });
+    } catch (err) {
+      console.error('Error pausing bot:', err);
+    }
+  };
+
+  const isRunning = bot.status === 'running';
+  const isPaused = bot.status === 'paused';
 
   return (
-    <div className="bot-control">
-      <div className="section-header">
-        <h1>Bot Control</h1>
-        <p>Manage your bot instance</p>
+    <div className="bot-control-card">
+      <div className="card-header">
+        <div className="card-title">
+          <i className="fas fa-gamepad"></i>
+          <span>Bot Control</span>
+        </div>
+        <div className={`bot-status-indicator ${bot.status || 'offline'}`}>
+          <span className="status-dot"></span>
+          <span className="status-text">
+            {isRunning ? 'Running' : isPaused ? 'Paused' : 'Offline'}
+          </span>
+        </div>
       </div>
 
-      <div className="control-grid">
-        <Card>
-          <CardHeader>
-            <div className="card-title-section">
-              <h3>Account Information</h3>
-              <span className={`status-badge ${status.connected ? 'status-online' : 'status-offline'}`}>
-                {status.connected ? '🟢 Online' : '🔴 Offline'}
-              </span>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="info-grid">
-              <div className="info-item">
-                <span className="info-label">Username</span>
-                <span className="info-value">{account?.username || 'N/A'}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Status</span>
-                <span className="info-value">{status.connected ? 'Connected' : 'Disconnected'}</span>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+      <div className="control-buttons">
+        <button
+          className="control-btn start"
+          onClick={handleStart}
+          disabled={isRunning || isStarting}
+        >
+          {isStarting ? (
+            <>
+              <i className="fas fa-spinner fa-spin"></i>
+              <span>Starting...</span>
+            </>
+          ) : (
+            <>
+              <i className="fas fa-play"></i>
+              <span>Start Bot</span>
+            </>
+          )}
+        </button>
 
-        <Card>
-          <CardHeader>
-            <h3>Actions</h3>
-          </CardHeader>
-          <CardBody>
-            <div className="action-buttons">
-              <Button
-                variant="success"
-                fullWidth
-                loading={loading.start}
-                disabled={status.connected}
-                onClick={() => handleAction('start')}
-                icon="▶️"
-              >
-                Start Bot
-              </Button>
+        <button
+          className="control-btn pause"
+          onClick={handlePause}
+          disabled={!isRunning}
+        >
+          <i className="fas fa-pause"></i>
+          <span>Pause</span>
+        </button>
 
-              <Button
-                variant="danger"
-                fullWidth
-                loading={loading.stop}
-                disabled={!status.connected}
-                onClick={() => handleAction('stop')}
-                icon="⏹️"
-              >
-                Stop Bot
-              </Button>
+        <button
+          className="control-btn stop"
+          onClick={handleStop}
+          disabled={!isRunning && !isPaused}
+        >
+          <i className="fas fa-stop"></i>
+          <span>Stop</span>
+        </button>
+      </div>
 
-              <Button
-                variant="warning"
-                fullWidth
-                loading={loading.restart}
-                onClick={() => handleAction('restart')}
-                icon="🔄"
-              >
-                Restart Bot
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
+      <div className="bot-info-grid">
+        <div className="info-item">
+          <i className="fas fa-clock"></i>
+          <div className="info-content">
+            <div className="info-label">Uptime</div>
+            <div className="info-value">{bot.uptime || '0h 0m'}</div>
+          </div>
+        </div>
+
+        <div className="info-item">
+          <i className="fas fa-server"></i>
+          <div className="info-content">
+            <div className="info-label">Server</div>
+            <div className="info-value">{bot.server || 'Not connected'}</div>
+          </div>
+        </div>
+
+        <div className="info-item">
+          <i className="fas fa-user"></i>
+          <div className="info-content">
+            <div className="info-label">Username</div>
+            <div className="info-value">{bot.username || 'Not set'}</div>
+          </div>
+        </div>
+
+        <div className="info-item">
+          <i className="fas fa-coins"></i>
+          <div className="info-content">
+            <div className="info-label">Balance</div>
+            <div className="info-value">{bot.balance ? `${bot.balance.toLocaleString()} coins` : '0 coins'}</div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
+export default BotControl;

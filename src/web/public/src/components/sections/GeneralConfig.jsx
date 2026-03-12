@@ -1,129 +1,141 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Card, CardHeader, CardBody } from '../ui/Card';
-import { Input, Switch } from '../ui/Input';
-import { Button } from '../ui/Button';
+import { useState } from 'react';
 import './GeneralConfig.css';
 
-export function GeneralConfig({ accountIndex }) {
-  const { password, config, setConfig } = useAuth();
-  const [localConfig, setLocalConfig] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  useEffect(() => {
-    if (config?.accounts?.[accountIndex]) {
-      setLocalConfig(config.accounts[accountIndex]);
-    }
-  }, [config, accountIndex]);
+function GeneralConfig({ bot, updateBot }) {
+  const [config, setConfig] = useState(bot.config || {
+    username: '',
+    password: '',
+    server: 'hypixel.net',
+    autoReconnect: true,
+    reconnectDelay: 5,
+    chatLog: true,
+    debugMode: false
+  });
 
   const handleChange = (field, value) => {
-    setLocalConfig(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveSuccess(false);
-
-    try {
-      const response = await fetch(`/api/account/${accountIndex}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-password': password
-        },
-        body: JSON.stringify(localConfig)
-      });
-
-      if (response.ok) {
-        const updatedAccount = await response.json();
-        const newConfig = { ...config };
-        newConfig.accounts[accountIndex] = updatedAccount;
-        setConfig(newConfig);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (err) {
-      console.error('Error saving config:', err);
-    } finally {
-      setSaving(false);
-    }
+    const newConfig = { ...config, [field]: value };
+    setConfig(newConfig);
+    updateBot(bot.id, { config: newConfig });
   };
 
   return (
-    <div className="general-config">
-      <div className="section-header">
-        <h1>General Configuration</h1>
-        <p>Configure basic bot settings</p>
+    <div className="general-config-card">
+      <div className="card-header">
+        <div className="card-title">
+          <i className="fas fa-cog"></i>
+          <span>General Configuration</span>
+        </div>
       </div>
 
       <div className="config-grid">
-        <Card>
-          <CardHeader>
-            <h3>Account Settings</h3>
-          </CardHeader>
-          <CardBody>
-            <div className="config-form">
-              <Input
-                label="Username"
-                value={localConfig.username || ''}
-                disabled
-                fullWidth
-              />
-
-              <Input
-                label="Sell Timeout (minutes)"
-                type="number"
-                value={Math.floor((localConfig.sellTimeout || 0) / 60000)}
-                onChange={(e) => handleChange('sellTimeout', Number(e.target.value) * 60000)}
-                helperText="Time to wait before cancelling a sell order"
-                fullWidth
-              />
-
-              <Input
-                label="Purse"
-                type="number"
-                value={localConfig.purse || 0}
-                onChange={(e) => handleChange('purse', Number(e.target.value))}
-                helperText="Starting purse amount"
-                fullWidth
-              />
-
-              <Switch
-                label="Auto Cookie"
-                checked={localConfig.autoCookie || false}
-                onChange={(e) => handleChange('autoCookie', e.target.checked)}
+        <div className="config-section">
+          <h3>
+            <i className="fas fa-user"></i>
+            Account Settings
+          </h3>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-user-circle"></i>
+                Username
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Enter username"
+                value={config.username}
+                onChange={(e) => handleChange('username', e.target.value)}
               />
             </div>
-          </CardBody>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <h3>Save Changes</h3>
-          </CardHeader>
-          <CardBody>
-            <div className="save-section">
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                loading={saving}
-                onClick={handleSave}
-                icon="💾"
-              >
-                Save Configuration
-              </Button>
-
-              {saveSuccess && (
-                <div className="save-success">
-                  ✅ Configuration saved successfully!
-                </div>
-              )}
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-key"></i>
+                Password
+              </label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Enter password"
+                value={config.password}
+                onChange={(e) => handleChange('password', e.target.value)}
+              />
             </div>
-          </CardBody>
-        </Card>
+
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-server"></i>
+                Server
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="hypixel.net"
+                value={config.server}
+                onChange={(e) => handleChange('server', e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="config-section">
+          <h3>
+            <i className="fas fa-sliders-h"></i>
+            Bot Behavior
+          </h3>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={config.autoReconnect}
+                  onChange={(e) => handleChange('autoReconnect', e.target.checked)}
+                />
+                <span className="checkbox-label">Auto Reconnect</span>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <i className="fas fa-clock"></i>
+                Reconnect Delay (seconds)
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="5"
+                value={config.reconnectDelay}
+                onChange={(e) => handleChange('reconnectDelay', e.target.value)}
+                disabled={!config.autoReconnect}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={config.chatLog}
+                  onChange={(e) => handleChange('chatLog', e.target.checked)}
+                />
+                <span className="checkbox-label">Enable Chat Logging</span>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={config.debugMode}
+                  onChange={(e) => handleChange('debugMode', e.target.checked)}
+                />
+                <span className="checkbox-label">Debug Mode</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
+export default GeneralConfig;

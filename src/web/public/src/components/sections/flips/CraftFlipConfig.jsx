@@ -1,143 +1,141 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { CardHeader, CardBody } from '../../ui/Card';
-import { Input } from '../../ui/Input';
-import { Button } from '../../ui/Button';
-import './FlipConfig.css';
+import { useState } from 'react';
 
-export function CraftFlipConfig({ accountIndex, flipIndex, config }) {
-  const { password } = useAuth();
-  const [craftGrid, setCraftGrid] = useState(
-    Array(9).fill(null).map(() => ({ item: '', amount: 1 }))
-  );
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+function CraftFlipConfig({ bot, updateBot }) {
+  const [enabled, setEnabled] = useState(bot.flips?.craft?.enabled || false);
+  const [recipes, setRecipes] = useState(bot.flips?.craft?.recipes || [
+    { result: '', ingredients: '', profit: '' }
+  ]);
+  const [minProfit, setMinProfit] = useState(bot.flips?.craft?.minProfit || 50000);
 
-  useEffect(() => {
-    if (config.craftGrid) {
-      setCraftGrid(config.craftGrid);
-    }
-  }, [config]);
-
-  const handleCellChange = (index, field, value) => {
-    const newGrid = [...craftGrid];
-    newGrid[index] = { ...newGrid[index], [field]: value };
-    setCraftGrid(newGrid);
+  const handleToggle = (e) => {
+    const newEnabled = e.target.checked;
+    setEnabled(newEnabled);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        craft: { ...bot.flips?.craft, enabled: newEnabled }
+      }
+    });
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveSuccess(false);
-
-    try {
-      await fetch(`/api/account/${accountIndex}/flips/${flipIndex}/config`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-password': password
-        },
-        body: JSON.stringify({ key: 'craftGrid', value: craftGrid })
-      });
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error saving craft flip config:', err);
-    } finally {
-      setSaving(false);
-    }
+  const handleAddRecipe = () => {
+    setRecipes([...recipes, { result: '', ingredients: '', profit: '' }]);
   };
 
-  const handleClear = () => {
-    setCraftGrid(Array(9).fill(null).map(() => ({ item: '', amount: 1 })));
+  const handleRemoveRecipe = (index) => {
+    const newRecipes = recipes.filter((_, i) => i !== index);
+    setRecipes(newRecipes);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        craft: { ...bot.flips?.craft, recipes: newRecipes }
+      }
+    });
+  };
+
+  const handleRecipeChange = (index, field, value) => {
+    const newRecipes = [...recipes];
+    newRecipes[index][field] = value;
+    setRecipes(newRecipes);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        craft: { ...bot.flips?.craft, recipes: newRecipes }
+      }
+    });
+  };
+
+  const handleMinProfitChange = (e) => {
+    const value = e.target.value;
+    setMinProfit(value);
+    updateBot(bot.id, {
+      flips: {
+        ...bot.flips,
+        craft: { ...bot.flips?.craft, minProfit: value }
+      }
+    });
   };
 
   return (
-    <div className="flip-config-container">
-      <CardHeader>
-        <div className="flip-config-header">
-          <div>
-            <h3>🔨 Craft Flip Configuration</h3>
-            <p className="flip-config-description">Configure crafting grid (like Minecraft)</p>
+    <div className="flip-config-section fade-in">
+      <div className="section-header">
+        <h3>
+          <i className="fas fa-hammer"></i>
+          Craft Flip Settings
+        </h3>
+        <label className="toggle-switch">
+          <input type="checkbox" checked={enabled} onChange={handleToggle} />
+          <span className="toggle-slider"></span>
+        </label>
+      </div>
+
+      {enabled && (
+        <div>
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="form-label">
+              <i className="fas fa-coins"></i>
+              Minimum Profit
+            </label>
+            <input
+              type="number"
+              className="form-input"
+              placeholder="50000"
+              value={minProfit}
+              onChange={handleMinProfitChange}
+              style={{ maxWidth: '300px' }}
+            />
           </div>
-        </div>
-      </CardHeader>
 
-      <CardBody>
-        <div className="flip-config-form">
-          <div className="craft-grid-container">
-            <div className="craft-grid">
-              {craftGrid.map((cell, index) => (
-                <div key={index} className="craft-cell">
-                  <div className="craft-cell-header">
-                    <span className="craft-cell-label">Slot {index + 1}</span>
-                  </div>
-                  <Input
-                    placeholder="Item ID"
-                    value={cell.item || ''}
-                    onChange={(e) => handleCellChange(index, 'item', e.target.value)}
-                    fullWidth
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Amount"
-                    min="1"
-                    max="64"
-                    value={cell.amount || 1}
-                    onChange={(e) => handleCellChange(index, 'amount', Math.min(64, Math.max(1, Number(e.target.value))))}
-                    fullWidth
-                  />
-                </div>
-              ))}
-            </div>
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="form-label">
+              <i className="fas fa-info-circle"></i>
+              Recipe Matrix (Result Item, Ingredients, Expected Profit)
+            </label>
+          </div>
 
-            <div className="craft-grid-preview">
-              <h4>Preview</h4>
-              <div className="craft-preview-grid">
-                {craftGrid.map((cell, index) => (
-                  <div key={index} className="craft-preview-cell">
-                    {cell.item ? (
-                      <>
-                        <div className="craft-preview-item">{cell.item.slice(0, 10)}</div>
-                        <div className="craft-preview-amount">×{cell.amount}</div>
-                      </>
-                    ) : (
-                      <div className="craft-preview-empty">-</div>
-                    )}
-                  </div>
-                ))}
+          <div className="matrix-grid">
+            {recipes.map((recipe, index) => (
+              <div key={index} className="matrix-row">
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Result item (e.g., ASPECT_OF_THE_END)"
+                  value={recipe.result}
+                  onChange={(e) => handleRecipeChange(index, 'result', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ingredients (comma separated)"
+                  value={recipe.ingredients}
+                  onChange={(e) => handleRecipeChange(index, 'ingredients', e.target.value)}
+                />
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="Min profit"
+                  value={recipe.profit}
+                  onChange={(e) => handleRecipeChange(index, 'profit', e.target.value)}
+                />
+                <button
+                  className="remove-btn"
+                  onClick={() => handleRemoveRecipe(index)}
+                  disabled={recipes.length === 1}
+                >
+                  <i className="fas fa-trash"></i>
+                </button>
               </div>
-            </div>
+            ))}
           </div>
 
-          <div className="flip-config-actions">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={handleClear}
-              icon="🗑️"
-            >
-              Clear Grid
-            </Button>
-
-            <Button
-              variant="primary"
-              size="lg"
-              loading={saving}
-              onClick={handleSave}
-              icon="💾"
-            >
-              Save Configuration
-            </Button>
-
-            {saveSuccess && (
-              <div className="save-success-message">
-                ✅ Configuration saved successfully!
-              </div>
-            )}
-          </div>
+          <button className="add-btn" onClick={handleAddRecipe}>
+            <i className="fas fa-plus"></i>
+            Add Recipe
+          </button>
         </div>
-      </CardBody>
+      )}
     </div>
   );
 }
+
+export default CraftFlipConfig;

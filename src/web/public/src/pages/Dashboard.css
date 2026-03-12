@@ -1,25 +1,110 @@
 .dashboard {
-  display: flex;
-  min-height: 100vh;
-  background: var(--bg-primary);
-}
-
-.dashboard-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 25px;
+}
+
+.dashboard-header {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  padding: 30px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.dashboard-title h1 {
+  font-size: 36px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.dashboard-title h1 i {
+  animation: pulse 3s ease infinite;
+}
+
+.dashboard-subtitle {
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.dashboard-tabs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(184, 164, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.tab-btn:hover::before {
+  left: 100%;
+}
+
+.tab-btn:hover {
+  background: white;
+  color: var(--text-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-pink));
+  color: white;
+  border-color: var(--pastel-purple);
+  transform: translateY(0);
+  box-shadow: 0 8px 20px rgba(184, 164, 255, 0.4);
+}
+
+.tab-btn.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(184, 164, 255, 0.5);
 }
 
 .dashboard-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-  animation: fadeIn 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
 }
 
-@media (max-width: 768px) {
-  .dashboard-content {
-    padding: 16px;
-  }
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
 }
