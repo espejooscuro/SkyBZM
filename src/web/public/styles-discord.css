@@ -241,18 +241,23 @@ body {
 
 .dashboard.show {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(129, 140, 248, 0.18), transparent 55%),
+    var(--bg-primary);
 }
 
 /* Sidebar */
 .sidebar {
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-primary);
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.96));
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
   display: flex;
   flex-direction: column;
   height: 100vh;
   position: sticky;
   top: 0;
+  backdrop-filter: blur(18px);
 }
 
 .sidebar-header {
@@ -266,12 +271,13 @@ body {
 .sidebar-logo {
   width: 40px;
   height: 40px;
-  background: var(--accent-blue-dim);
-  border: 1px solid var(--border-accent);
-  border-radius: var(--radius-md);
+  background: radial-gradient(circle at 30% 30%, #38bdf8, #1d4ed8);
+  border: 1px solid rgba(59, 130, 246, 0.7);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 24px rgba(37, 99, 235, 0.45);
 }
 
 .sidebar-logo svg {
@@ -355,10 +361,10 @@ body {
 
 /* Main Content */
 .main-content {
-  padding: 32px;
+  padding: 32px 32px 40px 32px;
   overflow-y: auto;
   height: 100vh;
-  background: var(--bg-primary);
+  background: transparent;
 }
 
 .main-header {
@@ -420,39 +426,44 @@ body {
 }
 
 .bots-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 20px;
 }
 
 .bot-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
+  background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 60%),
+              radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.18), transparent 60%),
+              rgba(15, 23, 42, 0.96);
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
   overflow: hidden;
-  transition: var(--transition-normal);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.9);
 }
 
 .bot-card:hover {
-  border-color: var(--border-secondary);
+  transform: translateY(-4px);
+  border-color: rgba(129, 140, 248, 0.9);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.95);
 }
 
 .bot-card.expanded {
-  border-color: var(--accent-blue);
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.85);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 1);
 }
 
 .bot-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 18px 22px;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .bot-header:hover {
-  background: var(--bg-card-hover);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 .bot-card-info {

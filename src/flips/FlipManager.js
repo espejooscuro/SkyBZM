@@ -5,6 +5,10 @@
 
 
 
+
+
+
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCflip');
@@ -91,16 +95,7 @@ class FlipManager {
       console.log(`[${this.username}] ChatListener disabled (no bot provided)`);
     }
 
-    this.log(`✅ FlipManager initialized`);
     this.log(`💰 Purse: ${this.purse.toLocaleString()}`);
-    this.log(`🎯 Max flips: ${this.maxFlips}`);
-    this.log(`🔄 Max relist: ${this.maxRelist}`);
-    this.log(`🔄 Max buy relist: ${this.maxBuyRelist}`);
-    this.log(`📋 Whitelist items: ${this.whitelist.length > 0 ? this.whitelist.join(', ') : 'NONE'}`);
-    this.log(`🚫 Blacklist patterns: ${(accountConfig.blacklistContaining || []).length > 0 ? (accountConfig.blacklistContaining || []).join(', ') : 'NONE'}`);
-    this.log(`📦 Min Order: ${this.minOrder}, Max Order: ${this.maxOrder}`);
-    this.log(`📊 Min Spread: ${this.minSpread}%`);
-    this.log(`💾 State saved in: config.json -> accounts[${this.username}].state`);
     
     // Try to load previous state
     this.loadState();
@@ -163,8 +158,6 @@ class FlipManager {
       
       // Escribir config.json actualizado
       fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf8');
-      
-      this.log(`💾 State saved to config.json: ${this.flips.length} flips, queue: ${state.queueState.queueLength} tasks`);
     } catch (error) {
       this.log(`❌ Error saving state to config.json: ${error.message}`);
     }
@@ -532,8 +525,6 @@ class FlipManager {
             break;
           
           case 'SELL_ORDER':
-            // Standard flips are created via buildFlips()
-            this.log(`  → SELL_ORDER flips will be built dynamically`);
             break;
           
           case 'KAT':
@@ -567,8 +558,6 @@ class FlipManager {
       return;
     }
     
-    const itemName = config.item || config.npcItem;
-    this.log(`  🔵 Creating NPC Flip for item: ${itemName}`);
     
     // Create NPC flip with all required parameters
     const npcFlip = new NPCFlip(
@@ -583,8 +572,6 @@ class FlipManager {
     
     // Wait for item name to be fetched before starting
     await npcFlip.start();
-    
-    this.log(`  ✅ NPC Flip initialized and started`);
   }
 
   /**
@@ -614,8 +601,6 @@ class FlipManager {
   }
 
   async createNextFlipSame(oldFlip) {
-    this.log(`🔄 Creating next flip (same item): ${oldFlip.item}`);
-    
     // 🔥 CHECK 1: Verify we have space in BUY phase
     if (!this.canCreateNewFlipInBuy()) {
       this.log(`  ❌ Max buy slots reached (${this.maxFlips}), waiting for flips to complete...`);
@@ -657,6 +642,7 @@ class FlipManager {
       if (!filterResult.pass) {
         this.log(`  ⚠️ Same item ${oldFlip.item} no longer meets filter requirements`);
         this.log(`   Falling back to different flip...`);
+        this.log('═══════════════════════════════════════════════════');
         return this.createNextFlipDifferent(oldFlip);
       }
       
@@ -667,8 +653,6 @@ class FlipManager {
       const budget = newFlipData.adjustedMoneyPerFlip || moneyPerFlip;
       const newFlip = this.createFlip(newFlipData, budget);
       this.flips.push(newFlip);
-      
-      this.log(`✅ New flip created for ${oldFlip.item}, starting buy...`);
       newFlip.buy();
     } catch (err) {
       this.log(`❌ Error creating next flip (same): ${err.message}`);
@@ -680,8 +664,7 @@ class FlipManager {
 
   async createNextFlipDifferent(oldFlip, retryCount = 0) {
     const maxRetries = 10; // Maximum number of retries to avoid infinite loops
-    
-    this.log(`🔄 Creating next flip (different item)... ${retryCount > 0 ? `(Retry ${retryCount}/${maxRetries})` : ''}`);
+
     
     // 🔥 CHECK: Verify we have space in BUY phase
     if (!this.canCreateNewFlipInBuy()) {
@@ -699,7 +682,6 @@ class FlipManager {
 
     // 1️⃣ Priority: whitelist
     if (this.whitelist.length > 0) {
-      this.log(`  📋 Checking whitelist (${this.whitelist.length} items)...`);
       
       // Filter whitelist: exclude oldFlip and currently active flips
       const availableWhitelist = this.whitelist.filter(tag => 
@@ -735,8 +717,6 @@ class FlipManager {
               nextFlipData = candidateFlip;
               this.log(`  ✅ Whitelist item fetched: ${snapshot.item}`);
               break; // Found a valid whitelist item, stop searching
-            } else {
-              this.log(`  ⚠️ Whitelist item ${tag} doesn't meet filter requirements, trying next...`);
             }
           } catch (err) {
             this.log(`  ⚠️ Whitelist item ${tag} not found in API: ${err.message}`);
@@ -821,6 +801,7 @@ class FlipManager {
       
       this.log(`  ✅ New flip created, starting buy...`);
       this.log(`  📊 Current buy slots: ${this.getActiveFlipsInBuy().length}/${this.maxFlips}`);
+      this.log('═══════════════════════════════════════════════════');
       newFlip.buy();
     }
   }

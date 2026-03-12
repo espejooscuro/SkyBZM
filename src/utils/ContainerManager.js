@@ -3,7 +3,6 @@
 
 
 
-
 const util = require('util');
 const fs = require('fs');
 const path = require('path');
@@ -347,18 +346,14 @@ hasItemInContainer(filters = {}) {
 logSlotJson(slot) {
   const window = this.bot.currentWindow;
   if (!window) {
-    console.log(`⚠️ No hay ventana abierta para leer slot ${slot}`);
     return;
   }
 
   const item = window.slots[slot];
   if (!item) {
-    console.log(`⚠️ Slot ${slot} vacío`);
     return;
   }
 
-  // Mostramos TODO el objeto tal cual, en formato JSON bonito
-  console.log(`📦 Slot ${slot} crudo:`, JSON.stringify(item, null, 2));
 }
 
 
@@ -369,7 +364,6 @@ logSlotJson(slot) {
   saveContainerToJson(filename = 'container.json') {
     const window = this.bot.currentWindow;
     if (!window) {
-      console.log('⚠️ No hay contenedor abierto para guardar.');
       return;
     }
 
@@ -380,10 +374,6 @@ logSlotJson(slot) {
         return item; // guardamos TODO el objeto crudo
       })
     };
- 
-    const filepath = path.resolve(filename);
-    fs.writeFileSync(filepath, JSON.stringify(containerData, null, 2), 'utf8');
-    console.log(`✅ Contenedor guardado en JSON: ${filepath}`);
   }
 
 
@@ -414,7 +404,6 @@ _getValidItems(isContainer) {
 
     if (!item || item.name === "stained_glass_pane" || item.name === "black_stained_glass_pane") continue;
 
-    // 🔥 Intentar obtener el nombre de múltiples fuentes
     let customNameRaw = item.formattedDisplayName || item.customName || item.displayName || item.name;
 
     // 1. custom_name component
@@ -671,9 +660,6 @@ _parseDurationToMs(durationLine) {
   
   // Verify the slot actually contains what we expect
   const slotItem = window.slots[realSlot];
-  if (!slotItem) {
-    console.log(`⚠️ [DEBUG] Slot ${realSlot} is EMPTY!`);
-  }
 
   try {
     this.bot.currentWindow.requiresConfirmation = false;
@@ -710,21 +696,19 @@ _parseDurationToMs(durationLine) {
    * @param {string} text
    */
   interactWithSign(text) {
-    if (!this.bot.editSign) {
-      const botRef = this.bot;
-      this.bot.editSign = function (line) {
-        botRef._client.write('update_sign', {
-          location: botRef.entity.position.offset(-1, 0, 0),
-          text1: String(line),
-          text2: '{"italic":false,"extra":["^^^^^^^^^^^^^^^"],"text":""}',
-          text3: '{"italic":false,"extra":["    Auction    "],"text":""}',
-          text4: '{"italic":false,"extra":["     hours     "],"text":""}'
-        });
-      };
-    }
+    // 🔥 SIEMPRE recrear editSign con la referencia actual del bot
+    const botRef = this.bot;
+    this.bot.editSign = function (line) {
+      botRef._client.write('update_sign', {
+        location: botRef.entity.position.offset(-1, 0, 0),
+        text1: String(line),
+        text2: '{"italic":false,"extra":["^^^^^^^^^^^^^^^"],"text":""}',
+        text3: '{"italic":false,"extra":["    Auction    "],"text":""}',
+        text4: '{"italic":false,"extra":["     hours     "],"text":""}'
+      });
+    };
+    
     this.bot.editSign(text);
-    console.log(`✏️ Sign edited with text: "${text}"`);
-    console.log(this.getOpenContainerName());
     delay(500);
   }
 
@@ -741,7 +725,6 @@ _parseDurationToMs(durationLine) {
     try {
       const windowId = this.bot.currentWindow.id;
       this.bot.closeWindow(this.bot.currentWindow);
-      console.log(`📦 Container with ID ${windowId} closed successfully.`);
       return true;
     } catch (err) {
       console.error('❌ Error closing container:', err.message);
@@ -793,6 +776,7 @@ _parseDurationToMs(durationLine) {
 }
 
 module.exports = ContainerManager;
+
 
 
 

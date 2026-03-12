@@ -3,7 +3,6 @@
 
 
 
-
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -20,7 +19,9 @@ class Launcher {
   }
 
   async start() {
-    this.printBanner();
+    console.log('\n┌───────────────────────┐');
+    console.log('│    SkyBZM Launcher    │');
+    console.log('└───────────────────────┘\n');
 
     if (this.configExists()) {
       this.loadConfig();
@@ -32,22 +33,12 @@ class Launcher {
     if (!this.config.webPassword) {
       this.config.webPassword = crypto.randomBytes(8).toString('hex');
       this.saveConfig();
-      console.log("🔐 Web password generated and saved to config.json");
     }
 
-    console.log("\n✅ Configuration loaded successfully\n");
-
     // Start bot manager first
-    console.log("🚀 Starting bot manager...\n");
     const botManager = new BotManager();
     botManager.loadConfig();
-    
-    const numBots = botManager.config?.accounts?.length || botManager.config?.usernames?.length || 0;
-    console.log(`📊 Found ${numBots} bot(s) in configuration\n`);
-    
     await botManager.createBots();
-    
-    console.log("\n✅ All bots initialized\n");
 
     // Start web server with BotManager reference for real-time updates
     this.startWebServer(botManager);
@@ -57,6 +48,8 @@ class Launcher {
     try {
       this.webServer = new WebServer(this.configPath, 7392, botManager);
       this.webServer.start();
+      
+
     } catch (error) {
       console.error('❌ Error starting web server:', error.message);
     }
@@ -70,19 +63,15 @@ class Launcher {
     const rawData = fs.readFileSync(this.configPath, "utf-8");
     this.config = JSON.parse(rawData);
     
-    // 🔥 CLEAR ALL STATE ON STARTUP - Start fresh every time
     if (this.config.accounts && Array.isArray(this.config.accounts)) {
       this.config.accounts.forEach(account => {
-        // Delete any existing state
         if (account.state) {
           delete account.state;
         }
         
-        // Ensure all accounts have autoStart field (default: false)
         if (account.autoStart === undefined) {
           account.autoStart = false;
         }
-        // 🔥 Ensure all accounts have restSchedule field
         if (!account.restSchedule) {
           account.restSchedule = {
             shortBreaks: {
@@ -97,9 +86,7 @@ class Launcher {
           };
         }
       });
-      // Save the cleaned config
       this.saveConfig();
-      console.log("🧹 Cleaned all saved states - starting fresh");
     }
   }
 
@@ -222,17 +209,6 @@ class Launcher {
       });
     });
   }
-
-  printBanner() {
-    const title = "SkyBZM Launcher";
-    const padding = 4;
-    const contentWidth = title.length + padding * 2;
-    const topBottom = "─".repeat(contentWidth);
-
-    console.log(`\n┌${topBottom}┐`);
-    console.log(`│${" ".repeat(padding)}${title}${" ".repeat(padding)}│`);
-    console.log(`└${topBottom}┘\n`);
-  }
 }
 
 if (require.main === module) {
@@ -241,6 +217,12 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
+
+
+
+
+
 
 
 

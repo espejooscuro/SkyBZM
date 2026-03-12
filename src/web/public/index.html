@@ -1,116 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkyBZM - Bot Control Panel</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles-discord.css?v=20260311003">
-  <link rel="stylesheet" href="/styles-brain.css?v=20260311003">
-  <link rel="stylesheet" href="/styles-flipper.css?v=20260311003">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26CF;</text></svg>">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SkyBZM · Pastel Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/main.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80'>💎</text></svg>">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 </head>
 <body>
-  <div class="app-container">
-    <!-- Login Form -->
-    <div id="loginForm" class="login-container">
-      <div class="login-card">
-        <div class="login-header">
-          <div class="login-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
-          </div>
-          <h1>SkyBZM</h1>
-          <p>Bot Control Panel</p>
-        </div>
+  <div id="root"></div>
 
-        <div id="error" class="error"></div>
-
-        <form id="passwordForm">
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input 
-              type="password" 
-              id="password" 
-              placeholder="Enter your password"
-              required
-              autocomplete="off"
-            >
-          </div>
-          <button type="submit" class="btn-primary">
-            <span>Sign In</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Dashboard -->
-    <div id="dashboard" class="dashboard">
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
-          </div>
-          <span class="sidebar-title">SkyBZM</span>
-        </div>
-        
-        <nav class="sidebar-nav">
-          <a href="#" class="nav-item active" data-section="overview">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"/>
-              <rect x="14" y="3" width="7" height="7"/>
-              <rect x="14" y="14" width="7" height="7"/>
-              <rect x="3" y="14" width="7" height="7"/>
-            </svg>
-            <span>Overview</span>
-          </a>
-        </nav>
-        
-        <div class="sidebar-footer">
-          <button class="logout-btn" onclick="logout()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      <!-- Main Content -->
-      <main class="main-content">
-        <header class="main-header">
-          <div class="header-title">
-            <h1>Dashboard</h1>
-            <p>Monitor and control your bots</p>
-          </div>
-          <div class="header-actions">
-            <div class="status-badge online">
-              <span class="status-dot"></span>
-              <span>System Online</span>
-            </div>
-          </div>
-        </header>
-
-        <div class="dashboard-content" id="dashboard-content">
-          <!-- Bot cards rendered here dynamically -->
-        </div>
-      </main>
-    </div>
-  </div>
-
-  <script src="/app.js?v=20260311003"></script>
+  <script type="text/babel" src="/app-react.js"></script>
 </body>
 </html>

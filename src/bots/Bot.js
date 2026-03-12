@@ -115,9 +115,9 @@ class Bot {
           return;
         }
 
-        console.log(`🔌 [${this.name}] Initiating SOCKS5 connection...`);
-        console.log(`   📍 Proxy: ${proxy.host}:${proxy.port}`);
-        console.log(`   🎯 Destination: ${server}:${port}`);
+        console.log(` [${this.name}] Initiating SOCKS5 connection...`);
+        console.log(`   - Proxy: ${proxy.host}:${proxy.port}`);
+        console.log(`   - Destination: ${server}:${port}`);
 
         socks.createConnection({
           proxy: {
@@ -190,7 +190,7 @@ class Bot {
       // 🔥 RECONEXIÓN: Si ya está logged O inicializando, IGNORAR
       // Las reconexiones se manejan SOLO en RestScheduler.reconnectAndLogin()
       if (this.isLogged || this.isInitializing) {
-        console.log(`🔄 [${this.name}] Reconnection detected - ignoring login event (handled by RestScheduler)`);
+        //console.log(`🔄 [${this.name}] Reconnection detected - ignoring login event (handled by RestScheduler)`);
         return;
       }
       
@@ -245,7 +245,7 @@ class Bot {
         }
         
         if (timeSinceLastPacket > 15000) { // 15 segundos sin paquetes (aumentado desde 10)
-          console.error(`💀 [${this.name}] No packets received in ${Math.floor(timeSinceLastPacket / 1000)}s - Connection lost!`);
+          console.error(` [${this.name}] No packets received in ${Math.floor(timeSinceLastPacket / 1000)}s - Connection lost!`);
           
           // Detener heartbeat
           if (this.heartbeatInterval) {
@@ -461,11 +461,6 @@ class Bot {
             if (this.purseHistory.length > 1000) {
               this.purseHistory = this.purseHistory.slice(-1000);
             }
-            
-            const profit = this.startPurse !== null ? purseValue - this.startPurse : 0;
-            console.log(`💰 [${this.name}] Purse updated: ${purseValue.toLocaleString()} (${profit >= 0 ? '+' : ''}${profit.toLocaleString()})`);
-          } else if (!isNaN(purseValue) && purseValue <= 1000000) {
-            console.log(`💰 [${this.name}] Purse too low (${purseValue.toLocaleString()}), not tracking`);
           }
         }
       }

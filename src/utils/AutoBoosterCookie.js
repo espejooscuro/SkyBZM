@@ -20,11 +20,6 @@ class AutoBoosterCookie {
       await delay(2000);
 
       // Debug de items
-      const validItems = this.ContainerManager.getValidContainerItems();
-      console.log("=== Items válidos en el contenedor ===");
-      validItems.forEach(item => {
-        console.log(`Slot: ${item.slot}, CustomName: "${item.customName}", Quantity: ${item.quantity}`);
-      });
 
       this.ContainerManager.getInventory(this.bot);
 

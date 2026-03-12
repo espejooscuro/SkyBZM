@@ -1,5 +1,3 @@
-
-
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -17,13 +15,13 @@ class RestScheduler {
     
     // Short breaks tracking
     this.shortBreaksEnabled = this.config.shortBreaks?.enabled || false;
-    this.workDuration = this.config.shortBreaks?.workDuration || 10;  // Work for X minutes
-    this.breakDuration = this.config.shortBreaks?.breakDuration || 3;   // Rest for Y minutes
+    this.workDuration = this.config.shortBreaks?.workDuration || 10;
+    this.breakDuration = this.config.shortBreaks?.breakDuration || 3;
     
     // Daily rest tracking
     this.dailyRestEnabled = this.config.dailyRest?.enabled || false;
-    this.workHours = this.config.dailyRest?.workHours || 16; // Work for 16 hours
-    this.restHours = 24 - this.workHours; // Rest for remaining hours
+    this.workHours = this.config.dailyRest?.workHours || 16;
+    this.restHours = 24 - this.workHours;
     
     // Timers
     this.shortBreakTimer = null;
@@ -31,30 +29,14 @@ class RestScheduler {
     
     // State
     this.sessionStartTime = Date.now();
-    this.lastShortBreak = Date.now(); // 🔥 Iniciar con tiempo actual para respetar workDuration
+    this.lastShortBreak = Date.now();
     this.isResting = false;
-    
-    this.log('✅ RestScheduler initialized');
-    this.log(`   Short Breaks: ${this.shortBreaksEnabled ? 'ENABLED' : 'DISABLED'}`);
-    if (this.shortBreaksEnabled) {
-      this.log(`   → Work ${this.workDuration}min, rest ${this.breakDuration}min`);
-    }
-    this.log(`   Daily Rest: ${this.dailyRestEnabled ? 'ENABLED' : 'DISABLED'}`);
-    if (this.dailyRestEnabled) {
-      this.log(`   → Work ${this.workHours}h/day, rest ${this.restHours}h/day`);
-    }
-  }
-  
-  log(...args) {
-    console.log(`[RestScheduler]`, ...args);
   }
   
   /**
    * Start the rest scheduler
    */
   start() {
-    this.log('🚀 Starting rest scheduler...');
-    
     if (this.shortBreaksEnabled) {
       this.scheduleNextShortBreak();
     }
@@ -62,8 +44,6 @@ class RestScheduler {
     if (this.dailyRestEnabled) {
       this.scheduleNextDailyRest();
     }
-    
-    this.log('✅ Rest scheduler started');
   }
   
   /**
@@ -72,18 +52,14 @@ class RestScheduler {
   scheduleNextShortBreak() {
     if (!this.shortBreaksEnabled) return;
     
-    // 🔥 Evitar programar múltiples timers
     if (this.shortBreakTimer) {
-      this.log('⚠️ Short break already scheduled, skipping duplicate');
       return;
     }
     
     const workTimeMs = this.workDuration * 60 * 1000;
     
-    this.log(`⏰ Next short break scheduled in ${this.workDuration} minutes`);
-    
     this.shortBreakTimer = setTimeout(() => {
-      this.shortBreakTimer = null; // Limpiar referencia
+      this.shortBreakTimer = null;
       this.enqueueShortBreak();
     }, workTimeMs);
   }
@@ -94,18 +70,14 @@ class RestScheduler {
   scheduleNextDailyRest() {
     if (!this.dailyRestEnabled) return;
     
-    // 🔥 Evitar programar múltiples timers
     if (this.dailyRestTimer) {
-      this.log('⚠️ Daily rest already scheduled, skipping duplicate');
       return;
     }
     
     const workTimeMs = this.workHours * 60 * 60 * 1000;
     
-    this.log(`⏰ Daily rest scheduled in ${this.workHours} hours`);
-    
     this.dailyRestTimer = setTimeout(() => {
-      this.dailyRestTimer = null; // Limpiar referencia
+      this.dailyRestTimer = null;
       this.enqueueDailyRest();
     }, workTimeMs);
   }
@@ -119,14 +91,10 @@ class RestScheduler {
     const socks = require('socks').SocksClient;
     const { ProxyAgent } = require('proxy-agent');
     
-    this.log('   🔄 Reconnecting to server...');
-    
-    // 🔥 Obtener config del proxy
     const proxy = this.bot.config?.proxy;
     const server = 'mc.hypixel.net';
     const port = 25565;
     
-    // 🔥 Crear nuevo bot de mineflayer directamente
     this.bot.bot = mineflayer.createBot({
       host: server,
       port,
@@ -145,14 +113,9 @@ class RestScheduler {
 
       connect: (client) => {
         if (!proxy) {
-          console.log(`⚠️  [${this.bot.name}] NO PROXY - Direct connection to ${server}`);
           client.connect(server, port);
           return;
         }
-
-        console.log(`🔌 [${this.bot.name}] Initiating SOCKS5 connection...`);
-        console.log(`   📍 Proxy: ${proxy.host}:${proxy.port}`);
-        console.log(`   🎯 Destination: ${server}:${port}`);
 
         socks.createConnection({
           proxy: {
@@ -170,11 +133,8 @@ class RestScheduler {
           timeout: 30000
         }, (err, info) => {
           if (err) {
-            console.error(`❌ [${this.bot.name}] SOCKS5 Proxy connection FAILED:`, err.message);
             return;
           }
-
-          console.log(`✅ [${this.bot.name}] SOCKS5 connection established!`);
           
           info.socket.setKeepAlive(true, 60000);
           info.socket.setTimeout(0);
@@ -193,7 +153,6 @@ class RestScheduler {
         : undefined
     });
     
-    // 🔥 Crear nuevo ChatListener
     this.bot.chat = new ChatListener(this.bot.bot, {
       watchList: ["sold", "bought", "coins", "flip", "skyblock", "joined", "Hypixel", "Sending to", "Bazaar"],
       callback: (msg) => {
@@ -201,128 +160,252 @@ class RestScheduler {
       }
     });
     
-    // 🔥 Listener for CRITICAL messages
     this.bot.chat.onMessageContains(/limbo|packets too fast|server will restart soon|game update|server is too laggy/i, (msg) => {
       this.bot.handleCriticalMessage(msg.message);
     });
     
-    this.log('   ⏳ Waiting for spawn...');
+    await new Promise((resolve) => this.bot.bot.once('spawn', resolve));
     
-    // 🔥 Esperar el evento spawn
-    await new Promise((resolve, reject) => {
-      const spawnHandler = () => {
-        this.log('   ✅ Spawn received!');
-        this.bot.bot.removeListener('spawn', spawnHandler);
-        this.bot.bot.removeListener('end', endHandler);
-        this.bot.bot.removeListener('error', errorHandler);
-        resolve();
-      };
-      
-      const endHandler = () => {
-        this.log('   ❌ Bot disconnected before spawn!');
-        this.bot.bot.removeListener('spawn', spawnHandler);
-        this.bot.bot.removeListener('error', errorHandler);
-        reject(new Error('Bot disconnected before spawn'));
-      };
-      
-      const errorHandler = (err) => {
-        if (err.name === "PartialReadError") return;
-        this.log(`   ❌ Error during spawn: ${err.message}`);
-      };
-      
-      this.bot.bot.once('spawn', spawnHandler);
-      this.bot.bot.once('end', endHandler);
-      this.bot.bot.on('error', errorHandler);
-      
-      // Timeout de 60 segundos
-      setTimeout(() => {
-        this.bot.bot.removeListener('spawn', spawnHandler);
-        this.bot.bot.removeListener('end', endHandler);
-        this.bot.bot.removeListener('error', errorHandler);
-        reject(new Error('Spawn timeout after 60 seconds'));
-      }, 60000);
-    });
+    let attempts = 0;
+    while (!this.bot.bot.entity && attempts < 20) {
+      await delay(100);
+      attempts++;
+    }
     
-    // 🔥 Dar 3 segundos para que chunks se carguen
+    if (!this.bot.bot.entity) {
+      throw new Error('Bot entity not ready');
+    }
+    
+    if (!this.bot.bot._client) {
+      throw new Error('Bot _client not initialized');
+    }
+    
+    if (!this.bot.bot.inventory) {
+      throw new Error('Bot inventory not initialized');
+    }
+    
     await delay(3000);
     
-    this.log('   ✅ Bot connected and ready!');
+    const botId = `${this.bot.name}_${Date.now()}`;
+    this.bot.bot._customBotId = botId;
     
-    // Ejecutar /skyblock
-    this.log('   🌍 Executing /skyblock...');
+    if (this.bot.flipManager) {
+      this.bot.flipManager.bot = this.bot.bot;
+      
+      for (const flip of this.bot.flipManager.flips) {
+        flip.bot = this.bot.bot;
+        flip.chatListener = this.bot.chat;
+        
+        if (flip.type === 'NPC' && flip._ContainerManagerClass) {
+          flip.ContainerManager = new flip._ContainerManagerClass(flip.bot);
+        }
+      }
+    }
+
+    if (this.bot.heartbeatInterval) {
+      clearInterval(this.bot.heartbeatInterval);
+    }
+    
+    this.bot.lastHeartbeat = Date.now();
+    this.bot.lastActivity = Date.now();
+    this.bot.lastPacketReceived = Date.now();
+    
+    this.bot.heartbeatInterval = setInterval(() => {
+      if (this.bot.bot && this.bot.bot._client && this.bot.bot._client.socket && !this.bot.bot._client.socket.destroyed) {
+        try {
+          this.bot.bot._client.write('arm_animation', {
+            hand: 0
+          });
+          this.bot.lastHeartbeat = Date.now();
+        } catch (e) {
+          try {
+            if (this.bot.bot.entity && this.bot.bot.entity.position) {
+              this.bot.bot._client.write('position', {
+                x: this.bot.bot.entity.position.x,
+                y: this.bot.bot.entity.position.y,
+                z: this.bot.bot.entity.position.z,
+                onGround: this.bot.bot.entity.onGround
+              });
+              this.bot.lastHeartbeat = Date.now();
+            }
+          } catch (e2) {
+            // Ignorar
+          }
+        }
+      }
+    }, 25000);
+    
+    if (this.bot.inactivityMonitor) {
+      clearInterval(this.bot.inactivityMonitor);
+    }
+    
+    this.bot.inactivityMonitor = setInterval(() => {
+      if (this.bot.isResting) return;
+      
+      const timeSinceLogin = Date.now() - this.bot.startTime;
+      const timeSinceLastPacket = Date.now() - this.bot.lastPacketReceived;
+      
+      if (timeSinceLogin < 30000) return;
+      
+      if (timeSinceLastPacket > 15000) {
+        if (this.bot.heartbeatInterval) {
+          clearInterval(this.bot.heartbeatInterval);
+          this.bot.heartbeatInterval = null;
+        }
+        
+        if (this.bot.inactivityMonitor) {
+          clearInterval(this.bot.inactivityMonitor);
+          this.bot.inactivityMonitor = null;
+        }
+        
+        if (this.bot.bot && this.bot.bot._client) {
+          this.bot.bot._client.end();
+        }
+      }
+    }, 1000);
+    
+    this.bot.bot._client.on('packet', (data, meta) => {
+      if (!this.bot.isResting) {
+        this.bot.lastPacketReceived = Date.now();
+        this.bot.lastActivity = Date.now();
+      }
+      
+      if (meta.name !== 'teams') return;
+
+      let prefixText = '';
+      let suffixText = '';
+
+      if (data.prefix && data.prefix.type === 'compound' && data.prefix.value.text) {
+        prefixText = data.prefix.value.text.value || '';
+      }
+
+      if (data.suffix && data.suffix.type === 'compound' && data.suffix.value.text) {
+        suffixText = data.suffix.value.text.value || '';
+      }
+
+      const fullLine = (prefixText + suffixText).replace(/§./g, '').trim();
+
+      if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
+        const match = fullLine.match(/([0-9,]+)/);
+        if (match) {
+          const purseString = match[1];
+          const purseValue = parseInt(purseString.replace(/,/g, ''));
+          
+          if (!isNaN(purseValue) && purseValue > 1000000 && purseValue !== this.bot.currentPurse) {
+            this.bot.currentPurse = purseValue;
+            
+            if (this.bot.startPurse === null) {
+              this.bot.startPurse = purseValue;
+            }
+            
+            const now = Date.now();
+            this.bot.runtime = Math.floor((now - this.bot.startTime) / 1000);
+            
+            this.bot.purseHistory.push({
+              timestamp: now,
+              purse: purseValue,
+              runtime: this.bot.runtime
+            });
+            
+            const oneDayAgo = now - (24 * 60 * 60 * 1000);
+            this.bot.purseHistory = this.bot.purseHistory.filter(entry => entry.timestamp > oneDayAgo);
+            if (this.bot.purseHistory.length > 1000) {
+              this.bot.purseHistory = this.bot.purseHistory.slice(-1000);
+            }
+          }
+        }
+      }
+    });
+    
+    this.bot.bot.on('end', () => {
+      this.bot.isLogged = false;
+      
+      if (this.bot.heartbeatInterval) {
+        clearInterval(this.bot.heartbeatInterval);
+        this.bot.heartbeatInterval = null;
+      }
+      
+      if (this.bot.inactivityMonitor) {
+        clearInterval(this.bot.inactivityMonitor);
+        this.bot.inactivityMonitor = null;
+      }
+    });
+    
+    this.bot.bot.on('error', (err) => {
+      if (err.name === "PartialReadError") return;
+    });
+    
     this.bot.chat.send('/skyblock');
     await delay(5000);
     
-    // Ejecutar /is
-    this.log('   🏝️ Executing /is...');
     this.bot.chat.send('/is');
     await delay(5000);
-    
-    this.log('   ✅ Login sequence completed!');
+  }
+  
+  /**
+   * Reconnect wrapper (used by break nodes)
+   */
+  async reconnect() {
+    try {
+      if (this.bot.bot) {
+        this.bot.bot.quit();
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      await this.reconnectAndLogin();
+
+      if (this.bot.flipManager) {
+        this.bot.flipManager.resume();
+      }
+
+      this.bot.isResting = false;
+      
+    } catch (err) {
+      // Silent error handling
+    }
   }
   
   /**
    * Enqueue a SHORT BREAK node
    */
   enqueueShortBreak() {
-    // 🔥 Validación: no encolar si ya estamos en descanso
     if (this.isResting) {
-      this.log('⚠️ Already resting, skipping SHORT BREAK enqueue');
       return;
     }
     
-    // 🔥 Validación: respetar el tiempo de trabajo mínimo
     const timeSinceLastBreak = Date.now() - this.lastShortBreak;
     const workTimeMs = this.workDuration * 60 * 1000;
     
     if (timeSinceLastBreak < workTimeMs) {
-      const remainingTime = Math.ceil((workTimeMs - timeSinceLastBreak) / 60000);
-      this.log(`⚠️ Not enough work time, need ${remainingTime} more minutes before break`);
       return;
     }
-    
-    this.log('😴 Enqueueing SHORT BREAK node...');
     
     const breakDurationMs = this.breakDuration * 60 * 1000;
     
     this.queue.enqueue(
       async () => {
-        this.log('💤 [SHORT BREAK NODE] Starting short break...');
+        console.log(`[${this.bot.name}] Short break starting (${this.breakDuration} minutes)`);
         this.isResting = true;
         this.bot.isResting = true;
         
-        // Pause all flip operations
         if (this.bot.flipManager) {
-          this.log('   ⏸️ Pausing FlipManager...');
           this.bot.flipManager.pause();
         }
         
-        // Disconnect from server
-        this.log('   🔌 Disconnecting from server...');
         if (this.bot.bot) {
           this.bot.bot.end();
         }
         
-        // Wait for break duration
-        this.log(`   ⏳ Resting for ${this.breakDuration} minutes...`);
-        await delay(breakDurationMs);
+        await new Promise(resolve => setTimeout(resolve, breakDurationMs));
         
-        // Reconnect and login
-        await this.reconnectAndLogin();
+        await this.reconnect();
         
-        // Resume flip operations
-        if (this.bot.flipManager) {
-          this.log('   ▶️ Resuming FlipManager...');
-          this.bot.flipManager.resume();
-        }
-        
+        console.log(`[${this.bot.name}] Short break complete`);
         this.isResting = false;
-        this.bot.isResting = false;
-        this.lastShortBreak = Date.now(); // 🔥 Actualizar timestamp DESPUÉS del break
         
-        this.log('✅ Short break completed, bot resumed');
+        this.lastShortBreak = Date.now();
         
-        // Schedule next short break
         this.scheduleNextShortBreak();
         
         return true;
@@ -331,7 +414,7 @@ class RestScheduler {
         type: 'shortbreak',
         item: 'Rest Period',
         description: `Short break: ${this.breakDuration} minutes`,
-        priority: 5 // Normal priority
+        priority: 5
       }
     );
   }
@@ -340,54 +423,34 @@ class RestScheduler {
    * Enqueue a DAILY REST node
    */
   enqueueDailyRest() {
-    // 🔥 Validación: no encolar si ya estamos en descanso
     if (this.isResting) {
-      this.log('⚠️ Already resting, skipping DAILY REST enqueue');
       return;
     }
-    
-    this.log('😴 Enqueueing DAILY REST node...');
     
     const restDurationMs = this.restHours * 60 * 60 * 1000;
     
     this.queue.enqueue(
       async () => {
-        this.log('💤 [DAILY REST NODE] Starting daily rest...');
+        console.log(`[${this.bot.name}] Daily rest starting (${this.restHours} hours)`);
         this.isResting = true;
         this.bot.isResting = true;
         
-        // Pause all flip operations
         if (this.bot.flipManager) {
-          this.log('   ⏸️ Pausing FlipManager...');
           this.bot.flipManager.pause();
         }
         
-        // Disconnect from server
-        this.log('   🔌 Disconnecting from server...');
         if (this.bot.bot) {
           this.bot.bot.end();
         }
         
-        // Wait for daily rest duration
-        this.log(`   ⏳ Resting for ${this.restHours} hours...`);
-        await delay(restDurationMs);
+        await new Promise(resolve => setTimeout(resolve, restDurationMs));
         
-        // Reconnect and login
-        await this.reconnectAndLogin();
+        await this.reconnect();
         
-        // Resume flip operations
-        if (this.bot.flipManager) {
-          this.log('   ▶️ Resuming FlipManager...');
-          this.bot.flipManager.resume();
-        }
-        
+        console.log(`[${this.bot.name}] Daily rest complete`);
         this.isResting = false;
-        this.bot.isResting = false;
-        this.sessionStartTime = Date.now(); // Reset session
+        this.dailyRestScheduled = false;
         
-        this.log('✅ Daily rest completed, bot resumed');
-        
-        // Schedule next daily rest
         this.scheduleNextDailyRest();
         
         return true;
@@ -396,7 +459,7 @@ class RestScheduler {
         type: 'dailyrest',
         item: 'Daily Rest',
         description: `Daily rest: ${this.restHours} hours`,
-        priority: 5 // Normal priority
+        priority: 5
       }
     );
   }
@@ -406,43 +469,29 @@ class RestScheduler {
    * Used when critical messages are detected (limbo, restart, etc.)
    */
   enqueueReset(reason = 'Critical message detected') {
-    this.log(`🚨 Enqueueing RESET node (reason: ${reason})...`);
-    
     this.queue.enqueue(
       async () => {
-        this.log('🔄 [RESET NODE] Starting emergency reset...');
         this.isResting = true;
         this.bot.isResting = true;
         
-        // Pause all flip operations
         if (this.bot.flipManager) {
-          this.log('   ⏸️ Pausing FlipManager...');
           this.bot.flipManager.pause();
         }
         
-        // Disconnect from server
-        this.log('   🔌 Disconnecting from server...');
         if (this.bot.bot) {
           this.bot.bot.end();
         }
         
-        // Wait before reconnecting (30 seconds)
-        this.log('   ⏳ Waiting 30 seconds before reconnect...');
         await delay(30000);
         
-        // Reconnect and login
         await this.reconnectAndLogin();
         
-        // Resume flip operations
         if (this.bot.flipManager) {
-          this.log('   ▶️ Resuming FlipManager...');
           this.bot.flipManager.resume();
         }
         
         this.isResting = false;
         this.bot.isResting = false;
-        
-        this.log('✅ Reset completed, bot resumed');
         
         return true;
       },
@@ -450,7 +499,7 @@ class RestScheduler {
         type: 'reset',
         item: 'Emergency Reset',
         description: reason,
-        priority: 1 // MAXIMUM PRIORITY - executes ASAP
+        priority: 1
       }
     );
   }
@@ -473,7 +522,7 @@ class RestScheduler {
       isResting: this.isResting,
       shortBreaksEnabled: this.shortBreaksEnabled,
       dailyRestEnabled: this.dailyRestEnabled,
-      sessionDuration: Math.floor(sessionDuration / 1000), // seconds
+      sessionDuration: Math.floor(sessionDuration / 1000),
       nextShortBreak: nextShortBreak ? Math.floor(nextShortBreak / 1000) : null,
       lastShortBreak: this.lastShortBreak
     };
@@ -483,8 +532,6 @@ class RestScheduler {
    * Clean up resources
    */
   destroy() {
-    this.log('🧹 Destroying RestScheduler...');
-    
     if (this.shortBreakTimer) {
       clearTimeout(this.shortBreakTimer);
       this.shortBreakTimer = null;
@@ -494,12 +541,7 @@ class RestScheduler {
       clearTimeout(this.dailyRestTimer);
       this.dailyRestTimer = null;
     }
-    
-    this.log('✅ RestScheduler destroyed');
   }
 }
 
 module.exports = RestScheduler;
-
-
-

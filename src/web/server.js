@@ -1,6 +1,8 @@
 
 
 
+
+
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -49,7 +51,6 @@ class WebServer {
 
   saveConfig(config) {
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
-    console.log('✅ Configuration saved');
   }
 
   validatePassword(password) {
@@ -1119,18 +1120,8 @@ class WebServer {
     const localIP = this.getLocalIP();
     
     this.server = this.app.listen(this.port, '0.0.0.0', () => {
-      console.log(`
-╔════════════════════════════════════════════════════════╗
-║                       🌐 Web App                      ║
-╠════════════════════════════════════════════════════════╣
-║                                                        ║
-║  🌍 Website:                                           ║
-║     http://${localIP}:${this.port}                    ║
-║                                                        ║
-║  🔐 Password: ${config.webPassword}                   ║
-║                                                        ║
-╚════════════════════════════════════════════════════════╝
-      `);
+      console.log(`\nWebsite: http://${localIP}:${this.port}`);
+      console.log(`Password: ${config.webPassword}\n`);
     });
 
     this.server.on('error', (error) => {
@@ -1151,6 +1142,8 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
 
 
 

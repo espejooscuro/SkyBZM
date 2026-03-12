@@ -1,10 +1,3 @@
-
-
-
-
-
-
-const ContainerManager = require('../utils/ContainerManager');
 const Flip = require('./Flip');
 
 
@@ -31,7 +24,12 @@ class NPCFlip extends Flip {
     
     this.type = 'NPC';
     this.chatListener = chatListener;
-    this.ContainerManager = new ContainerManager(bot);
+    
+    // Store both the class and instance for ContainerManager
+    const ContainerManagerClass = require('../utils/ContainerManager');
+    this.ContainerManager = new ContainerManagerClass(bot);
+    this._ContainerManagerClass = ContainerManagerClass;
+    
     // NPC Flip specific config
     this.npcItemTag = config.item || config.npcItem || ''; // Store the item tag
     this.npcItem = 'Loading...'; // Will be populated with the actual item name
@@ -64,8 +62,6 @@ class NPCFlip extends Flip {
           text.includes('buy order') && 
           text.includes('was filled')) {
         
-        this.log(`✅ Buy order filled!`);
-        
         // Find the most recent purchase and trigger sell
         if (this.purchasedItems.size > 0) {
           // Get the most recent purchase that hasn't been processed yet
@@ -85,8 +81,6 @@ class NPCFlip extends Flip {
           
           // Mark as being processed
           this.activePurchases.add(purchaseId);
-          
-          this.log(`🔔 Triggering sell process...`);
           this.enqueueSell(purchaseId, purchaseData);
         }
       }
@@ -108,13 +102,9 @@ class NPCFlip extends Flip {
       this.npcItem = snapshot.item;
       this.item = snapshot.item;
       this.itemTag = snapshot.itemTag;
-      
-      this.log(`✅ NPC Flip ready: ${this.npcItem} (force sell: ${this.forceSellAfter / 60000}m)`);
     } catch (error) {
-      this.log(`❌ Error fetching item name: ${error.message}`);
       this.npcItem = this.npcItemTag;
       this.item = this.npcItemTag;
-      this.log(`✅ NPC Flip ready: ${this.npcItem} (fallback)`);
     }
   }
   
@@ -126,11 +116,9 @@ class NPCFlip extends Flip {
    * Start the NPC flip cycle (called once when initialized)
    */
   async start() {
-    this.log('🚀 Starting NPC flip cycle...');
     
     // Wait for item name to be fetched before starting
     if (this.npcItem === 'Loading...') {
-      this.log('⏳ Waiting for item name to load...');
       await this.fetchItemName();
     }
     
@@ -147,21 +135,19 @@ class NPCFlip extends Flip {
       return;
     }
     
-    this.log('📦 Enqueueing NPC BUY task...');
     
     this.queue.enqueue(
       async () => {
-        this.log(`🛒 [BUY NODE] Executing buy for ${this.npcItem}`);
         
         // ⏱️ Add delay so node is visible in Interactive Map
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // First, check if buy order already exists
-        this.log('  🔍 Checking for existing buy orders...');
         this.ContainerManager.closeContainer();
         await delay(1300);
         this.chatListener.send('/managebazaarorders');
         await delay(1300);
+        const containerName = this.ContainerManager.getOpenContainerName();
         
         // Check if buy order exists in current window
         const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
@@ -170,7 +156,7 @@ class NPCFlip extends Flip {
         });
         
         if (hasBuyOrder) {
-          this.log(`  ✅ Found existing buy order for ${this.npcItem}, skipping to SELL`);
+          this.log(`   Found existing buy order for ${this.npcItem}, skipping to SELL`);
           this.ContainerManager.closeContainer();
           await delay(500);
           
@@ -187,46 +173,77 @@ class NPCFlip extends Flip {
           this.activePurchases.add(purchaseId);
           const data = this.purchasedItems.get(purchaseId);
           this.enqueueSell(purchaseId, data);
-          
           return true;
         }
-        
-        this.log('  ❌ No existing buy order found, creating new one...');
+
         this.ContainerManager.closeContainer();
         await delay(1000);
         
         // Simulate purchase
         const purchaseId = `${this.npcItem}_${Date.now()}`;
         const amount = 71000; 
-        
+
         /*        Buy LOGIC          */
 
-        if (!this.enabled) return; 
+        if (!this.enabled) {
+          return;
+        }
+        
         this.chatListener.send(`/bz ${this.npcItem}`);
         await delay(1500);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
         this.ContainerManager.click({customName: this.npcItem, type: "container" });
         await delay(1000);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
+
         this.ContainerManager.click({customName: "Create Buy Order", type: "container" });
         await delay(1000);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
+
         this.ContainerManager.click({customName: "Custom Amount", type: "container" });
         await delay(1000);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+
+          return;
+        }
+
         this.ContainerManager.interactWithSign(amount);
         await delay(1000);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
+
         this.ContainerManager.click({customName: "Top Order +0.1", type: "container" });
         await delay(1850);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
+
         const lore = this.ContainerManager.getItemDescription({customName: "Buy Order"}, true);
         const price = this._parsePriceFromLoreLine(this.ContainerManager._findLoreLine(lore, { contains: "Price per unit" }));
         this.instaBuyPrice = price;
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
         this.ContainerManager.click({customName: "Buy Order", type: "container" });
         await delay(1000);
-        if (!this.enabled) return;
+        
+        if (!this.enabled) {
+          return;
+        }
 
         this.purchasedItems.set(purchaseId, {
           timestamp: Date.now(),
@@ -234,10 +251,8 @@ class NPCFlip extends Flip {
           timer: null // Will be set below
         });
         
-        // Set up force-sell timer
         const forceSellTimer = setTimeout(() => {
           if (!this.activePurchases.has(purchaseId) && this.purchasedItems.has(purchaseId)) {
-            this.log(`⏰ Force sell triggered after ${this.forceSellAfter / 60000} minutes`);
             
             // Mark as being processed
             this.activePurchases.add(purchaseId);
@@ -253,9 +268,7 @@ class NPCFlip extends Flip {
         
         this.lastBuyTime = Date.now();
         
-        this.log(`✅ Buy order placed for ${amount}x ${this.npcItem}`);
-        
-        // Note: Next buy will be enqueued after SELL completes
+
         
         return true;
       },
@@ -272,31 +285,29 @@ class NPCFlip extends Flip {
    * Enqueue a SELL task for a specific purchase
    */
   enqueueSell(purchaseId, purchaseData) {
-    this.log(`💰 Enqueueing NPC SELL task for ${purchaseId}...`);
     
     this.queue.enqueue(
       async () => {
-        this.log('💸 [SELL NODE] Selling ${this.npcItem}');
-        
         // ⏱️ Add delay so node is visible in Interactive Map
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         const buyOrderName = `BUY ${this.npcItem}`;
         let finishedCollecting = false;
         
-        // Open /managebazaarorders once
-        this.log('  → Opening bazaar orders...');
         this.ContainerManager.closeContainer();
         await delay(1300);
         this.chatListener.send('/managebazaarorders');
         await delay(1300);
         
-        this.log('  → Claiming all buy orders...');
+        const containerName = this.ContainerManager.getOpenContainerName();
         
         // Main collection loop - stay in same GUI and claim all available orders
         let claimedCount = 0;
         while (!finishedCollecting) {
-          if (!this.enabled) break;
+          if (!this.enabled) {
+            this.log('   ⚠️ Flip disabled during claiming, aborting...');
+            break;
+          }
           
           // Check if buy order exists in current window
           const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
@@ -312,6 +323,7 @@ class NPCFlip extends Flip {
           
           // Check if inventory is mostly full
           if (this.ContainerManager.isInventoryMostlyFull()) {
+            this.log(`   ⚠️ Inventory is mostly full, waiting...`);
             const startTime = Date.now();
             while (this.ContainerManager.isInventoryMostlyFull()) {
               if (Date.now() - startTime >= 3000) {
@@ -324,10 +336,12 @@ class NPCFlip extends Flip {
             if (finishedCollecting) break;
           }
           
-          // Click on buy order to claim it (stay in same window)
           await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
           await delay(800); // Wait for claim to process
           claimedCount++;
+          
+          const currentContainer = this.ContainerManager.getOpenContainerName();
+          
           if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
             await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
           }
@@ -335,13 +349,12 @@ class NPCFlip extends Flip {
           await delay(200);
         }
         
-        // Close container after all claiming is done
         this.ContainerManager.closeContainer();
         await delay(500);
         
         // Now sell items via booster cookie
         if (this.enabled) {
-          this.log('  → Opening booster cookie...');
+          
           this.ContainerManager.closeContainer();
           await delay(1000);
           this.chatListener.send('/boostercookie');
@@ -352,7 +365,7 @@ class NPCFlip extends Flip {
           
           while (!containerOpened && attempts < maxWaitAttempts) {
             await delay(500);
-            const containerName = this.ContainerManager.getOpenContainerName() || '';
+            const containerName = this.ContainerManager.getOpenContainerName() || '';            
             if (containerName.includes('cookie') || containerName.includes('booster')) {
               containerOpened = true;
             }
@@ -360,15 +373,13 @@ class NPCFlip extends Flip {
           }
           
           if (!containerOpened) {
-            this.log('  ❌ Failed to open booster cookie');
             this.purchasedItems.delete(purchaseId);
             this.activePurchases.delete(purchaseId);
             return false;
           }
-          
-          this.log(`  💰 Selling ${this.npcItem}...`);
-          
+        
           const allInventoryItems = this.ContainerManager.getValidInventoryItems();
+          
           const itemsToClick = allInventoryItems.filter(item => {
             if (!item || !item.customName) return false;
             const cleanName = this.cleanItemName(item.customName);
@@ -379,6 +390,7 @@ class NPCFlip extends Flip {
             if (!this.enabled) break;
             
             const itemName = this.cleanItemName(item.customName);
+            
             let clickAttempts = 0;
             const maxAttempts = 20;
             
@@ -401,6 +413,7 @@ class NPCFlip extends Flip {
               
               const targetSlot = matchingItem.slot;
               const targetWindowSlot = matchingItem.windowSlot;
+              
               
               if (lastClickedSlot === targetSlot) {
                 await delay(800);
@@ -426,7 +439,7 @@ class NPCFlip extends Flip {
             
             this.log(`  ✅ Sold ${itemName} (${clickAttempts} clicks)`);
           }
-          
+
           this.ContainerManager.closeContainer();
           await delay(500);
         }
@@ -442,6 +455,8 @@ class NPCFlip extends Flip {
           this.log('🔄 Enqueueing next buy task...');
           this.enqueueBuy();
         }
+        
+        this.log('═══════════════════════════════════════════════════');
         
         return true;
       },
@@ -534,43 +549,3 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

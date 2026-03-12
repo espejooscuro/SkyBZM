@@ -57,11 +57,6 @@ class BotManager {
       throw new Error("No usernames or accounts found in config.");
     }
 
-    console.log('\n╔════════════════════════════════════════════════════════════════╗');
-    console.log('║               📋 BOT MANAGER - Creating Bots                   ║');
-    console.log('╠════════════════════════════════════════════════════════════════╣');
-    console.log('║ Total accounts to create:', String(accountsToCreate.length).padEnd(35), '║');
-    console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
     let autoStartCount = 0;
 
@@ -74,16 +69,12 @@ class BotManager {
       
       // ✨ Solo iniciar si tiene autoStart: true
       if (account.autoStart === true) {
-        console.log(`🚀 Auto-starting bot: ${account.username}`);
+        console.log(` Auto-starting bot: ${account.username}`);
         bot.init("mc.hypixel.net", 25565);
         autoStartCount++;
         await this.sleep(delayMs);
-      } else {
-        console.log(`⏸️  Bot created (not started): ${account.username}`);
       }
     }
-
-    console.log(`\n✅ Bots created: ${accountsToCreate.length} | Auto-started: ${autoStartCount}\n`);
   }
 
   /* =========================
@@ -128,8 +119,6 @@ class BotManager {
           message: `Bot ${username} is already connected`
         };
       }
-
-      console.log(`🚀 Starting bot: ${username}`);
       
       // Iniciar o reiniciar la conexión
       bot.init("mc.hypixel.net", 25565);
