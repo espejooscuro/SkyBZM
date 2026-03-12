@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -188,6 +189,26 @@ class WebServer {
       }
     });
 
+    // Get bot configuration
+    this.app.get('/api/bots/:username/config', (req, res) => {
+      try {
+        const { username } = req.params;
+        
+        const configData = fs.readFileSync(this.configPath, 'utf8');
+        const config = JSON.parse(configData);
+        
+        const account = config.accounts.find(acc => acc.username === username);
+        
+        if (!account) {
+          return res.status(404).json({ error: 'Bot not found in configuration' });
+        }
+        
+        res.json({ config: account });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Update bot configuration
     this.app.put('/api/bots/:username/config', (req, res) => {
       try {
@@ -344,4 +365,5 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
