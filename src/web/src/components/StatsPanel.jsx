@@ -31,11 +31,34 @@ const StatsPanel = ({ username }) => {
       const botData = await botRes.json();
       const profitsData = await profitsRes.json();
       
-      setStats(botData.bot?.stats || {});
-      setProfitHistory(profitsData.profits || []);
+      // Safely set stats with defaults
+      setStats({
+        totalProfit: botData?.bot?.stats?.totalProfit || 0,
+        totalFlips: botData?.bot?.stats?.totalFlips || 0,
+        successRate: botData?.bot?.stats?.successRate || 0,
+        avgProfit: botData?.bot?.stats?.avgProfit || 0,
+        bestFlip: botData?.bot?.stats?.bestFlip || 0,
+        worstFlip: botData?.bot?.stats?.worstFlip || 0,
+        uptime: botData?.bot?.stats?.uptime || 0,
+        flipsPerHour: botData?.bot?.stats?.flipsPerHour || 0
+      });
+      
+      // Safely set profit history
+      setProfitHistory(Array.isArray(profitsData?.profits) ? profitsData.profits : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      setStats({
+        totalProfit: 0,
+        totalFlips: 0,
+        successRate: 0,
+        avgProfit: 0,
+        bestFlip: 0,
+        worstFlip: 0,
+        uptime: 0,
+        flipsPerHour: 0
+      });
+      setProfitHistory([]);
       setLoading(false);
     }
   };
@@ -283,3 +306,4 @@ const formatUptime = (seconds) => {
 };
 
 export default StatsPanel;
+

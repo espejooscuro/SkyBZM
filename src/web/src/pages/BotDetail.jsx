@@ -61,9 +61,28 @@ const BotDetail = () => {
       const botData = await botRes.json();
       const configData = await configRes.json();
       
-      setBot(botData.bot);
-      if (configData.config) {
-        setConfig(prev => ({ ...prev, ...configData.config }));
+      // Safely set bot data
+      setBot(botData?.bot || null);
+      
+      // Safely merge config with defaults
+      if (configData?.config) {
+        setConfig(prev => ({
+          ...prev,
+          ...configData.config,
+          flips: {
+            npc: configData.config?.flips?.npc || [],
+            kat: configData.config?.flips?.kat || [],
+            craft: configData.config?.flips?.craft || [],
+            forge: configData.config?.flips?.forge || []
+          },
+          proxy: {
+            enabled: configData.config?.proxy?.enabled || false,
+            host: configData.config?.proxy?.host || '',
+            port: configData.config?.proxy?.port || '',
+            username: configData.config?.proxy?.username || '',
+            password: configData.config?.proxy?.password || ''
+          }
+        }));
       }
       setLoading(false);
     } catch (error) {
@@ -650,3 +669,4 @@ const getDefaultFlip = (type) => {
 };
 
 export default BotDetail;
+

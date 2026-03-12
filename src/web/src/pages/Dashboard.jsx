@@ -35,17 +35,28 @@ const Dashboard = () => {
     try {
       const res = await fetch('/api/bots');
       const data = await res.json();
-      setBots(data.bots || []);
       
-      // Calculate stats
-      const totalProfit = data.bots?.reduce((acc, bot) => acc + (bot.stats?.profit || 0), 0) || 0;
-      const activeFlips = data.bots?.filter(bot => bot.status === 'running')?.length || 0;
-      const totalFlips = data.bots?.reduce((acc, bot) => acc + (bot.stats?.totalFlips || 0), 0) || 0;
+      // Safely handle response
+      const botsList = Array.isArray(data.bots) ? data.bots : [];
+      setBots(botsList);
+      
+      // Calculate stats with safe defaults
+      const totalProfit = botsList.reduce((acc, bot) => {
+        return acc + (bot?.stats?.profit || 0);
+      }, 0);
+      
+      const activeFlips = botsList.filter(bot => bot?.status === 'running').length;
+      
+      const totalFlips = botsList.reduce((acc, bot) => {
+        return acc + (bot?.stats?.totalFlips || 0);
+      }, 0);
       
       setStats({ totalProfit, activeFlips, totalFlips });
       setLoading(false);
     } catch (error) {
       console.error('Error fetching bots:', error);
+      setBots([]);
+      setStats({ totalProfit: 0, activeFlips: 0, totalFlips: 0 });
       setLoading(false);
     }
   };
@@ -346,3 +357,4 @@ const BotCard = ({ bot, onAction, index }) => {
 };
 
 export default Dashboard;
+
