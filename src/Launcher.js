@@ -3,12 +3,13 @@
 
 
 
+
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 const crypto = require("crypto");
 const BotManager = require("./bots/BotManager");
-const WebServer = require("./web/server");
+const WebServer = require("./web/server.cjs");
 
 class Launcher {
   constructor() {
@@ -217,6 +218,7 @@ if (require.main === module) {
 }
 
 module.exports = Launcher;
+
 
 
 
