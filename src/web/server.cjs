@@ -1,3 +1,4 @@
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -217,7 +218,19 @@ class WebServer {
     });
 
     // Catch all other routes and serve index.html (for React Router)
-    this.app.get('*', (req, res) => {
+    // Use middleware instead of wildcard route to avoid Express 5.x path-to-regexp issues
+    this.app.use((req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+      
+      // Skip if it's a file with extension (already handled by static middleware)
+      if (path.extname(req.path)) {
+        return next();
+      }
+      
+      // Serve index.html for all other routes (SPA routing)
       const distPath = path.join(__dirname, 'dist', 'index.html');
       
       if (fs.existsSync(distPath)) {
@@ -331,3 +344,4 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
