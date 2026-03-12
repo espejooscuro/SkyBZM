@@ -1,3 +1,4 @@
+
 /* global React, ReactDOM */
 
 const { useState, useEffect } = React;
@@ -531,24 +532,22 @@ function FlipsTab({ account, onChange }) {
     }
 
     return (
-      <>
-        <div className="craft-grid">
-          {pattern.map((row, r) =>
-            row.map((cell, c) => (
-              <button
-                key={`${r}-${c}`}
-                type="button"
-                className={
-                  "craft-cell" + (cell.item ? " filled" : "")
-                }
-                onClick={() => selectCell(r, c)}
-              >
-                {cell.item ? cell.amount || 1 : ""}
-              </button>
-            ))
-          )}
-        </div>
-      </>
+      <div className="craft-grid">
+        {pattern.map((row, r) =>
+          row.map((cell, c) => (
+            <button
+              key={`${r}-${c}`}
+              type="button"
+              className={
+                "craft-cell" + (cell.item ? " filled" : "")
+              }
+              onClick={() => selectCell(r, c)}
+            >
+              {cell.item ? cell.amount || 1 : ""}
+            </button>
+          ))
+        )}
+      </div>
     );
   }
 
@@ -1098,4 +1097,5 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
 
