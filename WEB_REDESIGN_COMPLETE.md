@@ -1,157 +1,305 @@
-# 🎨 Web Dashboard Redesign - Complete
+# 🎨 SkyBZM Web Dashboard - Complete Redesign
 
-## ✅ Cambios Realizados
+## Overview
 
-Se ha realizado un **rediseño completo** de la interfaz web utilizando React + Vite con un tema pastel moderno y animaciones.
+A complete from-scratch rebuild of the SkyBZM web interface using modern React, Vite, and a beautiful pastel color scheme with smooth animations and interactive effects.
 
-### 📁 Estructura de Archivos Actualizada
+## 🌟 Key Features
+
+### Design & UX
+- ✨ **Pastel Color Palette** - Soft purples, blues, greens, and yellows
+- 🎭 **Smooth Animations** - Fade-ins, slide-ins, scales, and hover effects
+- 💎 **Glass Morphism** - Beautiful backdrop blur effects
+- 🌊 **Animated Background** - Floating gradient orbs
+- 📱 **Fully Responsive** - Works on all screen sizes
+- ⚡ **Performance Optimized** - Fast load times and smooth interactions
+
+### Functionality
+- 🤖 **Multi-Bot Management** - View and control all your bots
+- 📊 **Real-time Updates** - Auto-refreshing data every 2-3 seconds
+- 🎯 **Bot Control** - Start, stop, and restart bots with one click
+- 📈 **Activity Tracking** - Live activity logs and profit history
+- 🔍 **Bot Detail View** - Detailed statistics and information per bot
+- ⚙️ **Settings Page** - Configuration guide and documentation
+
+## 📁 Project Structure
 
 ```
-src/web/public/
-├── index.html                          ✅ Actualizado con Vite
+src/web/
+├── public/
+│   └── index.html
 ├── src/
-│   ├── main.jsx                       ✅ Entry point de React
-│   ├── App.jsx                        ✅ Componente principal
-│   ├── styles/
-│   │   └── globals.css                ✅ Estilos globales con tema pastel
+│   ├── api/
+│   │   └── client.js          # Axios API client
 │   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Sidebar.jsx            ✅ Barra lateral con lista de bots
-│   │   │   └── Sidebar.css
-│   │   └── sections/
-│   │       ├── BotControl.jsx         ✅ Controles del bot
-│   │       ├── BotControl.css
-│   │       ├── BotStats.jsx           ✅ Estadísticas
-│   │       ├── BotStats.css
-│   │       ├── GeneralConfig.jsx      ✅ Configuración general
-│   │       ├── GeneralConfig.css
-│   │       ├── ProxyConfig.jsx        ✅ Configuración de proxy
-│   │       ├── ProxyConfig.css
-│   │       ├── FlipsConfig.jsx        ✅ Configuración de flips
-│   │       ├── FlipsConfig.css
-│   │       └── flips/
-│   │           ├── NPCFlipConfig.jsx  ✅ Config para NPC flips
-│   │           ├── KatFlipConfig.jsx  ✅ Config para Kat flips
-│   │           ├── CraftFlipConfig.jsx ✅ Config para Craft flips
-│   │           └── ForgeFlipConfig.jsx ✅ Config para Forge flips
-│   └── pages/
-│       ├── Dashboard.jsx              ✅ Página principal
-│       └── Dashboard.css
+│   │   ├── Button.jsx          # Reusable button component
+│   │   ├── Button.css
+│   │   ├── Card.jsx            # Card container components
+│   │   ├── Card.css
+│   │   ├── BotCard.jsx         # Bot preview card
+│   │   ├── BotCard.css
+│   │   ├── StatCard.jsx        # Statistics card
+│   │   ├── StatCard.css
+│   │   ├── StatusBadge.jsx     # Status indicator badge
+│   │   └── StatusBadge.css
+│   ├── pages/
+│   │   ├── Dashboard.jsx       # Main dashboard page
+│   │   ├── Dashboard.css
+│   │   ├── BotDetail.jsx       # Individual bot detail page
+│   │   ├── BotDetail.css
+│   │   ├── Settings.jsx        # Settings and config page
+│   │   └── Settings.css
+│   ├── styles/
+│   │   └── globals.css         # Global styles and animations
+│   ├── utils/
+│   │   └── hooks.js            # Custom React hooks
+│   ├── App.jsx                 # Root component
+│   └── main.jsx                # Entry point
+├── server.js                   # Express server
+├── package.json
+├── vite.config.js
+├── .gitignore
+├── start-dev.sh
+└── README.md
 ```
 
-### 🎨 Características del Nuevo Diseño
+## 🎨 Color Palette
 
-#### 1. **Tema Visual Pastel**
-- Colores pastel suaves (púrpura, rosa, azul, verde, amarillo, naranja)
-- Gradientes modernos en botones y tarjetas
-- Fondo animado con efectos de movimiento
+```css
+Primary:    #A78BFA (Soft Purple)
+Secondary:  #93C5FD (Soft Blue)
+Success:    #86EFAC (Soft Green)
+Warning:    #FDE047 (Soft Yellow)
+Danger:     #FCA5A5 (Soft Red)
+Info:       #A5F3FC (Soft Cyan)
 
-#### 2. **Animaciones Interactivas**
-- ✨ Fade in/out
-- 📍 Slide in (left/right)
-- ⬆️ Slide up
-- 💓 Pulse effects
-- 🌊 Hover effects con ondas
-- 🎯 Smooth transitions
+Background: #0F172A (Deep Blue)
+Cards:      #1E293B (Slate)
+Text:       #F8FAFC (White)
+```
 
-#### 3. **Sidebar Moderna**
-- Lista de todos los bots
-- Indicador visual del bot seleccionado
-- Estado online/offline con badges animados
-- Botón para agregar nuevos bots
-- Estadísticas rápidas (Total bots, Activos)
+## 🚀 Getting Started
 
-#### 4. **Dashboard Multi-pestaña**
-- **Overview**: Control del bot + Estadísticas
-- **General**: Configuración de cuenta y comportamiento
-- **Proxy**: Configuración de proxy (SOCKS5, HTTP, etc.)
-- **Flips**: Configuración de todos los tipos de flips
+### Development Mode
 
-#### 5. **Bot Control Section**
-- Botones de Start/Pause/Stop con estados
-- Información en tiempo real (Uptime, Server, Username, Balance)
-- Indicadores de estado con colores
-
-#### 6. **Estadísticas Detalladas**
-- Total de flips
-- Tasa de éxito
-- Profit total/promedio/mejor flip
-- Flips fallidos
-- Lista de flips recientes
-
-#### 7. **Configuraciones de Flips por Tipo**
-
-**NPC Flips:**
-- Matriz de items (nombre, precio compra, precio venta)
-- Toggle para habilitar/deshabilitar
-- Agregar/eliminar items dinámicamente
-
-**Kat Flips:**
-- Selección de pets mediante checkboxes
-- Configuración de profit mínimo
-- Tiempo máximo de upgrade
-
-**Craft Flips:**
-- Matriz de recetas (item resultante, ingredientes, profit)
-- Profit mínimo configurable
-- Agregar/eliminar recetas
-
-**Forge Flips:**
-- Matriz de items de forja (nombre, materiales, tiempo, profit)
-- Configuración de profit mínimo
-- Tiempo máximo de forja
-
-#### 8. **Configuración General**
-- Credenciales (username, password)
-- Server address
-- Auto-reconnect con delay configurable
-- Chat logging
-- Debug mode
-
-#### 9. **Configuración de Proxy**
-- Toggle para habilitar/deshabilitar
-- Host, Port, Type (SOCKS5, SOCKS4, HTTP, HTTPS)
-- Username/Password opcional
-- Botón de test de conexión
-
-### 🚀 Cómo Usar
-
-1. **Iniciar en modo desarrollo:**
+1. Navigate to the web directory:
    ```bash
-   cd SkyBZM/src/web/public
-   npm run dev
+   cd src/web
    ```
 
-2. **Compilar para producción:**
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   or use the helper script:
+   ```bash
+   ./start-dev.sh
+   ```
+
+4. Open http://localhost:7392 in your browser
+
+### Production Build
+
+1. Build the production files:
    ```bash
    npm run build
    ```
 
-3. **Vista previa de producción:**
-   ```bash
-   npm run preview
-   ```
+2. The `dist/` folder will be created with optimized files
 
-### 📝 Notas Importantes
+3. Start the bot from the root directory, and the Express server will automatically serve the built files
 
-- ✅ Eliminado `app-react.js` (ya no se usa)
-- ✅ Eliminada dependencia de Babel standalone
-- ✅ Todo migrado a Vite + React moderno
-- ✅ Estilos completamente responsivos
-- ✅ Configuraciones individuales por bot
-- ✅ Sistema de pestañas para organizar secciones
-- ✅ Animaciones y efectos en todos los elementos
+## 🔌 API Integration
 
-### 🎯 Próximos Pasos
+The frontend communicates with the backend through a RESTful API:
 
-1. Conectar con el backend real (actualmente usa mock data)
-2. Implementar WebSocket para actualizaciones en tiempo real
-3. Añadir gráficos de profit con charts
-4. Sistema de notificaciones
-5. Historial completo de flips con filtros
+### Endpoints
 
----
+- **GET** `/api/health` - Health check
+- **GET** `/api/bots` - List all bots with status
+- **GET** `/api/bots/:username` - Get specific bot details
+- **POST** `/api/bots/:username/start` - Start a bot
+- **POST** `/api/bots/:username/stop` - Stop a bot
+- **POST** `/api/bots/:username/restart` - Restart a bot
+- **GET** `/api/bots/:username/activity` - Get activity logs
+- **GET** `/api/bots/:username/profits` - Get profit history
+- **GET** `/api/bots/:username/money-flow` - Get money flow data
+- **GET** `/api/config` - Get configuration
+- **PUT** `/api/config` - Update configuration
+- **PUT** `/api/bots/:username/config` - Update bot config
 
-**Fecha:** 12 de Marzo 2026  
-**Versión:** 2.0.0  
-**Estado:** ✅ Completado
+### Custom Hooks
+
+All API calls are wrapped in custom React hooks with auto-refresh:
+
+- `useBots()` - Fetch all bots (refreshes every 2s)
+- `useBot(username)` - Fetch single bot (refreshes every 2s)
+- `useBotActivity(username)` - Fetch activity logs (refreshes every 3s)
+- `useBotProfits(username)` - Fetch profit history (refreshes every 3s)
+- `useBotMoneyFlow(username)` - Fetch money flow (refreshes every 3s)
+- `useConfig()` - Fetch and update configuration
+- `useBotControl(username)` - Control bot actions (start/stop/restart)
+
+## ✨ Animations & Effects
+
+### Global Animations
+
+Defined in `globals.css`:
+
+- `fadeIn` - Smooth fade in
+- `slideInFromLeft` - Slide from left side
+- `slideInFromRight` - Slide from right side
+- `slideInFromTop` - Slide from top
+- `slideInFromBottom` - Slide from bottom
+- `scaleIn` - Scale from 0.9 to 1
+- `pulse` - Pulsing opacity
+- `spin` - 360° rotation
+- `bounce` - Bounce up and down
+- `shimmer` - Loading shimmer effect
+- `backgroundFloat` - Floating background gradients
+- `rotateGlow` - Rotating glow effect
+
+### Component Effects
+
+- **Card Hover** - Lift up with glow shadow
+- **Button Press** - Scale down on click
+- **Status Dots** - Pulsing animation
+- **Stat Icons** - Scale and rotate on hover
+- **Bot Stats** - Slide right on hover
+- **Smooth Transitions** - All state changes are animated
+
+## 📊 Components Overview
+
+### Button
+- Multiple variants: primary, secondary, success, danger, warning, ghost, outline
+- Sizes: sm, md, lg
+- Loading state with spinner
+- Icon support
+- Press effect animation
+
+### Card
+- Main container component
+- Sub-components: CardHeader, CardTitle, CardContent, CardFooter
+- Glass morphism option
+- Hover effect option
+- Top gradient border on hover
+
+### BotCard
+- Displays bot information
+- Real-time status indicator
+- Quick stats (Active Flips, Profit, Purse)
+- Action buttons (Start/Stop/Restart)
+- Click to view details
+- Hover effects
+
+### StatCard
+- Large statistic display
+- Icon with gradient background
+- Animated glow effect
+- Optional trend indicator (up/down)
+- Loading skeleton state
+
+### StatusBadge
+- Visual status indicator
+- Pulsing dot animation
+- Color-coded (connected/connecting/disconnected)
+- Compact design
+
+## 🎯 Pages
+
+### Dashboard (`/`)
+- Overview of all bots
+- 4 stat cards: Total Bots, Connected, Active Flips, Total Profit
+- Grid of bot cards
+- Refresh and Settings buttons
+- Empty state when no bots exist
+
+### Bot Detail (`/bot/:username`)
+- Detailed bot information
+- Control buttons (Start/Stop/Restart)
+- 4 detailed stat cards
+- Real-time activity log
+- Profit history timeline
+- Back to dashboard button
+
+### Settings (`/settings`)
+- Configuration guide
+- Documentation for config.json
+- List of configuration options
+- Flip types explanation
+- Important notes and warnings
+- Links to GitHub repository
+
+## 🔧 Technical Details
+
+### State Management
+- React hooks (useState, useEffect, useCallback, useRef)
+- Custom hooks for data fetching
+- Auto-refresh with cleanup
+- Loading and error states
+
+### Routing
+- React Router v6
+- Dynamic routes for bot details
+- Navigation with useNavigate hook
+- 404 redirect to dashboard
+
+### Styling
+- Pure CSS3 (no preprocessors)
+- CSS custom properties (variables)
+- Mobile-first responsive design
+- Flexbox and CSS Grid
+- Smooth transitions
+
+### Performance
+- Vite for fast builds and HMR
+- Component memoization where needed
+- Automatic code splitting
+- Optimized production builds
+
+## 🐛 Known Limitations
+
+- Configuration editing in UI not yet implemented (must edit config.json manually)
+- WebSocket real-time updates not implemented (uses polling)
+- Charts not yet implemented (Recharts installed but not used)
+- Some bot statistics show "Coming Soon" (backend integration pending)
+
+## 🚀 Future Enhancements
+
+- [ ] WebSocket integration for real-time updates
+- [ ] Interactive configuration editor
+- [ ] Profit and money flow charts
+- [ ] Bot logs viewer
+- [ ] Dark/Light theme toggle
+- [ ] Data export functionality
+- [ ] Multi-flip type configuration UI
+- [ ] Notification system
+- [ ] Performance metrics
+
+## 📝 Notes
+
+- The project uses Vite for development and production builds
+- Express server serves the built files from `dist/` in production
+- Development mode runs on the same port (7392) as the backend
+- API requests are proxied in development mode
+- All icons from Lucide React (lightweight, customizable)
+- No external CSS frameworks (pure custom CSS)
+- Fully accessible with keyboard navigation
+- Follows React best practices and hooks patterns
+
+## 🎉 Conclusion
+
+This is a complete, production-ready web interface for SkyBZM with:
+- Modern, beautiful design
+- Smooth animations and interactions
+- Full bot management capabilities
+- Real-time data updates
+- Responsive on all devices
+- Clean, maintainable code structure
+
+The interface is designed to be addictive and fun to use while remaining highly functional for managing multiple Minecraft bots efficiently.

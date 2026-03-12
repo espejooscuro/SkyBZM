@@ -1,0 +1,8 @@
+# Git Configuration Notes
+Repository: https://github.com/espejooscuro/SkyBZM.git
+Branch: main
+Token: Located in ../.env as GITHUB_REPOSITORY_TOKEN
+
+# Commands to use:
+# Commit: git add . && git commit -m "message"
+# Push: GITHUB_TOKEN=$(grep GITHUB_REPOSITORY_TOKEN ../.env | cut -d'=' -f2 | tr -d '"') && git push https://${GITHUB_TOKEN}@github.com/espejooscuro/SkyBZM.git main
