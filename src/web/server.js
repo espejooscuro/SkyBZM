@@ -33,7 +33,15 @@ class WebServer {
       next();
     });
     
-    this.app.use(express.static(path.join(__dirname, 'public')));
+    // Serve static files from dist directory (production build)
+    const distPath = path.join(__dirname, 'public', 'dist');
+    if (fs.existsSync(distPath)) {
+      this.app.use(express.static(distPath));
+    } else {
+      // Fallback to public directory for development
+      this.app.use(express.static(path.join(__dirname, 'public')));
+    }
+    
     this.app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -58,8 +66,7 @@ class WebServer {
   }
 
   setupRoutes() {
-    this.app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
+    // API routes first
     this.app.post('/api/login', (req, res) => {
       try {
         const { password } = req.body;
@@ -257,6 +264,20 @@ class WebServer {
       } catch (error) {
         console.error('Error saving rest schedule:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Serve index.html for all non-API routes (SPA fallback)
+    this.app.get('*', (req, res) => {
+      const distIndexPath = path.join(__dirname, 'public', 'dist', 'index.html');
+      const publicIndexPath = path.join(__dirname, 'public', 'index.html');
+      
+      if (fs.existsSync(distIndexPath)) {
+        res.sendFile(distIndexPath);
+      } else if (fs.existsSync(publicIndexPath)) {
+        res.sendFile(publicIndexPath);
+      } else {
+        res.status(404).send('Application not found. Please run npm run build.');
       }
     });
   }
@@ -1142,6 +1163,8 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
 
 
 
