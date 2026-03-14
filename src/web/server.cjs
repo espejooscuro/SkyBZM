@@ -505,7 +505,8 @@ class WebServer {
           lastHeartbeat: Date.now(),
           lastActivity: Date.now()
         },
-        purse: 0
+        purse: 0,
+        purseHistory: []
       };
 
       if (this.botManager && this.botManager.bots) {
@@ -513,7 +514,8 @@ class WebServer {
         if (bot) {
           botInfo.connected = !!bot.bot;
           botInfo.state = bot.bot ? 'connected' : 'disconnected';
-          botInfo.purse = bot.purse || 0;
+          botInfo.purse = bot.currentPurse || 0;
+          botInfo.purseHistory = bot.purseHistory || [];
         }
       }
 
@@ -575,6 +577,23 @@ class WebServer {
 
       const transactions = (bot.moneyFlow || []).slice(-limit);
       res.json({ transactions });
+    });
+
+    this.app.get('/api/bots/:username/flip-activity', (req, res) => {
+      const { username } = req.params;
+      const limit = parseInt(req.query.limit) || 500;
+
+      if (!this.botManager || !this.botManager.bots) {
+        return res.json({ actions: [] });
+      }
+
+      const bot = this.botManager.bots.get(username);
+      if (!bot) {
+        return res.status(404).json({ success: false, message: 'Bot not found' });
+      }
+
+      const actions = (bot.flipActions || []).slice(-limit);
+      res.json({ actions });
     });
 
     this.app.get('/api/bots/:username/config', (req, res) => {
@@ -664,6 +683,8 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
 
 
 

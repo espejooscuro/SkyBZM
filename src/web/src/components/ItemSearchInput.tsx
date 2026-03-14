@@ -144,8 +144,9 @@ export default function ItemSearchInput({
             />
           </div>
 
-          {isOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-2xl z-50 max-h-64 overflow-y-auto">
+          {/* Dropdown de sugerencias */}
+          {isOpen && filteredItems.length > 0 && (
+            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[9999]">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">
                   <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -185,3 +186,4 @@ export default function ItemSearchInput({
     </div>
   );
 }
+

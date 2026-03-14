@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, BarChart3, DollarSign, Wallet, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, DollarSign, Wallet, AlertTriangle, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ScatterChart, Scatter, ReferenceLine, Area, AreaChart } from 'recharts';
-import type { ProfitEntry, MoneyFlowEntry } from '@/lib/api';
+import type { ProfitEntry, MoneyFlowEntry, FlipActionEntry } from '@/lib/api';
 
 interface StatsPanelProps {
   profits: ProfitEntry[];
   moneyFlow: MoneyFlowEntry[];
+  flipActions?: FlipActionEntry[];
+  purseHistory?: Array<{ timestamp: number; purse: number; runtime: number }>;
   purse?: number;
 }
 
@@ -18,9 +20,47 @@ const formatCoins = (n: number | null | undefined) => {
   return n.toLocaleString();
 };
 
-export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProps) {
+export default function StatsPanel({ profits, moneyFlow, flipActions = [], purseHistory = [], purse }: StatsPanelProps) {
   const totalProfit = profits.reduce((sum, p) => sum + p.profit, 0);
   const totalExpenses = moneyFlow.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  // 📊 Flip Activity Graph Data - muestra un punto cada vez que se ejecuta una acción
+  // La curva sube cuando se ejecuta una acción y baja con el tiempo
+  const activityData = useMemo(() => {
+    if (!flipActions || flipActions.length === 0) return [];
+    
+    const now = Date.now();
+    const timeWindow = 60 * 60 * 1000; // 1 hora
+    const decayTime = 5 * 60 * 1000; // 5 minutos para que el punto decaiga completamente
+    
+    // Generar puntos de tiempo cada minuto
+    const points = [];
+    const startTime = Math.max(now - timeWindow, flipActions[0]?.timestamp || now);
+    
+    for (let t = startTime; t <= now; t += 60 * 1000) {
+      let activityLevel = 0;
+      
+      // Para cada acción, calcular cuánto "peso" contribuye a este punto de tiempo
+      flipActions.forEach(action => {
+        const timeSinceAction = t - action.timestamp;
+        
+        if (timeSinceAction >= 0 && timeSinceAction < decayTime) {
+          // Decay exponencial: empieza en 100 y decae a 0 en decayTime
+          const decay = Math.exp(-3 * (timeSinceAction / decayTime));
+          activityLevel += decay * 100;
+        }
+      });
+      
+      const minutesAgo = Math.floor((now - t) / (60 * 1000));
+      points.push({
+        time: `${minutesAgo}m ago`,
+        timestamp: t,
+        activity: Math.min(activityLevel, 100) // Cap at 100
+      });
+    }
+    
+    return points.reverse(); // Más reciente a la derecha
+  }, [flipActions]);
 
   // Flip timeline data (scatter by hour)
   const flipTimelineData = useMemo(() => {
@@ -40,15 +80,16 @@ export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProp
     });
   }, [profits]);
 
-  // Purse tracking from money flow
+  // 💰 Purse tracking from Bot.js purseHistory
   const purseData = useMemo(() => {
-    let balance = purse ?? 0;
-    const data = moneyFlow.slice().reverse().map(t => {
-      balance += t.amount;
-      return { time: new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), balance };
-    });
-    return data;
-  }, [moneyFlow, purse]);
+    if (!purseHistory || purseHistory.length === 0) return [];
+    
+    return purseHistory.map(entry => ({
+      time: new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      balance: entry.purse,
+      runtime: entry.runtime
+    }));
+  }, [purseHistory]);
 
   // Expenses data
   const expenseData = useMemo(() => {
@@ -59,7 +100,7 @@ export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProp
     });
   }, [moneyFlow]);
 
-  if (profits.length === 0 && moneyFlow.length === 0) {
+  if (profits.length === 0 && moneyFlow.length === 0 && flipActions.length === 0 && purseHistory.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-secondary flex items-center justify-center">
@@ -100,9 +141,79 @@ export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProp
         ))}
       </div>
 
-      {/* Flip Timeline (scatter 0-24h) */}
-      {flipTimelineData.length > 0 && (
+      {/* 📊 Flip Activity Graph - NEW! */}
+      {activityData.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-2xl border border-border/50 bg-card p-4">
+          <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            ⚡ Flip Activity
+            <span className="text-[10px] text-muted-foreground font-normal">(Real-time action rate)</span>
+          </h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={activityData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(252, 65%, 68%)" stopOpacity={0.5} />
+                  <stop offset="95%" stopColor="hsl(252, 65%, 68%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis 
+                dataKey="time" 
+                tick={{ fontSize: 10 }} 
+                stroke="hsl(var(--muted-foreground))" 
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                tick={{ fontSize: 10 }} 
+                stroke="hsl(var(--muted-foreground))" 
+                domain={[0, 100]}
+                label={{ value: 'Activity %', angle: -90, position: 'insideLeft', style: { fontSize: 10 } }}
+              />
+              <Tooltip 
+                formatter={(value: number) => [`${value.toFixed(0)}%`, 'Activity']}
+                labelStyle={{ fontSize: 10 }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="activity" 
+                stroke="hsl(252, 65%, 68%)" 
+                fill="url(#activityGrad)" 
+                strokeWidth={2} 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            The line goes up when actions are executed and decays over time without activity
+          </p>
+        </motion.div>
+      )}
+
+      {/* 💰 Purse Balance - UPDATED to use purseHistory from Bot.js */}
+      {purseData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-border/50 bg-card p-4">
+          <h3 className="font-display text-sm font-semibold mb-3">👛 Purse Balance Over Time</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={purseData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="purseGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => formatCoins(v)} />
+              <Tooltip formatter={(v: number) => formatCoins(v)} />
+              <Area type="monotone" dataKey="balance" stroke="hsl(162, 55%, 62%)" fill="url(#purseGrad)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
+      )}
+
+      {/* Flip timeline (scatter 0-24h) */}
+      {flipTimelineData.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3">⏰ Flip Activity Timeline (24h)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
@@ -129,34 +240,12 @@ export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProp
 
       {/* Profit chart */}
       {profitChartData.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-2xl border border-border/50 bg-card p-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3">💰 Cumulative Profit</h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={profitChartData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
               <defs>
                 <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => formatCoins(v)} />
-              <Tooltip formatter={(v: number) => formatCoins(v)} />
-              <Area type="monotone" dataKey="cumulative" stroke="hsl(162, 55%, 62%)" fill="url(#profitGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-      )}
-
-      {/* Purse chart */}
-      {purseData.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="rounded-2xl border border-border/50 bg-card p-4">
-          <h3 className="font-display text-sm font-semibold mb-3">👛 Purse Balance</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={purseData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="purseGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(252, 65%, 68%)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="hsl(252, 65%, 68%)" stopOpacity={0} />
                 </linearGradient>
@@ -165,7 +254,7 @@ export default function StatsPanel({ profits, moneyFlow, purse }: StatsPanelProp
               <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => formatCoins(v)} />
               <Tooltip formatter={(v: number) => formatCoins(v)} />
-              <Area type="monotone" dataKey="balance" stroke="hsl(252, 65%, 68%)" fill="url(#purseGrad)" strokeWidth={2} />
+              <Area type="monotone" dataKey="cumulative" stroke="hsl(252, 65%, 68%)" fill="url(#profitGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </motion.div>

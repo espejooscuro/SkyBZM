@@ -3,6 +3,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -51,6 +52,10 @@ class Bot {
     this.startTime = Date.now();
     this.runtime = 0; // en segundos
     this.lastPurseValue = null;
+    
+    // 📊 Tracking de actividad de flips (para gráfica de actividad)
+    this.flipActions = []; // Array de { timestamp, type: 'npcbuy'|'npcsell'|'buy'|'sell', item }
+    this.maxFlipActions = 1000; // Máximo de acciones a guardar
     
     // 🔄 Reconnection system
     this.isReconnecting = false;
@@ -280,6 +285,7 @@ class Bot {
           return;
         }
         
+        console.log(`🌍 [${this.name}] Joining Skyblock...`);
         this.chat.send("/skyblock");
         await delay(5000);
         
@@ -289,9 +295,10 @@ class Bot {
           return;
         }
         
+        console.log(`🏝️  [${this.name}] Warping to island...`);
         this.chat.send("/is");
         await delay(5000);
-        console.log(`[${this.name}] Bot ready!`);  
+        console.log(`✅ [${this.name}] Successfully connected to Skyblock!`);  
         let items = containerManager._getValidItems(false);
         console.log(items);
         
@@ -496,9 +503,40 @@ class Bot {
       coinsPerHour: Math.round(coinsPerHour),
       runtime: this.runtime,
       purseHistory: this.purseHistory,
+      flipActions: this.flipActions,
       isLogged: this.isLogged,
       startTime: this.startTime
     };
+  }
+
+  /**
+   * Registra una acción de flip para estadísticas
+   */
+  recordFlipAction(type, item) {
+    const action = {
+      timestamp: Date.now(),
+      type: type, // 'npcbuy', 'npcsell', 'buy', 'sell'
+      item: item
+    };
+    
+    this.flipActions.push(action);
+    
+    // Mantener solo las últimas N acciones
+    if (this.flipActions.length > this.maxFlipActions) {
+      this.flipActions = this.flipActions.slice(-this.maxFlipActions);
+    }
+  }
+
+  /**
+   * Obtiene datos de actividad para gráfica
+   * Retorna un array con timestamps de las acciones
+   */
+  getActivityData() {
+    return this.flipActions.map(action => ({
+      timestamp: action.timestamp,
+      type: action.type,
+      item: action.item
+    }));
   }
 
   /**
@@ -661,6 +699,9 @@ class Bot {
 }
 
 module.exports = Bot;
+
+
+
 
 
 

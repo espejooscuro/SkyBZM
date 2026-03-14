@@ -1,3 +1,7 @@
+
+
+
+
 const Flip = require('./Flip');
 
 
@@ -251,6 +255,13 @@ class NPCFlip extends Flip {
           timer: null // Will be set below
         });
         
+        console.log(`💰 [${this.bot?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins`);
+        
+        // 📊 Registrar acción para estadísticas
+        if (this.bot && typeof this.bot.recordFlipAction === 'function') {
+          this.bot.recordFlipAction('npcbuy', this.npcItem);
+        }
+        
         const forceSellTimer = setTimeout(() => {
           if (!this.activePurchases.has(purchaseId) && this.purchasedItems.has(purchaseId)) {
             
@@ -444,6 +455,13 @@ class NPCFlip extends Flip {
           await delay(500);
         }
         
+        console.log(`💵 [${this.bot?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all items to Bazaar`);
+        
+        // 📊 Registrar acción para estadísticas
+        if (this.bot && typeof this.bot.recordFlipAction === 'function') {
+          this.bot.recordFlipAction('npcsell', this.npcItem);
+        }
+        
         // Remove from tracking
         this.purchasedItems.delete(purchaseId);
         this.activePurchases.delete(purchaseId);
@@ -549,3 +567,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
+
+
+

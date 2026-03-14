@@ -1,5 +1,8 @@
 
 
+
+
+
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -101,6 +104,7 @@ export interface BotStatusInfo {
     lastActivity?: number;
   };
   purse?: number;
+  purseHistory?: Array<{ timestamp: number; purse: number; runtime: number }>;
 }
 
 export interface ActivityLog {
@@ -124,6 +128,12 @@ export interface MoneyFlowEntry {
   amount: number;
   item?: string;
   timestamp: number;
+}
+
+export interface FlipActionEntry {
+  timestamp: number;
+  type: 'npcbuy' | 'npcsell' | 'buy' | 'sell';
+  item: string;
 }
 
 // === Health ===
@@ -162,6 +172,9 @@ export const getBotProfits = (username: string, limit = 50) =>
 export const getBotMoneyFlow = (username: string, limit = 100) =>
   request<{ transactions: MoneyFlowEntry[] }>(`/api/bots/${username}/money-flow?limit=${limit}`);
 
+export const getBotFlipActivity = (username: string, limit = 500) =>
+  request<{ actions: FlipActionEntry[] }>(`/api/bots/${username}/flip-activity?limit=${limit}`);
+
 // === Config ===
 export const getConfig = () =>
   request<{ config: AppConfig }>('/api/config');
@@ -180,5 +193,8 @@ export const updateBotConfig = (username: string, updates: Partial<Account>) =>
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+
+
+
 
 
