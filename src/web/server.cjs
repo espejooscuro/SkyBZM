@@ -1,5 +1,8 @@
 
 
+
+
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -57,10 +60,51 @@ class WebServer {
   }
 
   setupRoutes() {
+    // Health check endpoint
+    this.app.get('/api/health', (req, res) => {
+      this.loadConfig();
+      
+      const bots = [];
+      
+      if (this.config && this.config.accounts) {
+        this.config.accounts.forEach(account => {
+          const botInfo = {
+            username: account.username,
+            connected: false,
+            state: 'disconnected',
+            exists: true,
+            health: {
+              lastHeartbeat: Date.now(),
+              lastActivity: Date.now()
+            },
+            purse: 0
+          };
+
+          // If botManager exists, get live data
+          if (this.botManager) {
+            const bot = this.botManager.bots.find(b => b.username === account.username);
+            if (bot) {
+              botInfo.connected = !!bot.bot;
+              botInfo.state = bot.bot ? 'connected' : 'disconnected';
+              botInfo.purse = bot.purse || 0;
+            }
+          }
+
+          bots.push(botInfo);
+        });
+      }
+
+      res.json({ 
+        status: 'ok', 
+        timestamp: Date.now(),
+        bots
+      });
+    });
+
     // API Routes
     this.app.get('/api/config', (req, res) => {
       this.loadConfig();
-      res.json(this.config);
+      res.json({ config: this.config });
     });
 
     this.app.post('/api/config', (req, res) => {
@@ -68,6 +112,16 @@ class WebServer {
         this.config = req.body;
         this.saveConfig();
         res.json({ success: true, message: 'Configuration saved' });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    this.app.put('/api/config', (req, res) => {
+      try {
+        this.config = req.body.config || req.body;
+        this.saveConfig();
+        res.json({ success: true, message: 'Configuration updated' });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
@@ -253,6 +307,133 @@ class WebServer {
       res.json({ logs: bot.logs || [] });
     });
 
+    this.app.get('/api/bots/:username', (req, res) => {
+      const { username } = req.params;
+      this.loadConfig();
+
+      const account = this.config.accounts.find(acc => acc.username === username);
+      if (!account) {
+        return res.status(404).json({ success: false, message: 'Bot not found' });
+      }
+
+      const botInfo = {
+        username: account.username,
+        connected: false,
+        state: 'disconnected',
+        exists: true,
+        health: {
+          lastHeartbeat: Date.now(),
+          lastActivity: Date.now()
+        },
+        purse: 0
+      };
+
+      if (this.botManager) {
+        const bot = this.botManager.bots.find(b => b.username === username);
+        if (bot) {
+          botInfo.connected = !!bot.bot;
+          botInfo.state = bot.bot ? 'connected' : 'disconnected';
+          botInfo.purse = bot.purse || 0;
+        }
+      }
+
+      res.json({ bot: botInfo });
+    });
+
+    this.app.get('/api/bots/:username/activity', (req, res) => {
+      const { username } = req.params;
+      const limit = parseInt(req.query.limit) || 30;
+
+      if (!this.botManager) {
+        return res.json({ logs: [] });
+      }
+
+      const bot = this.botManager.bots.find(b => b.username === username);
+      if (!bot) {
+        return res.status(404).json({ success: false, message: 'Bot not found' });
+      }
+
+      const logs = (bot.logs || []).slice(-limit).map(log => ({
+        timestamp: log.timestamp || Date.now(),
+        message: log.message || log,
+        level: log.level || 'info',
+        type: log.type || 'general'
+      }));
+
+      res.json({ logs });
+    });
+
+    this.app.get('/api/bots/:username/profits', (req, res) => {
+      const { username } = req.params;
+      const limit = parseInt(req.query.limit) || 50;
+
+      if (!this.botManager) {
+        return res.json({ profits: [] });
+      }
+
+      const bot = this.botManager.bots.find(b => b.username === username);
+      if (!bot) {
+        return res.status(404).json({ success: false, message: 'Bot not found' });
+      }
+
+      const profits = (bot.profits || []).slice(-limit);
+      res.json({ profits });
+    });
+
+    this.app.get('/api/bots/:username/money-flow', (req, res) => {
+      const { username } = req.params;
+      const limit = parseInt(req.query.limit) || 100;
+
+      if (!this.botManager) {
+        return res.json({ transactions: [] });
+      }
+
+      const bot = this.botManager.bots.find(b => b.username === username);
+      if (!bot) {
+        return res.status(404).json({ success: false, message: 'Bot not found' });
+      }
+
+      const transactions = (bot.moneyFlow || []).slice(-limit);
+      res.json({ transactions });
+    });
+
+    this.app.get('/api/bots/:username/config', (req, res) => {
+      const { username } = req.params;
+      this.loadConfig();
+
+      const account = this.config.accounts.find(acc => acc.username === username);
+      if (!account) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+
+      res.json({ config: account });
+    });
+
+    this.app.put('/api/bots/:username/config', (req, res) => {
+      const { username } = req.params;
+      const updates = req.body;
+
+      this.loadConfig();
+      const account = this.config.accounts.find(acc => acc.username === username);
+
+      if (!account) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+
+      Object.assign(account, updates);
+      this.saveConfig();
+
+      // Update bot configuration if it exists
+      if (this.botManager) {
+        const bot = this.botManager.bots.find(b => b.username === username);
+        if (bot) {
+          Object.assign(bot, updates);
+        }
+      }
+
+      res.json({ success: true, message: 'Configuration updated' });
+    });
+
     // Serve React app for all other routes
     this.app.use((req, res, next) => {
       // Skip API routes
@@ -293,5 +474,10 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
+
+
 
 
