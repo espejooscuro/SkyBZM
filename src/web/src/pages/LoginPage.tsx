@@ -31,7 +31,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        sessionStorage.setItem('skybzm-auth', 'true');
         onLogin();
       } else {
         setError(data.message || 'Invalid password');
