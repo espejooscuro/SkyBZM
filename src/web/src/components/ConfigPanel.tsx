@@ -15,7 +15,7 @@ interface ConfigPanelProps {
 export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
   const [showProxyPass, setShowProxyPass] = useState(false);
 
-  const shortBreaks = account.restSchedule?.shortBreaks ?? { enabled: false, restAfter: 60, restTime: 10 };
+  const shortBreaks = account.restSchedule?.shortBreaks ?? { enabled: false, workDuration: 60, breakDuration: 10 };
   const dailyRest = account.restSchedule?.dailyRest ?? { enabled: false, workDuration: 12 };
   const proxy = account.proxy ?? { enabled: false, host: '', port: 1080, username: '', password: '' };
   const cookie = account.boosterCookie ?? { enabled: false, useWhenTimeLeft: 24 };
@@ -36,12 +36,12 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
         {shortBreaks.enabled && (
           <div className="px-4 pb-4 space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest After: {shortBreaks.restAfter} min</Label>
-              <Slider value={[shortBreaks.restAfter]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, restAfter: v } } })} min={1} max={120} step={1} />
+              <Label className="text-xs text-muted-foreground">Rest After: {shortBreaks.workDuration} min</Label>
+              <Slider value={[shortBreaks.workDuration]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, workDuration: v } } })} min={1} max={120} step={1} />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest Time: {shortBreaks.restTime} min</Label>
-              <Slider value={[shortBreaks.restTime]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, restTime: v } } })} min={1} max={30} step={1} />
+              <Label className="text-xs text-muted-foreground">Rest Time: {shortBreaks.breakDuration} min</Label>
+              <Slider value={[shortBreaks.breakDuration]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, breakDuration: v } } })} min={1} max={30} step={1} />
             </div>
           </div>
         )}
@@ -139,3 +139,4 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
     </div>
   );
 }
+

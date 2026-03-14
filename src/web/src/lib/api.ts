@@ -1,3 +1,4 @@
+
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -45,13 +46,15 @@ export interface FlipConfig {
   // just item
   // Craft
   craftGrid?: CraftSlot[][];
+  craftedItem?: string;
   instasell?: boolean;
+  instacraft?: boolean;
   craftItemType?: 'ah' | 'bz';
   config?: Record<string, any>;
 }
 
 export interface RestSchedule {
-  shortBreaks?: { enabled: boolean; restAfter: number; restTime: number };
+  shortBreaks?: { enabled: boolean; workDuration: number; breakDuration: number };
   dailyRest?: { enabled: boolean; workDuration: number };
 }
 
@@ -169,3 +172,4 @@ export const updateBotConfig = (username: string, updates: Partial<Account>) =>
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+

@@ -121,7 +121,7 @@ function CraftConfig({ config, onChange }: { config: FlipConfig; onChange: (c: F
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center gap-6">
         <div className="inline-block p-4 rounded-2xl bg-secondary/30 border border-border/40">
           <div className="grid grid-cols-3 gap-2">
             {grid.map((row, ri) => row.map((slot, ci) => (
@@ -141,11 +141,43 @@ function CraftConfig({ config, onChange }: { config: FlipConfig; onChange: (c: F
             )))}
           </div>
         </div>
+        
+        {/* Crafted Item */}
+        <div className="flex flex-col items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Crafted Item</Label>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="w-24 h-24 rounded-xl border-2 border-primary/40 bg-card flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary transition-colors relative"
+          >
+            <input 
+              type="text" 
+              value={config.craftedItem ?? ''} 
+              onChange={e => onChange({ ...config, craftedItem: e.target.value })} 
+              placeholder="Result" 
+              className="w-full text-center text-xs bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 font-mono px-2" 
+            />
+            {config.craftedItem && (
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent flex items-center justify-center">
+                <Sparkles className="w-3 h-3 text-accent-foreground" />
+              </motion.div>
+            )}
+          </motion.div>
+        </div>
       </div>
+      
       <div className="flex items-center justify-between rounded-xl bg-secondary/50 p-4 border border-border/30">
         <Label className="text-sm">Instasell</Label>
         <Switch checked={config.instasell ?? false} onCheckedChange={v => onChange({ ...config, instasell: v })} />
       </div>
+      
+      <div className="flex items-center justify-between rounded-xl bg-secondary/50 p-4 border border-border/30">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm">Instacraft</Label>
+          <span className="text-[10px] text-green-500 font-semibold">(VIP required)</span>
+        </div>
+        <Switch checked={config.instacraft ?? false} onCheckedChange={v => onChange({ ...config, instacraft: v })} />
+      </div>
+      
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Item Type</Label>
         <div className="flex gap-2">
@@ -237,3 +269,4 @@ export default function FlipsPanel({ flipConfigs, onUpdate }: FlipsPanelProps) {
     </div>
   );
 }
+
