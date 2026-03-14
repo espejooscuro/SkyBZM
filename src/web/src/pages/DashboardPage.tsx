@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Bot, Sparkles } from 'lucide-react';
+import { RefreshCw, Bot, Sparkles, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import BotCard from '@/components/BotCard';
 import * as api from '@/lib/api';
 import type { Account, BotStatusInfo, AppConfig } from '@/lib/api';
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  onLogout?: () => void;
+}
+
+export default function DashboardPage({ onLogout }: DashboardPageProps) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [botStatuses, setBotStatuses] = useState<Record<string, BotStatusInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -78,6 +82,11 @@ export default function DashboardPage() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <ThemeToggle />
+            {onLogout && (
+              <Button variant="ghost" size="icon" onClick={onLogout} className="rounded-xl w-10 h-10">
+                <LogOut className="w-4 h-4 text-white" />
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -149,3 +158,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

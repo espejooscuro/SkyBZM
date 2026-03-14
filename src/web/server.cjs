@@ -3,7 +3,6 @@
 
 
 
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -100,6 +99,21 @@ class WebServer {
         timestamp: Date.now(),
         bots
       });
+    });
+
+    // Login endpoint
+    this.app.post('/api/login', (req, res) => {
+      const { password } = req.body;
+      
+      this.loadConfig();
+      
+      const webPassword = this.config.webPassword || '';
+      
+      if (password === webPassword) {
+        res.json({ success: true, message: 'Login successful' });
+      } else {
+        res.status(401).json({ success: false, message: 'Invalid password' });
+      }
     });
 
     // API Routes
@@ -498,6 +512,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
