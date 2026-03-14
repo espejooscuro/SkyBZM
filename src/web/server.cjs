@@ -3,6 +3,7 @@
 
 
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -433,6 +434,16 @@ class WebServer {
         return res.status(404).json({ success: false, message: 'Account not found' });
       }
 
+      // Clean up old restAfter and restTime fields from shortBreaks
+      if (updates.restSchedule && updates.restSchedule.shortBreaks) {
+        const { enabled, workDuration, breakDuration } = updates.restSchedule.shortBreaks;
+        updates.restSchedule.shortBreaks = {
+          enabled: enabled || false,
+          workDuration: workDuration || 10,
+          breakDuration: breakDuration || 3
+        };
+      }
+
       Object.assign(account, updates);
       this.saveConfig();
 
@@ -487,6 +498,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
