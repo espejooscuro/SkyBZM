@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -225,7 +226,12 @@ class WebServer {
     });
 
     // Serve React app for all other routes
-    this.app.get('*', (req, res) => {
+    this.app.use((req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      
       const distPath = path.join(__dirname, 'dist', 'index.html');
       if (fs.existsSync(distPath)) {
         res.sendFile(distPath);
@@ -259,3 +265,4 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
