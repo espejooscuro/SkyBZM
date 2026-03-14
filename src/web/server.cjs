@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -73,23 +74,50 @@ class WebServer {
     });
 
     this.app.get('/api/bots', (req, res) => {
-      if (!this.botManager) {
+      this.loadConfig();
+      
+      // If no config or accounts, return empty array
+      if (!this.config || !this.config.accounts || this.config.accounts.length === 0) {
         return res.json({ bots: [] });
       }
 
-      const botsData = this.botManager.bots.map((bot) => ({
-        id: bot.username,
-        username: bot.username,
-        status: bot.bot ? 'online' : 'offline',
-        autoStart: bot.autoStart || false,
-        flips: bot.flips || [],
-        stats: bot.stats || {
+      // If botManager exists, return live bot data
+      if (this.botManager) {
+        const botsData = this.botManager.bots.map((bot) => ({
+          id: bot.username,
+          username: bot.username,
+          status: bot.bot ? 'online' : 'offline',
+          autoStart: bot.autoStart || false,
+          flips: bot.flips || [],
+          stats: bot.stats || {
+            totalProfit: 0,
+            totalFlips: 0,
+            successRate: 0,
+          },
+          inventory: bot.inventory || [],
+          restSchedule: bot.restSchedule || {
+            shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
+            dailyRest: { enabled: false, workHours: 16 },
+          },
+        }));
+
+        return res.json({ bots: botsData });
+      }
+
+      // If no botManager, return bots from config.json
+      const botsData = this.config.accounts.map((account) => ({
+        id: account.username,
+        username: account.username,
+        status: 'offline',
+        autoStart: account.autoStart || false,
+        flips: account.flips || [],
+        stats: account.stats || {
           totalProfit: 0,
           totalFlips: 0,
           successRate: 0,
         },
-        inventory: bot.inventory || [],
-        restSchedule: bot.restSchedule || {
+        inventory: [],
+        restSchedule: account.restSchedule || {
           shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
           dailyRest: { enabled: false, workHours: 16 },
         },
@@ -265,4 +293,5 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
