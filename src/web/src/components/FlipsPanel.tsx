@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2, ShoppingCart, Tag, Sparkles, Hammer, Grid3X3, Package } from 'lucide-react';
 import type { FlipConfig, CraftSlot } from '@/lib/api';
 import { toast } from 'sonner';
+import ItemSearchInput from './ItemSearchInput';
 
 interface FlipsPanelProps {
   flipConfigs: FlipConfig[];
@@ -68,7 +69,11 @@ function NPCConfig({ config, onChange }: { config: FlipConfig; onChange: (c: Fli
     <div className="space-y-4">
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Item</Label>
-        <Input value={config.item ?? ''} onChange={e => onChange({ ...config, item: e.target.value })} placeholder="e.g. ENCHANTED_DIAMOND" className="h-9 rounded-xl text-sm" />
+        <ItemSearchInput 
+          value={config.item ?? ''} 
+          onChange={(itemId) => onChange({ ...config, item: itemId })} 
+          placeholder="e.g. ENCHANTED_DIAMOND" 
+        />
       </div>
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Quantity: {config.quantity ?? 1}</Label>
@@ -91,7 +96,11 @@ function KatConfig({ config, onChange }: { config: FlipConfig; onChange: (c: Fli
     <div className="space-y-4">
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Pet</Label>
-        <Input value={config.pet ?? ''} onChange={e => onChange({ ...config, pet: e.target.value })} placeholder="e.g. GOLDEN_DRAGON" className="h-9 rounded-xl text-sm" />
+        <ItemSearchInput 
+          value={config.pet ?? ''} 
+          onChange={(itemId) => onChange({ ...config, pet: itemId })} 
+          placeholder="e.g. GOLDEN_DRAGON" 
+        />
       </div>
       <div className="flex items-center justify-between rounded-xl bg-secondary/50 p-4 border border-border/30">
         <Label className="text-sm">Use Kat Flower</Label>
@@ -105,7 +114,11 @@ function ForgeConfig({ config, onChange }: { config: FlipConfig; onChange: (c: F
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">Item</Label>
-      <Input value={config.item ?? ''} onChange={e => onChange({ ...config, item: e.target.value })} placeholder="e.g. REFINED_DIAMOND" className="h-9 rounded-xl text-sm" />
+      <ItemSearchInput 
+        value={config.item ?? ''} 
+        onChange={(itemId) => onChange({ ...config, item: itemId })} 
+        placeholder="e.g. REFINED_DIAMOND" 
+      />
     </div>
   );
 }
@@ -269,4 +282,5 @@ export default function FlipsPanel({ flipConfigs, onUpdate }: FlipsPanelProps) {
     </div>
   );
 }
+
 

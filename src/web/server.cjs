@@ -221,6 +221,87 @@ class WebServer {
       res.json({ bots: botsData });
     });
 
+    // Skyblock Items Search API
+    let cachedItems = [];
+    let lastFetch = 0;
+    const CACHE_DURATION = 1000 * 60 * 60; // 1 hora
+
+    const getItems = async () => {
+      const now = Date.now();
+      
+      if (cachedItems.length > 0 && now - lastFetch < CACHE_DURATION) {
+        return cachedItems;
+      }
+      
+      try {
+        const response = await fetch('https://api.hypixel.net/resources/skyblock/items');
+        const data = await response.json();
+        
+        if (data && data.items) {
+          cachedItems = data.items;
+          lastFetch = now;
+          return cachedItems;
+        }
+      } catch (error) {
+        console.error('Error fetching Hypixel items:', error);
+      }
+      
+      return cachedItems;
+    };
+
+    const calculateSimilarity = (search, target) => {
+      const searchLower = search.toLowerCase();
+      const targetLower = target.toLowerCase();
+      
+      // Coincidencia exacta
+      if (targetLower === searchLower) return 1000;
+      
+      // Comienza con el texto
+      if (targetLower.startsWith(searchLower)) return 500;
+      
+      // Contiene el texto
+      if (targetLower.includes(searchLower)) return 100;
+      
+      // Similitud de Levenshtein simplificada
+      let score = 0;
+      for (let i = 0; i < searchLower.length; i++) {
+        if (targetLower.includes(searchLower[i])) {
+          score += 1;
+        }
+      }
+      
+      return score;
+    };
+
+    this.app.get('/api/skyblock-items', async (req, res) => {
+      const query = req.query.q || '';
+      
+      if (!query || query.length < 2) {
+        return res.json({ items: [] });
+      }
+      
+      const items = await getItems();
+      
+      // Buscar items similares
+      const results = items
+        .map(item => {
+          const nameScore = calculateSimilarity(query, item.name || '');
+          const idScore = calculateSimilarity(query, item.id || '');
+          const maxScore = Math.max(nameScore, idScore);
+          
+          return {
+            ...item,
+            score: maxScore
+          };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map(({ score, ...item }) => item);
+      
+      res.json({ items: results });
+    });
+
     this.app.post('/api/bot/:username/start', async (req, res) => {
       const { username } = req.params;
 
@@ -583,6 +664,8 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
 
 
 
