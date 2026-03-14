@@ -9,6 +9,7 @@
 
 
 
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCflip');
@@ -516,7 +517,7 @@ class FlipManager {
     this.log(`🎯 Initializing ${flipConfigs.length} flip configurations...`);
     
     for (const config of flipConfigs) {
-      const flipType = config.type || 'SELL_ORDER';
+      const flipType = (config.type || 'SELL_ORDER').toUpperCase();
       
       try {
         switch (flipType) {
@@ -1140,6 +1141,7 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
 
 
 
