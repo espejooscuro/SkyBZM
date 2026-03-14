@@ -1,0 +1,88 @@
+{
+  "webPassword": "admin123",
+  "discordWebhook": "",
+  "accounts": [
+    {
+      "username": "TestBot1",
+      "password": "",
+      "enabled": true,
+      "autoStart": false,
+      "proxy": null,
+      "flips": {},
+      "flipConfigs": [
+        {
+          "id": "sellorder1",
+          "type": "sell_order",
+          "name": "Main Sell Orders",
+          "enabled": true,
+          "maxBuyPrice": 5000000,
+          "minProfit": 10000,
+          "minVolume": 1000,
+          "maxFlips": 7,
+          "maxRelist": 3,
+          "maxBuyRelist": 2,
+          "minOrder": 1,
+          "maxOrder": 640,
+          "minSpread": 0,
+          "whitelist": ["KISMET_FEATHER"],
+          "blacklistContaining": []
+        }
+      ],
+      "restSchedule": {
+        "shortBreaks": {
+          "enabled": false,
+          "restAfter": 10,
+          "restTime": 3
+        },
+        "dailyRest": {
+          "enabled": false,
+          "workDuration": 16
+        }
+      },
+      "boosterCookie": {
+        "enabled": false,
+        "useWhenTimeLeft": 24
+      }
+    },
+    {
+      "username": "TestBot2",
+      "password": "",
+      "enabled": true,
+      "autoStart": false,
+      "proxy": {
+        "enabled": true,
+        "host": "proxy.example.com",
+        "port": 1080,
+        "username": "",
+        "password": ""
+      },
+      "flips": {},
+      "flipConfigs": [
+        {
+          "id": "npc1",
+          "type": "npc",
+          "name": "NPC Flip Example",
+          "enabled": true,
+          "item": "ENCHANTED_CARROT",
+          "quantity": 160,
+          "forceSellAfter": 30
+        }
+      ],
+      "restSchedule": {
+        "shortBreaks": {
+          "enabled": true,
+          "restAfter": 12,
+          "restTime": 5
+        },
+        "dailyRest": {
+          "enabled": true,
+          "workDuration": 18
+        }
+      },
+      "boosterCookie": {
+        "enabled": true,
+        "useWhenTimeLeft": 48
+      }
+    }
+  ]
+}
