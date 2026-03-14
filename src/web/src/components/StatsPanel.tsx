@@ -146,7 +146,7 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
-            ⚡ Flip Activity
+            Flip Activity
             <span className="text-[10px] text-muted-foreground font-normal">(Real-time action rate)</span>
           </h3>
           <ResponsiveContainer width="100%" height={180}>
@@ -192,7 +192,10 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
       {/* 💰 Purse Balance - UPDATED to use purseHistory from Bot.js */}
       {purseData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-border/50 bg-card p-4">
-          <h3 className="font-display text-sm font-semibold mb-3">👛 Purse Balance Over Time</h3>
+          <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-accent" />
+            Purse Balance Over Time
+          </h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={purseData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
               <defs>
@@ -214,7 +217,10 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
       {/* Flip timeline (scatter 0-24h) */}
       {flipTimelineData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-2xl border border-border/50 bg-card p-4">
-          <h3 className="font-display text-sm font-semibold mb-3">⏰ Flip Activity Timeline (24h)</h3>
+          <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            Flip Activity Timeline (24h)
+          </h3>
           <ResponsiveContainer width="100%" height={200}>
             <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -241,7 +247,10 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
       {/* Profit chart */}
       {profitChartData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="rounded-2xl border border-border/50 bg-card p-4">
-          <h3 className="font-display text-sm font-semibold mb-3">💰 Cumulative Profit</h3>
+          <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-accent" />
+            Cumulative Profit
+          </h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={profitChartData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
               <defs>
@@ -264,7 +273,8 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
       {expenseData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
-            💸 Cumulative Expenses
+            <DollarSign className="w-4 h-4 text-destructive" />
+            Cumulative Expenses
             <span className="text-[10px] text-destructive/70 font-mono">(red line = 15B limit)</span>
           </h3>
           <ResponsiveContainer width="100%" height={180}>
@@ -288,3 +298,5 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
     </div>
   );
 }
+
+

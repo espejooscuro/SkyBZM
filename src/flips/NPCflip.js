@@ -2,6 +2,7 @@
 
 
 
+
 const Flip = require('./Flip');
 
 
@@ -255,7 +256,13 @@ class NPCFlip extends Flip {
           timer: null // Will be set below
         });
         
-        console.log(`💰 [${this.bot?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins`);
+        // 💸 Registrar expense (gasto total = precio por unidad * cantidad)
+        const totalCost = price * amount;
+        if (this.bot && typeof this.bot.recordExpense === 'function') {
+          this.bot.recordExpense(totalCost, `Buy Order: ${amount}x ${this.npcItem}`);
+        }
+        
+        console.log(`💰 [${this.bot?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`);
         
         // 📊 Registrar acción para estadísticas
         if (this.bot && typeof this.bot.recordFlipAction === 'function') {
@@ -567,6 +574,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 

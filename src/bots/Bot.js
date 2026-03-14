@@ -2,8 +2,6 @@
 
 
 
-
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -56,6 +54,15 @@ class Bot {
     // 📊 Tracking de actividad de flips (para gráfica de actividad)
     this.flipActions = []; // Array de { timestamp, type: 'npcbuy'|'npcsell'|'buy'|'sell', item }
     this.maxFlipActions = 1000; // Máximo de acciones a guardar
+    
+    // 💸 Tracking de expenses (gastos)
+    this.expenses = []; // Array de { timestamp, amount, description }
+    this.totalExpenses = 0;
+    this.maxExpenses = 1000; // Máximo de expenses a guardar
+    
+    // 📝 Tracking de logs
+    this.logs = []; // Array de { timestamp, message, level, type }
+    this.maxLogs = 500; // Máximo de logs a guardar
     
     // 🔄 Reconnection system
     this.isReconnecting = false;
@@ -504,6 +511,8 @@ class Bot {
       runtime: this.runtime,
       purseHistory: this.purseHistory,
       flipActions: this.flipActions,
+      expenses: this.expenses,
+      totalExpenses: this.totalExpenses,
       isLogged: this.isLogged,
       startTime: this.startTime
     };
@@ -524,6 +533,49 @@ class Bot {
     // Mantener solo las últimas N acciones
     if (this.flipActions.length > this.maxFlipActions) {
       this.flipActions = this.flipActions.slice(-this.maxFlipActions);
+    }
+  }
+
+  /**
+   * Registra un gasto (expense) para estadísticas
+   */
+  recordExpense(amount, description) {
+    const expense = {
+      timestamp: Date.now(),
+      amount: amount,
+      description: description || 'Unknown expense'
+    };
+    
+    this.expenses.push(expense);
+    this.totalExpenses += amount;
+    
+    // Mantener solo los últimos N expenses
+    if (this.expenses.length > this.maxExpenses) {
+      this.expenses = this.expenses.slice(-this.maxExpenses);
+    }
+    
+    console.log(`💸 [${this.name}] Expense recorded: ${amount.toLocaleString()} coins - ${description}`);
+    
+    // También registrar como log
+    this.log(`Expense: ${amount.toLocaleString()} coins - ${description}`, 'info', 'expense');
+  }
+
+  /**
+   * Registra un log para el dashboard
+   */
+  log(message, level = 'info', type = 'general') {
+    const logEntry = {
+      timestamp: Date.now(),
+      message: message,
+      level: level, // 'info', 'warn', 'error', 'success'
+      type: type // 'general', 'flip', 'expense', 'connection', etc.
+    };
+    
+    this.logs.push(logEntry);
+    
+    // Mantener solo los últimos N logs
+    if (this.logs.length > this.maxLogs) {
+      this.logs = this.logs.slice(-this.maxLogs);
     }
   }
 
@@ -696,9 +748,101 @@ class Bot {
   markActivity() {
     this.lastActivity = Date.now();
   }
+
+  /**
+   * Setup expense tracking from chat messages
+   * Captures "[Bazaar] Buy Order Setup!" messages and records the expense
+   */
+  setupExpenseTracking() {
+    if (!this.chat) return;
+    
+    // Listen for Bazaar Buy Order messages
+    // Example: [Bazaar] Buy Order Setup! 71,000x Brown Mushroom for 504,100 coins.
+    this.expenseListener = new this.ChatListener(this.bot, {
+      types: ['system'],
+      keywords: ['[Bazaar] Buy Order Setup!'],
+      callback: (record) => {
+        // Parse the message to extract the amount
+        // Format: [Bazaar] Buy Order Setup! 71,000x Item Name for 504,100 coins.
+        const message = record.message;
+        const match = message.match(/for ([\d,]+) coins/i);
+        
+        if (match) {
+          const amountStr = match[1].replace(/,/g, '');
+          const amount = parseInt(amountStr, 10);
+          
+          if (!isNaN(amount) && amount > 0) {
+            this.recordExpense(amount, 'Bazaar Buy Order');
+            this.log(`Buy Order placed for ${amount.toLocaleString()} coins`, 'info', 'expense');
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Setup purse tracking from actionbar
+   * Captures the current purse from the action bar and tracks it over time
+   */
+  setupPurseTracking() {
+    if (!this.bot) return;
+    
+    // Track purse every 10 seconds
+    this.purseTrackingInterval = setInterval(() => {
+      try {
+        // Try to get purse from action bar or scoreboard
+        const purse = this.getPurseFromActionBar();
+        
+        if (purse !== null && purse !== this.currentPurse) {
+          this.currentPurse = purse;
+          
+          // Add to history
+          this.purseHistory.push({
+            timestamp: Date.now(),
+            purse: purse,
+            runtime: Date.now() - this.startTime
+          });
+          
+          // Keep only last 500 entries
+          if (this.purseHistory.length > 500) {
+            this.purseHistory = this.purseHistory.slice(-500);
+          }
+        }
+      } catch (error) {
+        // Silently fail - purse tracking is not critical
+      }
+    }, 10000); // Every 10 seconds
+  }
+
+  /**
+   * Extract purse from action bar text
+   * Example: "§r§6§lPurse: §r§b1,234,567§r"
+   */
+  getPurseFromActionBar() {
+    try {
+      if (!this.bot || !this.bot._client) return null;
+      
+      // The action bar is sent via set_title_text packet (action bar)
+      // We need to capture it from the last message
+      // For now, we'll return a placeholder
+      // TODO: Implement actual purse extraction from packets
+      
+      return this.currentPurse || 0;
+    } catch (error) {
+      return null;
+    }
+  }
 }
 
 module.exports = Bot;
+
+
+
+
+
+
+
+
 
 
 

@@ -145,7 +145,7 @@ export default function ItemSearchInput({
           </div>
 
           {/* Dropdown de sugerencias */}
-          {isOpen && filteredItems.length > 0 && (
+          {isOpen && items.length > 0 && (
             <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[9999]">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">
@@ -186,4 +186,5 @@ export default function ItemSearchInput({
     </div>
   );
 }
+
 

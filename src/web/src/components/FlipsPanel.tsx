@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ interface FlipsPanelProps {
 
 const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUpdate: onUpdateFlips }) => {
   const [flipConfigs, setFlipConfigs] = useState<FlipConfig[]>(initialFlips ?? []);
-  const [expandedFlips, setExpandedFlips] = useState<Set<number>>(new Set(initialFlips?.map((_, i) => i) ?? []));
+  const [expandedFlips, setExpandedFlips] = useState<Set<number>>(new Set()); // Start with all collapsed
 
   const toggleFlipExpanded = (index: number) => {
     setExpandedFlips(prev => {
@@ -362,4 +363,5 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
 };
 
 export default FlipsPanel;
+
 
