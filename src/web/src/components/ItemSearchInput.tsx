@@ -30,16 +30,8 @@ export default function ItemSearchInput({
   const [selectedItem, setSelectedItem] = useState<SkyblockItem | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar dropdown al hacer click fuera
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Cerrar dropdown solo cuando se selecciona un item o se limpia
+  // NO cerrar al hacer click fuera para evitar que desaparezca mientras se escribe
 
   // Si cambia el valor desde afuera, actualizar el item seleccionado
   useEffect(() => {
@@ -62,6 +54,7 @@ export default function ItemSearchInput({
     const searchItems = async () => {
       if (searchTerm.length < 2) {
         setItems([]);
+        setIsOpen(false);
         return;
       }
 
@@ -87,12 +80,14 @@ export default function ItemSearchInput({
     setSelectedItem(item);
     setSearchTerm('');
     setIsOpen(false);
+    setItems([]);
     onChange(item.id);
   };
 
   const handleClear = () => {
     setSelectedItem(null);
     setSearchTerm('');
+    setItems([]);
     onChange('');
   };
 
@@ -146,7 +141,7 @@ export default function ItemSearchInput({
 
           {/* Dropdown de sugerencias */}
           {isOpen && items.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[9999]">
+            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[99999]">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">
                   <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -158,6 +153,7 @@ export default function ItemSearchInput({
                     <li key={item.id}>
                       <button
                         onClick={() => handleSelectItem(item)}
+                        type="button"
                         className="w-full text-left px-3 py-2.5 hover:bg-secondary transition-colors border-b border-border/30 last:border-b-0"
                       >
                         <div className="flex flex-col gap-0.5">
@@ -186,5 +182,7 @@ export default function ItemSearchInput({
     </div>
   );
 }
+
+
 
 

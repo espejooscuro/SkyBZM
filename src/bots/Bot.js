@@ -2,6 +2,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -754,17 +755,19 @@ class Bot {
    * Captures "[Bazaar] Buy Order Setup!" messages and records the expense
    */
   setupExpenseTracking() {
-    if (!this.chat) return;
+    if (!this.ChatListener) return;
     
     // Listen for Bazaar Buy Order messages
     // Example: [Bazaar] Buy Order Setup! 71,000x Brown Mushroom for 504,100 coins.
     this.expenseListener = new this.ChatListener(this.bot, {
       types: ['system'],
-      keywords: ['[Bazaar] Buy Order Setup!'],
+      keywords: ['Buy Order Setup!'],
       callback: (record) => {
         // Parse the message to extract the amount
         // Format: [Bazaar] Buy Order Setup! 71,000x Item Name for 504,100 coins.
         const message = record.message;
+        
+        // Match both formats: "71,000x Item" and "x71000 Item"
         const match = message.match(/for ([\d,]+) coins/i);
         
         if (match) {
@@ -772,8 +775,14 @@ class Bot {
           const amount = parseInt(amountStr, 10);
           
           if (!isNaN(amount) && amount > 0) {
-            this.recordExpense(amount, 'Bazaar Buy Order');
-            this.log(`Buy Order placed for ${amount.toLocaleString()} coins`, 'info', 'expense');
+            // Extract item name
+            const itemMatch = message.match(/(?:(\d{1,3}(?:,\d{3})*|x\d+)x?\s+)?(.+?)\s+for\s+[\d,]+\s+coins/i);
+            const itemName = itemMatch ? itemMatch[2].trim() : 'Unknown Item';
+            
+            this.recordExpense(amount, `Buy Order: ${itemName}`);
+            this.log(`💸 Buy Order placed for ${itemName}: ${amount.toLocaleString()} coins`, 'info', 'expense');
+            
+            console.log(`[${this.username}] 💸 EXPENSE RECORDED: ${amount.toLocaleString()} coins for ${itemName}`);
           }
         }
       }
@@ -835,6 +844,7 @@ class Bot {
 }
 
 module.exports = Bot;
+
 
 
 

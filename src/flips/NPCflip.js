@@ -264,6 +264,11 @@ class NPCFlip extends Flip {
         
         console.log(`💰 [${this.bot?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`);
         
+        // 📝 Log to web dashboard
+        if (this.bot && typeof this.bot.log === 'function') {
+          this.bot.log(`💰 BUY ORDER PLACED: ${amount}x ${this.npcItem} @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`, 'success', 'npcflip');
+        }
+        
         // 📊 Registrar acción para estadísticas
         if (this.bot && typeof this.bot.recordFlipAction === 'function') {
           this.bot.recordFlipAction('npcbuy', this.npcItem);
@@ -464,6 +469,11 @@ class NPCFlip extends Flip {
         
         console.log(`💵 [${this.bot?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all items to Bazaar`);
         
+        // 📝 Log to web dashboard
+        if (this.bot && typeof this.bot.log === 'function') {
+          this.bot.log(`💵 SELL COMPLETED: ${this.npcItem} - All items sold to Bazaar`, 'success', 'npcflip');
+        }
+        
         // 📊 Registrar acción para estadísticas
         if (this.bot && typeof this.bot.recordFlipAction === 'function') {
           this.bot.recordFlipAction('npcsell', this.npcItem);
@@ -574,6 +584,8 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
+
 
 
 
