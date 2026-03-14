@@ -3,6 +3,7 @@
 
 
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -289,6 +290,76 @@ class WebServer {
       }
     });
 
+    // Plural routes (bots) - aliases for singular routes
+    this.app.post('/api/bots/:username/start', async (req, res) => {
+      const { username } = req.params;
+
+      if (!this.botManager) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Bot manager not available' });
+      }
+
+      try {
+        const result = await this.botManager.startBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, message: error.message });
+      }
+    });
+
+    this.app.post('/api/bots/:username/stop', async (req, res) => {
+      const { username } = req.params;
+
+      if (!this.botManager) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Bot manager not available' });
+      }
+
+      try {
+        const result = await this.botManager.stopBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, message: error.message });
+      }
+    });
+
+    this.app.post('/api/bots/:username/restart', async (req, res) => {
+      const { username } = req.params;
+
+      if (!this.botManager) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Bot manager not available' });
+      }
+
+      try {
+        const result = await this.botManager.restartBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, message: error.message });
+      }
+    });
+
     this.app.post('/api/bot/:username/config', (req, res) => {
       const { username } = req.params;
       const updates = req.body;
@@ -512,6 +583,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
