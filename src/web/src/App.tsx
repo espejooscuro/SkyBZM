@@ -24,8 +24,7 @@ const App = () => {
     setIsLoading(false);
   }, []);
 
-  const handleLogin = (password: string) => {
-    sessionStorage.setItem('skybzm-auth', 'true');
+  const handleLogin = () => {
     setIsAuthenticated(true);
   };
 
@@ -36,8 +35,11 @@ const App = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-purple-200 dark:border-purple-800 rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-transparent border-t-purple-600 rounded-full animate-spin absolute top-0 left-0" />
+        </div>
       </div>
     );
   }
@@ -65,4 +67,3 @@ const App = () => {
 };
 
 export default App;
-

@@ -1,4 +1,5 @@
 
+
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -129,6 +130,13 @@ export interface MoneyFlowEntry {
 export const getHealth = () =>
   request<{ status: string; timestamp: number; bots: BotStatusInfo[] }>('/api/health');
 
+// === Auth ===
+export const login = (password: string) =>
+  request<{ success: boolean; message: string }>('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+
 // === Bots ===
 export const getAllBots = () =>
   request<{ bots: BotStatusInfo[] }>('/api/bots');
@@ -172,4 +180,5 @@ export const updateBotConfig = (username: string, updates: Partial<Account>) =>
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+
 
