@@ -81,8 +81,8 @@ class WebServer {
           };
 
           // If botManager exists, get live data
-          if (this.botManager) {
-            const bot = this.botManager.bots.find(b => b.username === account.username);
+          if (this.botManager && this.botManager.bots) {
+            const bot = this.botManager.bots.get(account.username);
             if (bot) {
               botInfo.connected = !!bot.bot;
               botInfo.state = bot.bot ? 'connected' : 'disconnected';
@@ -136,24 +136,49 @@ class WebServer {
       }
 
       // If botManager exists, return live bot data
-      if (this.botManager) {
-        const botsData = this.botManager.bots.map((bot) => ({
-          id: bot.username,
-          username: bot.username,
-          status: bot.bot ? 'online' : 'offline',
-          autoStart: bot.autoStart || false,
-          flips: bot.flips || [],
-          stats: bot.stats || {
-            totalProfit: 0,
-            totalFlips: 0,
-            successRate: 0,
-          },
-          inventory: bot.inventory || [],
-          restSchedule: bot.restSchedule || {
-            shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
-            dailyRest: { enabled: false, workHours: 16 },
-          },
-        }));
+      if (this.botManager && this.botManager.bots) {
+        const botsData = this.config.accounts.map((account) => {
+          const bot = this.botManager.bots.get(account.username);
+          
+          if (bot) {
+            return {
+              id: bot.username,
+              username: bot.username,
+              status: bot.bot ? 'online' : 'offline',
+              autoStart: account.autoStart || false,
+              flips: account.flipConfigs || account.flips || [],
+              stats: bot.stats || {
+                totalProfit: 0,
+                totalFlips: 0,
+                successRate: 0,
+              },
+              inventory: bot.inventory || [],
+              restSchedule: account.restSchedule || {
+                shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
+                dailyRest: { enabled: false, workHours: 16 },
+              },
+            };
+          } else {
+            // Bot not in memory
+            return {
+              id: account.username,
+              username: account.username,
+              status: 'offline',
+              autoStart: account.autoStart || false,
+              flips: account.flipConfigs || account.flips || [],
+              stats: {
+                totalProfit: 0,
+                totalFlips: 0,
+                successRate: 0,
+              },
+              inventory: [],
+              restSchedule: account.restSchedule || {
+                shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
+                dailyRest: { enabled: false, workHours: 16 },
+              },
+            };
+          }
+        });
 
         return res.json({ bots: botsData });
       }
@@ -164,7 +189,7 @@ class WebServer {
         username: account.username,
         status: 'offline',
         autoStart: account.autoStart || false,
-        flips: account.flips || [],
+        flips: account.flipConfigs || account.flips || [],
         stats: account.stats || {
           totalProfit: 0,
           totalFlips: 0,
@@ -189,16 +214,13 @@ class WebServer {
           .json({ success: false, message: 'Bot manager not available' });
       }
 
-      const bot = this.botManager.bots.find((b) => b.username === username);
-      if (!bot) {
-        return res
-          .status(404)
-          .json({ success: false, message: 'Bot not found' });
-      }
-
       try {
-        await bot.login();
-        res.json({ success: true, message: `Bot ${username} started` });
+        const result = await this.botManager.startBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
       } catch (error) {
         res
           .status(500)
@@ -206,7 +228,7 @@ class WebServer {
       }
     });
 
-    this.app.post('/api/bot/:username/stop', (req, res) => {
+    this.app.post('/api/bot/:username/stop', async (req, res) => {
       const { username } = req.params;
 
       if (!this.botManager) {
@@ -215,16 +237,13 @@ class WebServer {
           .json({ success: false, message: 'Bot manager not available' });
       }
 
-      const bot = this.botManager.bots.find((b) => b.username === username);
-      if (!bot) {
-        return res
-          .status(404)
-          .json({ success: false, message: 'Bot not found' });
-      }
-
       try {
-        bot.disconnect('User requested stop');
-        res.json({ success: true, message: `Bot ${username} stopped` });
+        const result = await this.botManager.stopBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
       } catch (error) {
         res
           .status(500)
@@ -241,19 +260,13 @@ class WebServer {
           .json({ success: false, message: 'Bot manager not available' });
       }
 
-      const bot = this.botManager.bots.find((b) => b.username === username);
-      if (!bot) {
-        return res
-          .status(404)
-          .json({ success: false, message: 'Bot not found' });
-      }
-
       try {
-        bot.disconnect('Restarting bot');
-        setTimeout(async () => {
-          await bot.login();
-        }, 2000);
-        res.json({ success: true, message: `Bot ${username} restarting` });
+        const result = await this.botManager.restartBot(username);
+        if (result.success) {
+          res.json({ success: true, message: result.message });
+        } else {
+          res.status(400).json({ success: false, message: result.message });
+        }
       } catch (error) {
         res
           .status(500)
@@ -280,8 +293,8 @@ class WebServer {
       this.saveConfig();
 
       // Update bot configuration if it exists
-      if (this.botManager) {
-        const bot = this.botManager.bots.find((b) => b.username === username);
+      if (this.botManager && this.botManager.bots) {
+        const bot = this.botManager.bots.get(username);
         if (bot) {
           Object.assign(bot, updates);
         }
@@ -293,11 +306,11 @@ class WebServer {
     this.app.get('/api/bot/:username/logs', (req, res) => {
       const { username } = req.params;
 
-      if (!this.botManager) {
+      if (!this.botManager || !this.botManager.bots) {
         return res.json({ logs: [] });
       }
 
-      const bot = this.botManager.bots.find((b) => b.username === username);
+      const bot = this.botManager.bots.get(username);
       if (!bot) {
         return res
           .status(404)
@@ -328,8 +341,8 @@ class WebServer {
         purse: 0
       };
 
-      if (this.botManager) {
-        const bot = this.botManager.bots.find(b => b.username === username);
+      if (this.botManager && this.botManager.bots) {
+        const bot = this.botManager.bots.get(username);
         if (bot) {
           botInfo.connected = !!bot.bot;
           botInfo.state = bot.bot ? 'connected' : 'disconnected';
@@ -344,11 +357,11 @@ class WebServer {
       const { username } = req.params;
       const limit = parseInt(req.query.limit) || 30;
 
-      if (!this.botManager) {
+      if (!this.botManager || !this.botManager.bots) {
         return res.json({ logs: [] });
       }
 
-      const bot = this.botManager.bots.find(b => b.username === username);
+      const bot = this.botManager.bots.get(username);
       if (!bot) {
         return res.status(404).json({ success: false, message: 'Bot not found' });
       }
@@ -367,11 +380,11 @@ class WebServer {
       const { username } = req.params;
       const limit = parseInt(req.query.limit) || 50;
 
-      if (!this.botManager) {
+      if (!this.botManager || !this.botManager.bots) {
         return res.json({ profits: [] });
       }
 
-      const bot = this.botManager.bots.find(b => b.username === username);
+      const bot = this.botManager.bots.get(username);
       if (!bot) {
         return res.status(404).json({ success: false, message: 'Bot not found' });
       }
@@ -384,11 +397,11 @@ class WebServer {
       const { username } = req.params;
       const limit = parseInt(req.query.limit) || 100;
 
-      if (!this.botManager) {
+      if (!this.botManager || !this.botManager.bots) {
         return res.json({ transactions: [] });
       }
 
-      const bot = this.botManager.bots.find(b => b.username === username);
+      const bot = this.botManager.bots.get(username);
       if (!bot) {
         return res.status(404).json({ success: false, message: 'Bot not found' });
       }
@@ -424,8 +437,8 @@ class WebServer {
       this.saveConfig();
 
       // Update bot configuration if it exists
-      if (this.botManager) {
-        const bot = this.botManager.bots.find(b => b.username === username);
+      if (this.botManager && this.botManager.bots) {
+        const bot = this.botManager.bots.get(username);
         if (bot) {
           Object.assign(bot, updates);
         }
@@ -474,6 +487,10 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
+
 
 
 
