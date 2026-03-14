@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -15,35 +16,45 @@ interface ConfigPanelProps {
 export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
   const [showProxyPass, setShowProxyPass] = useState(false);
 
-  const shortBreaks = account.restSchedule?.shortBreaks ?? { enabled: false, workDuration: 60, breakDuration: 10 };
+  // Backward compatibility: convert old restAfter/restTime to workDuration/breakDuration
+  const shortBreaksRaw = account.restSchedule?.shortBreaks;
+  const shortBreaks = shortBreaksRaw ? {
+    enabled: shortBreaksRaw.enabled ?? false,
+    workDuration: (shortBreaksRaw as any).workDuration ?? (shortBreaksRaw as any).restAfter ?? 60,
+    breakDuration: (shortBreaksRaw as any).breakDuration ?? (shortBreaksRaw as any).restTime ?? 10
+  } : { enabled: false, workDuration: 60, breakDuration: 10 };
+  
   const dailyRest = account.restSchedule?.dailyRest ?? { enabled: false, workDuration: 12 };
   const proxy = account.proxy ?? { enabled: false, host: '', port: 1080, username: '', password: '' };
   const cookie = account.boosterCookie ?? { enabled: false, useWhenTimeLeft: 24 };
 
   return (
     <div className="space-y-3">
-      {/* Short Rest */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border/50 bg-card overflow-hidden">
-        <div className="flex items-center justify-between p-4">
+      {/* Short Breaks */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-2xl border border-border/50 bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-accent/15 flex items-center justify-center">
-              <Coffee className="w-4 h-4 text-accent" />
+            <div className="w-10 h-10 rounded-xl bg-[hsl(var(--pastel-mint))]/15 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-[hsl(var(--pastel-mint))]" />
             </div>
-            <span className="font-display text-sm font-semibold">Short Rest</span>
+            <div>
+              <h3 className="font-display text-sm font-semibold">Short Breaks</h3>
+              <p className="text-xs text-muted-foreground">Regular work intervals</p>
+            </div>
           </div>
-          <Switch checked={shortBreaks.enabled} onCheckedChange={v => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, enabled: v } } })} />
+          <Switch checked={shortBreaks.enabled} onCheckedChange={v => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { enabled: v, workDuration: shortBreaks.workDuration || (shortBreaks as any).restAfter || 10, breakDuration: shortBreaks.breakDuration || (shortBreaks as any).restTime || 3 } } })} />
         </div>
         {shortBreaks.enabled && (
-          <div className="px-4 pb-4 space-y-4">
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest After: {shortBreaks.workDuration} min</Label>
-              <Slider value={[shortBreaks.workDuration]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, workDuration: v } } })} min={1} max={120} step={1} />
+              <Label className="text-xs text-muted-foreground">Rest After: {shortBreaks.workDuration || (shortBreaks as any).restAfter || 10} min</Label>
+              <Slider value={[shortBreaks.workDuration || (shortBreaks as any).restAfter || 10]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { enabled: shortBreaks.enabled, workDuration: v, breakDuration: shortBreaks.breakDuration || (shortBreaks as any).restTime || 3 } } })} min={1} max={120} step={1} />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest Time: {shortBreaks.breakDuration} min</Label>
-              <Slider value={[shortBreaks.breakDuration]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { ...shortBreaks, breakDuration: v } } })} min={1} max={30} step={1} />
+              <Label className="text-xs text-muted-foreground">Rest Time: {shortBreaks.breakDuration || (shortBreaks as any).restTime || 3} min</Label>
+              <Slider value={[shortBreaks.breakDuration || (shortBreaks as any).restTime || 3]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { enabled: shortBreaks.enabled, workDuration: shortBreaks.workDuration || (shortBreaks as any).restAfter || 10, breakDuration: v } } })} min={1} max={30} step={1} />
             </div>
-          </div>
+          </motion.div>
         )}
       </motion.div>
 
@@ -139,4 +150,8 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
     </div>
   );
 }
+
+
+
+
 
