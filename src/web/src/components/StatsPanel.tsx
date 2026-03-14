@@ -100,6 +100,62 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
     });
   }, [moneyFlow]);
 
+  // 💰💸 Combined Purse & Expenses data - FUSIONADO
+  const combinedPurseExpensesData = useMemo(() => {
+    // Crear un mapa de tiempo -> datos
+    const dataMap = new Map<number, { time: string; balance?: number; expense?: number }>();
+    
+    // Agregar datos de purse
+    purseHistory.forEach(entry => {
+      const timestamp = entry.timestamp;
+      const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      dataMap.set(timestamp, {
+        time: timeStr,
+        balance: entry.purse
+      });
+    });
+    
+    // Agregar datos de expenses
+    let cumExpense = 0;
+    moneyFlow
+      .filter(t => t.amount < 0)
+      .forEach(t => {
+        cumExpense += Math.abs(t.amount);
+        const timestamp = t.timestamp;
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const existing = dataMap.get(timestamp);
+        if (existing) {
+          existing.expense = cumExpense;
+        } else {
+          dataMap.set(timestamp, {
+            time: timeStr,
+            expense: cumExpense
+          });
+        }
+      });
+    
+    // Convertir a array y ordenar por timestamp
+    const sortedData = Array.from(dataMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([_, data]) => data);
+    
+    // Fill forward: si falta un valor, usar el anterior
+    let lastBalance: number | undefined;
+    let lastExpense: number | undefined;
+    
+    return sortedData.map(point => {
+      if (point.balance !== undefined) lastBalance = point.balance;
+      if (point.expense !== undefined) lastExpense = point.expense;
+      
+      return {
+        time: point.time,
+        balance: lastBalance,
+        expense: lastExpense
+      };
+    });
+  }, [purseHistory, moneyFlow]);
+
   if (profits.length === 0 && moneyFlow.length === 0 && flipActions.length === 0 && purseHistory.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -189,28 +245,43 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
         </motion.div>
       )}
 
-      {/* 💰 Purse Balance - UPDATED to use purseHistory from Bot.js */}
-      {purseData.length > 0 && (
+      {/* 💰💸 Combined Purse & Expenses - FUSIONADO */}
+      {combinedPurseExpensesData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
             <Wallet className="w-4 h-4 text-accent" />
-            Purse Balance Over Time
+            Purse & Expenses Over Time
+            <span className="text-[10px] text-muted-foreground font-normal ml-2">
+              <span className="inline-block w-3 h-1 bg-[hsl(162,55%,62%)] rounded mr-1"></span>Balance
+              <span className="inline-block w-3 h-1 bg-[hsl(0,65%,68%)] rounded ml-3 mr-1"></span>Expenses
+            </span>
           </h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={purseData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={combinedPurseExpensesData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
               <defs>
-                <linearGradient id="purseGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="purseGradCombined" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="hsl(162, 55%, 62%)" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="expenseGradCombined" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(0, 65%, 68%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(0, 65%, 68%)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => formatCoins(v)} />
-              <Tooltip formatter={(v: number) => formatCoins(v)} />
-              <Area type="monotone" dataKey="balance" stroke="hsl(162, 55%, 62%)" fill="url(#purseGrad)" strokeWidth={2} />
+              <Tooltip 
+                formatter={(v: number, name: string) => [formatCoins(v), name === 'balance' ? 'Purse' : 'Expenses']}
+                contentStyle={{ fontSize: 10, backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+              />
+              <Area type="monotone" dataKey="balance" stroke="hsl(162, 55%, 62%)" fill="url(#purseGradCombined)" strokeWidth={2} />
+              <Area type="monotone" dataKey="expense" stroke="hsl(0, 65%, 68%)" fill="url(#expenseGradCombined)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            Track your balance (green) and cumulative expenses (red) over time
+          </p>
         </motion.div>
       )}
 
@@ -244,7 +315,7 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
         </motion.div>
       )}
 
-      {/* Profit chart */}
+      {/* Cumulative Profit */}
       {profitChartData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="rounded-2xl border border-border/50 bg-card p-4">
           <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
@@ -268,36 +339,12 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
           </ResponsiveContainer>
         </motion.div>
       )}
-
-      {/* Expenses chart */}
-      {expenseData.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="rounded-2xl border border-border/50 bg-card p-4">
-          <h3 className="font-display text-sm font-semibold mb-3 flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-destructive" />
-            Cumulative Expenses
-            <span className="text-[10px] text-destructive/70 font-mono">(red line = 15B limit)</span>
-          </h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={expenseData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(0, 65%, 68%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(0, 65%, 68%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => formatCoins(v)} />
-              <Tooltip formatter={(v: number) => formatCoins(v)} />
-              <ReferenceLine y={15_000_000_000} stroke="hsl(0, 65%, 55%)" strokeDasharray="5 5" strokeWidth={2} label={{ value: '15B', fill: 'hsl(0, 65%, 55%)', fontSize: 10 }} />
-              <Area type="monotone" dataKey="expense" stroke="hsl(0, 65%, 68%)" fill="url(#expGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-      )}
     </div>
   );
 }
+
+
+
 
 
 
