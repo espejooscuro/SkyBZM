@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -286,7 +287,12 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
                 initial={{ opacity: 0, y: 10 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 transition={{ delay: index * 0.05 }} 
-                className="rounded-2xl border border-border/50 bg-card overflow-hidden"
+                className="rounded-2xl border border-border/50 bg-card"
+                style={{ 
+                  overflow: isExpanded ? 'visible' : 'hidden',
+                  zIndex: isExpanded ? 10 : 1,
+                  position: 'relative'
+                }}
               >
                 {/* Header - Always visible */}
                 <div 
@@ -345,9 +351,9 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
+                      style={{ overflow: 'visible' }}
                     >
-                      <div className="p-4">
+                      <div className="p-4" style={{ overflow: 'visible' }}>
                         {renderConfig(config, (c) => updateFlip(index, c))}
                       </div>
                     </motion.div>
@@ -363,5 +369,6 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
 };
 
 export default FlipsPanel;
+
 
 

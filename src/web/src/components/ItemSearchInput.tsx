@@ -30,9 +30,6 @@ export default function ItemSearchInput({
   const [selectedItem, setSelectedItem] = useState<SkyblockItem | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar dropdown solo cuando se selecciona un item o se limpia
-  // NO cerrar al hacer click fuera para evitar que desaparezca mientras se escribe
-
   // Si cambia el valor desde afuera, actualizar el item seleccionado
   useEffect(() => {
     if (value && !selectedItem) {
@@ -54,7 +51,7 @@ export default function ItemSearchInput({
     const searchItems = async () => {
       if (searchTerm.length < 2) {
         setItems([]);
-        setIsOpen(false);
+        // NO cerrar el dropdown aquí, solo vaciar los resultados
         return;
       }
 
@@ -63,7 +60,7 @@ export default function ItemSearchInput({
         const response = await fetch(`/api/skyblock-items?q=${encodeURIComponent(searchTerm)}`);
         const data = await response.json();
         setItems(data.items || []);
-        setIsOpen(true);
+        setIsOpen(true); // Mantener abierto mientras haya búsqueda
       } catch (error) {
         console.error('Error searching items:', error);
         setItems([]);
@@ -79,7 +76,7 @@ export default function ItemSearchInput({
   const handleSelectItem = (item: SkyblockItem) => {
     setSelectedItem(item);
     setSearchTerm('');
-    setIsOpen(false);
+    setIsOpen(false); // Solo cerrar cuando se selecciona
     setItems([]);
     onChange(item.id);
   };
@@ -88,6 +85,7 @@ export default function ItemSearchInput({
     setSelectedItem(null);
     setSearchTerm('');
     setItems([]);
+    setIsOpen(false); // Cerrar al limpiar
     onChange('');
   };
 
@@ -106,7 +104,7 @@ export default function ItemSearchInput({
   };
 
   return (
-    <div className={`relative ${className}`} ref={wrapperRef}>
+    <div className={`relative ${className}`} ref={wrapperRef} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
       {selectedItem ? (
         <div className="rounded-xl border border-border/50 bg-secondary/30 p-3 flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
@@ -132,16 +130,25 @@ export default function ItemSearchInput({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
             <Input
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onFocus={() => searchTerm.length >= 2 && setIsOpen(true)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (e.target.value.length >= 2) {
+                  setIsOpen(true); // Abrir si hay texto
+                }
+              }}
+              onFocus={() => {
+                if (searchTerm.length >= 2) {
+                  setIsOpen(true);
+                }
+              }}
               placeholder={placeholder}
               className="h-9 rounded-xl text-sm pl-9"
             />
           </div>
 
-          {/* Dropdown de sugerencias */}
-          {isOpen && items.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[99999]">
+          {/* Dropdown de sugerencias - ALWAYS VISIBLE WHEN OPEN */}
+          {isOpen && (
+            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-[400px] overflow-y-auto z-[99999]">
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">
                   <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -174,7 +181,11 @@ export default function ItemSearchInput({
                 <div className="p-4 text-center text-muted-foreground text-xs">
                   No items found
                 </div>
-              ) : null}
+              ) : (
+                <div className="p-4 text-center text-muted-foreground text-xs">
+                  Type at least 2 characters to search
+                </div>
+              )}
             </div>
           )}
         </>
@@ -182,6 +193,7 @@ export default function ItemSearchInput({
     </div>
   );
 }
+
 
 
 

@@ -10,6 +10,7 @@ interface StatsPanelProps {
   flipActions?: FlipActionEntry[];
   purseHistory?: Array<{ timestamp: number; purse: number; runtime: number }>;
   purse?: number;
+  totalExpenses?: number;
 }
 
 const formatCoins = (n: number | null | undefined) => {
@@ -20,9 +21,8 @@ const formatCoins = (n: number | null | undefined) => {
   return n.toLocaleString();
 };
 
-export default function StatsPanel({ profits, moneyFlow, flipActions = [], purseHistory = [], purse }: StatsPanelProps) {
+export default function StatsPanel({ profits, moneyFlow, flipActions = [], purseHistory = [], purse, totalExpenses = 0 }: StatsPanelProps) {
   const totalProfit = profits.reduce((sum, p) => sum + p.profit, 0);
-  const totalExpenses = moneyFlow.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   // 📊 Flip Activity Graph Data - muestra un punto cada vez que se ejecuta una acción
   // La curva sube cuando se ejecuta una acción y baja con el tiempo
@@ -298,5 +298,7 @@ export default function StatsPanel({ profits, moneyFlow, flipActions = [], purse
     </div>
   );
 }
+
+
 
 

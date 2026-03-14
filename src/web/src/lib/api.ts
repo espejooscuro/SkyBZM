@@ -3,6 +3,7 @@
 
 
 
+
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -105,6 +106,7 @@ export interface BotStatusInfo {
   };
   purse?: number;
   purseHistory?: Array<{ timestamp: number; purse: number; runtime: number }>;
+  totalExpenses?: number;
 }
 
 export interface ActivityLog {
@@ -193,6 +195,7 @@ export const updateBotConfig = (username: string, updates: Partial<Account>) =>
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+
 
 
 

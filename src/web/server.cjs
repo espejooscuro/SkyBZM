@@ -506,7 +506,8 @@ class WebServer {
           lastActivity: Date.now()
         },
         purse: 0,
-        purseHistory: []
+        purseHistory: [],
+        totalExpenses: 0
       };
 
       if (this.botManager && this.botManager.bots) {
@@ -516,6 +517,7 @@ class WebServer {
           botInfo.state = bot.bot ? 'connected' : 'disconnected';
           botInfo.purse = bot.currentPurse || 0;
           botInfo.purseHistory = bot.purseHistory || [];
+          botInfo.totalExpenses = bot.totalExpenses || 0;
         }
       }
 
@@ -575,8 +577,20 @@ class WebServer {
         return res.status(404).json({ success: false, message: 'Bot not found' });
       }
 
-      const transactions = (bot.moneyFlow || []).slice(-limit);
-      res.json({ transactions });
+      // Convertir expenses a transacciones negativas para el gráfico
+      const expenses = (bot.expenses || []).map(exp => ({
+        timestamp: exp.timestamp,
+        amount: -exp.amount, // Negativo para expenses
+        description: exp.description,
+        type: 'expense'
+      }));
+
+      // Si hay moneyFlow en el bot, combinar
+      const allTransactions = [...(bot.moneyFlow || []), ...expenses]
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-limit);
+
+      res.json({ transactions: allTransactions });
     });
 
     this.app.get('/api/bots/:username/flip-activity', (req, res) => {
@@ -683,6 +697,8 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
 
 
 

@@ -22,7 +22,7 @@ interface BotCardProps {
 export default function BotCard({ account, botStatus, onRefresh }: BotCardProps) {
   const [actionLoading, setActionLoading] = useState('');
   const [localAccount, setLocalAccount] = useState<Account>(account);
-  const { logs, profits, moneyFlow, flipActions, purseHistory } = useBotData(account.username, true);
+  const { logs, profits, moneyFlow, flipActions, purseHistory, totalExpenses } = useBotData(account.username, true);
 
   const isConnected = botStatus?.connected || false;
   const state = botStatus?.state || 'disconnected';
@@ -148,7 +148,8 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
               moneyFlow={moneyFlow} 
               flipActions={flipActions}
               purseHistory={purseHistory}
-              purse={botStatus?.purse} 
+              purse={botStatus?.purse}
+              totalExpenses={totalExpenses}
             />
           </TabsContent>
           <TabsContent value="flips" className="mt-0">
@@ -165,5 +166,6 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
     </motion.div>
   );
 }
+
 
 

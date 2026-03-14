@@ -9,6 +9,7 @@ interface BotData {
   moneyFlow: MoneyFlowEntry[];
   flipActions: FlipActionEntry[];
   purseHistory: Array<{ timestamp: number; purse: number; runtime: number }>;
+  totalExpenses: number;
   loading: boolean;
   error: string | null;
 }
@@ -16,6 +17,7 @@ interface BotData {
 export function useBotData(username: string, enabled: boolean, interval = 8000) {
   const [data, setData] = useState<BotData>({
     status: null, logs: [], profits: [], moneyFlow: [], flipActions: [], purseHistory: [],
+    totalExpenses: 0,
     loading: true, error: null,
   });
 
@@ -30,10 +32,13 @@ export function useBotData(username: string, enabled: boolean, interval = 8000) 
         api.getBotFlipActivity(username, 500),
       ]);
       
-      // Get purse history from bot status
+      // Get purse history and total expenses from bot status
       let purseHistory: Array<{ timestamp: number; purse: number; runtime: number }> = [];
+      let totalExpenses = 0;
+      
       if (statusRes.status === 'fulfilled' && statusRes.value.bot) {
         purseHistory = statusRes.value.bot.purseHistory || [];
+        totalExpenses = statusRes.value.bot.totalExpenses || 0;
       }
       
       setData({
@@ -43,6 +48,7 @@ export function useBotData(username: string, enabled: boolean, interval = 8000) 
         moneyFlow: flowRes.status === 'fulfilled' ? flowRes.value.transactions : [],
         flipActions: flipActionsRes.status === 'fulfilled' ? flipActionsRes.value.actions : [],
         purseHistory,
+        totalExpenses,
         loading: false, error: null,
       });
     } catch (err: any) {
@@ -58,5 +64,6 @@ export function useBotData(username: string, enabled: boolean, interval = 8000) 
 
   return { ...data, refetch: fetchData };
 }
+
 
 
