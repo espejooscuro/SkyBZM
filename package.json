@@ -1,6 +1,8 @@
 
 
 
+
+
 {
   "name": "skybzm",
   "version": "1.0.0",
@@ -10,7 +12,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prestart": "node scripts/build-web.js",
     "start": "node src/Launcher.js",
-    "web:build": "cd src/web/public && npm install && npm run build",
+    "web:build": "cd src/web && npm install && npm run build",
     "prebuild": "npm run web:build",
     "build": "pkg . --compress GZip",
     "build:win": "npm run web:build && pkg . --targets node18-win-x64 --compress GZip --output dist/SkyBZM-win.exe",
@@ -21,8 +23,8 @@
   "bin": "src/Launcher.js",
   "pkg": {
     "assets": [
-      "src/web/public/dist/**/*",
-      "src/web/public/index.html",
+      "src/web/dist/**/*",
+      "src/web/index.html",
       "node_modules/mineflayer/lib/plugins/**/*",
       "node_modules/minecraft-data/**/*",
       "node_modules/prismarine-*/**/*"
@@ -67,6 +69,8 @@
     "pkg": "^5.8.1"
   }
 }
+
+
 
 
 

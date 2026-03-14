@@ -1,8 +1,10 @@
+
+
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const webDir = path.join(__dirname, '../src/web/public');
+const webDir = path.join(__dirname, '../src/web');
 const distDir = path.join(webDir, 'dist');
 
 console.log('🔧 Checking web build...');
@@ -40,8 +42,10 @@ try {
   console.error('❌ Error building web app:', error.message);
   console.log('\n⚠️  Web interface will not be available.');
   console.log('💡 You can build it manually later with:');
-  console.log('   cd src/web/public');
+  console.log('   cd src/web');
   console.log('   npm install');
   console.log('   npm run build\n');
   process.exit(0); // Don't fail the entire app
 }
+
+
