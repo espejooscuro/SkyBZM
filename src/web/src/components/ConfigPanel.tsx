@@ -1,4 +1,5 @@
 
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -47,11 +48,11 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
         {shortBreaks.enabled && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest After: {shortBreaks.workDuration || (shortBreaks as any).restAfter || 10} min</Label>
+              <Label className="text-xs text-muted-foreground">Work Duration: {shortBreaks.workDuration || (shortBreaks as any).restAfter || 10} min</Label>
               <Slider value={[shortBreaks.workDuration || (shortBreaks as any).restAfter || 10]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { enabled: shortBreaks.enabled, workDuration: v, breakDuration: shortBreaks.breakDuration || (shortBreaks as any).restTime || 3 } } })} min={1} max={120} step={1} />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Rest Time: {shortBreaks.breakDuration || (shortBreaks as any).restTime || 3} min</Label>
+              <Label className="text-xs text-muted-foreground">Break Duration: {shortBreaks.breakDuration || (shortBreaks as any).restTime || 3} min</Label>
               <Slider value={[shortBreaks.breakDuration || (shortBreaks as any).restTime || 3]} onValueChange={([v]) => onUpdate({ restSchedule: { ...account.restSchedule, shortBreaks: { enabled: shortBreaks.enabled, workDuration: shortBreaks.workDuration || (shortBreaks as any).restAfter || 10, breakDuration: v } } })} min={1} max={30} step={1} />
             </div>
           </motion.div>
@@ -150,6 +151,7 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
     </div>
   );
 }
+
 
 
 
