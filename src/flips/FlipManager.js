@@ -11,6 +11,8 @@
 
 
 
+
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCflip');
@@ -27,6 +29,9 @@ class FlipManager {
   constructor(bot, accountConfig = {}, sharedQueue = null) {
     this.bot = bot;
     this.username = accountConfig.username || (bot && bot.username) || 'Unknown';
+    
+    // 🔥 Guardar referencia a la instancia de Bot para logs y expenses
+    this.botInstance = accountConfig.botInstance || null;
     
     // 🔥 Ruta al config.json para guardar el estado
     this.configPath = path.join(process.cwd(), 'config.json');
@@ -562,12 +567,14 @@ class FlipManager {
     
     
     // Create NPC flip with all required parameters
+    // 🔥 Pass botInstance for logs/expenses, and mineflayer bot for game actions
     const npcFlip = new NPCFlip(
-      this.bot,
+      this.botInstance || this.bot, // 🔥 Prefer botInstance for logs
       this.chatListener,
       config,
       this.queue,
-      this.api
+      this.api,
+      this.bot // 🔥 Pass mineflayer bot as separate parameter
     );
     
     this.flips.push(npcFlip);
@@ -1234,6 +1241,8 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
+
+
 
 
 

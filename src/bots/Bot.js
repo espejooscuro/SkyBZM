@@ -3,7 +3,6 @@
 
 
 
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -423,7 +422,8 @@ class Bot {
         minOrder: flipsConfig.minOrder,
         maxOrder: flipsConfig.maxOrder,
         minSpread: flipsConfig.minSpread,
-        flipConfigs: this.accountConfig?.flipConfigs || [] // 🔥 Pasar las configuraciones de flip
+        flipConfigs: this.accountConfig?.flipConfigs || [], // 🔥 Pasar las configuraciones de flip
+        botInstance: this // 🔥 Pasar referencia a la instancia de Bot para logs y expenses
       }, this.queue); // 🔥 Pasar el TaskQueue central del Bot
 
       this.flipManager = manager; // 🔥 Guardar referencia
@@ -840,6 +840,7 @@ class Bot {
 }
 
 module.exports = Bot;
+
 
 
 

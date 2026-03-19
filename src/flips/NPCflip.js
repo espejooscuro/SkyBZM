@@ -19,9 +19,10 @@ const delay = (ms) => {
  * Properly enqueues tasks to TaskQueue for visibility in Bot Brain
  */
 class NPCFlip extends Flip {
-  constructor(bot, chatListener, config, queue, api) {
+  constructor(bot, chatListener, config, queue, api, mineflayerBot = null) {
     // Call parent with minimal data
-    super(bot, chatListener, {
+    // 🔥 Use mineflayerBot for game actions, bot for logs/expenses
+    super(mineflayerBot || bot, chatListener, {
       itemTag: config.item || config.npcItem || 'UNKNOWN',
       item: 'Loading...', // Will be updated after fetching
       buyPrice: 0,
@@ -31,9 +32,15 @@ class NPCFlip extends Flip {
     this.type = 'NPC';
     this.chatListener = chatListener;
     
+    // 🔥 Store Bot instance for logs and expenses
+    this.botInstance = bot;
+    
+    // 🔥 Store Mineflayer bot for game actions
+    this.mineflayerBot = mineflayerBot || bot;
+    
     // Store both the class and instance for ContainerManager
     const ContainerManagerClass = require('../utils/ContainerManager');
-    this.ContainerManager = new ContainerManagerClass(bot);
+    this.ContainerManager = new ContainerManagerClass(mineflayerBot || bot);
     this._ContainerManagerClass = ContainerManagerClass;
     
     // NPC Flip specific config
@@ -259,20 +266,20 @@ class NPCFlip extends Flip {
         
         // 💸 Registrar expense (gasto total = precio por unidad * cantidad)
         const totalCost = price * amount;
-        if (this.bot && typeof this.bot.recordExpense === 'function') {
-          this.bot.recordExpense(totalCost, `Buy Order: ${amount}x ${this.npcItem}`);
+        if (this.botInstance && typeof this.botInstance.recordExpense === 'function') {
+          this.botInstance.recordExpense(totalCost, `Buy Order: ${amount}x ${this.npcItem}`);
         }
         
-        console.log(`💰 [${this.bot?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`);
+        console.log(`💰 [${this.botInstance?.username}][NPC:${this.npcItem}] BUY ORDER PLACED - ${amount}x @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`);
         
         // 📝 Log to web dashboard
-        if (this.bot && typeof this.bot.log === 'function') {
-          this.bot.log(`💰 BUY ORDER PLACED: ${amount}x ${this.npcItem} @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`, 'success', 'npcflip');
+        if (this.botInstance && typeof this.botInstance.log === 'function') {
+          this.botInstance.log(`💰 BUY ORDER PLACED: ${amount}x ${this.npcItem} @ ${price.toLocaleString()} coins (Total: ${totalCost.toLocaleString()})`, 'success', 'npcflip');
         }
         
         // 📊 Registrar acción para estadísticas
-        if (this.bot && typeof this.bot.recordFlipAction === 'function') {
-          this.bot.recordFlipAction('npcbuy', this.npcItem);
+        if (this.botInstance && typeof this.botInstance.recordFlipAction === 'function') {
+          this.botInstance.recordFlipAction('npcbuy', this.npcItem);
         }
         
         const forceSellTimer = setTimeout(() => {
@@ -468,16 +475,16 @@ class NPCFlip extends Flip {
           await delay(500);
         }
         
-        console.log(`💵 [${this.bot?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all items to Bazaar`);
+        console.log(`💵 [${this.botInstance?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all items to Bazaar`);
         
         // 📝 Log to web dashboard
-        if (this.bot && typeof this.bot.log === 'function') {
-          this.bot.log(`💵 SELL COMPLETED: ${this.npcItem} - All items sold to Bazaar`, 'success', 'npcflip');
+        if (this.botInstance && typeof this.botInstance.log === 'function') {
+          this.botInstance.log(`💵 SELL COMPLETED: ${this.npcItem} - All items sold to Bazaar`, 'success', 'npcflip');
         }
         
         // 📊 Registrar acción para estadísticas
-        if (this.bot && typeof this.bot.recordFlipAction === 'function') {
-          this.bot.recordFlipAction('npcsell', this.npcItem);
+        if (this.botInstance && typeof this.botInstance.recordFlipAction === 'function') {
+          this.botInstance.recordFlipAction('npcsell', this.npcItem);
         }
         
         // Remove from tracking
@@ -593,6 +600,8 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
+
 
 
 
