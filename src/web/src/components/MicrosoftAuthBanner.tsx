@@ -31,7 +31,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     return () => clearInterval(timer);
   }, []);
 
-  const copyCode = () => {
+  const handleCopy = () => {
     navigator.clipboard.writeText(code);
     setCopied(true);
     toast.success('Code copied to clipboard!');
@@ -183,6 +183,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     </AnimatePresence>
   );
 }
+
 
 
 
