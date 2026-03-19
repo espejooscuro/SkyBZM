@@ -125,10 +125,10 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
                     </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-white mb-1">
-                        🔐 Autenticación Requerida
+                        Authentication Required
                       </h3>
                       <p className="text-sm text-white/80">
-                        <strong>{username}</strong> necesita autenticación Microsoft
+                        <strong>{username}</strong> needs Microsoft authentication
                       </p>
                     </div>
                   </div>
@@ -137,7 +137,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                        Código de acceso
+                        Access Code
                       </span>
                       <button
                         onClick={handleCopy}
@@ -171,7 +171,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      Abrir Microsoft Login
+                      Open Microsoft Login
                     </Button>
                   </a>
                 </div>
@@ -183,6 +183,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     </AnimatePresence>
   );
 }
+
 
 
 
