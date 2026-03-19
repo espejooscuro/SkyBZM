@@ -1,9 +1,6 @@
 
 
 
-
-
-
 const Flip = require('./Flip');
 
 
@@ -323,163 +320,194 @@ class NPCFlip extends Flip {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         const buyOrderName = `BUY ${this.npcItem}`;
-        let finishedCollecting = false;
+        let allItemsCollected = false; // 🔥 Outer loop - true when NO MORE items exist in /managebazaarorders
+        let totalClaimedCount = 0; // 🔥 Total items claimed across all iterations
         
-        this.ContainerManager.closeContainer();
-        await delay(1300);
-        this.chatListener.send('/managebazaarorders');
-        await delay(1300);
-        
-        const containerName = this.ContainerManager.getOpenContainerName();
-        
-        // Main collection loop - stay in same GUI and claim all available orders
-        let claimedCount = 0;
-        while (!finishedCollecting) {
-          if (!this.enabled) {
-            this.log('   ⚠️ Flip disabled during claiming, aborting...');
-            break;
-          }
+        // 🔥 OUTER LOOP: Repeat "claim + sell" until no more items exist
+        while (!allItemsCollected && this.enabled) {
+          this.ContainerManager.closeContainer();
+          await delay(1300);
+          this.chatListener.send('/managebazaarorders');
+          await delay(1300);
           
-          // Check if buy order exists in current window
+          const containerName = this.ContainerManager.getOpenContainerName();
+          
+          // Check if buy order exists at all
           const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
             contains: `buy ${this.npcItem.toLowerCase()}`, 
             type: "container" 
           });
           
           if (!hasBuyOrder) {
-            this.log(`  ✅ Claimed ${claimedCount} buy orders`);
-            finishedCollecting = true;
+            this.log(`  ✅ No more buy orders found - Claimed ${totalClaimedCount} total items`);
+            allItemsCollected = true;
+            this.ContainerManager.closeContainer();
+            await delay(500);
             break;
           }
           
-          // Check if inventory is mostly full
-          if (this.ContainerManager.isInventoryMostlyFull()) {
-            this.log(`   ⚠️ Inventory is mostly full, waiting...`);
-            const startTime = Date.now();
-            while (this.ContainerManager.isInventoryMostlyFull()) {
-              if (Date.now() - startTime >= 3000) {
-                this.log('  ⚠️ Inventory full, stopping collection');
-                finishedCollecting = true;
-                break;
-              }
-              await delay(50);
+          // 🔥 INNER LOOP: Claim items until inventory full OR no more items
+          let finishedThisRound = false;
+          let claimedThisRound = 0;
+          
+          while (!finishedThisRound) {
+            if (!this.enabled) {
+              this.log('   ⚠️ Flip disabled during claiming, aborting...');
+              break;
             }
-            if (finishedCollecting) break;
-          }
-          
-          await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
-          await delay(800); // Wait for claim to process
-          claimedCount++;
-          
-          const currentContainer = this.ContainerManager.getOpenContainerName();
-          
-          if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
-            await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
-          }
-          // Check again if more orders exist (without closing/reopening)
-          await delay(200);
-        }
-        
-        this.ContainerManager.closeContainer();
-        await delay(500);
-        
-        // Now sell items via booster cookie
-        if (this.enabled) {
-          
-          this.ContainerManager.closeContainer();
-          await delay(1000);
-          this.chatListener.send('/boostercookie');
-          
-          let containerOpened = false;
-          let attempts = 0;
-          const maxWaitAttempts = 10;
-          
-          while (!containerOpened && attempts < maxWaitAttempts) {
-            await delay(500);
-            const containerName = this.ContainerManager.getOpenContainerName() || '';            
-            if (containerName.includes('cookie') || containerName.includes('booster')) {
-              containerOpened = true;
+            
+            // Check if buy order still exists
+            const stillHasBuyOrder = this.ContainerManager.hasItemInContainer({ 
+              contains: `buy ${this.npcItem.toLowerCase()}`, 
+              type: "container" 
+            });
+            
+            if (!stillHasBuyOrder) {
+              this.log(`  ✅ Claimed ${claimedThisRound} items this round (no more orders)`);
+              finishedThisRound = true;
+              allItemsCollected = true; // 🔥 No more items = we're completely done
+              break;
             }
-            attempts++;
-          }
-          
-          if (!containerOpened) {
-            this.purchasedItems.delete(purchaseId);
-            this.activePurchases.delete(purchaseId);
-            return false;
-          }
-        
-          const allInventoryItems = this.ContainerManager.getValidInventoryItems();
-          
-          const itemsToClick = allInventoryItems.filter(item => {
-            if (!item || !item.customName) return false;
-            const cleanName = this.cleanItemName(item.customName);
-            return cleanName.toLowerCase().includes(this.npcItem.toLowerCase());
-          });
-          
-          for (const item of itemsToClick) {
-            if (!this.enabled) break;
             
-            const itemName = this.cleanItemName(item.customName);
-            
-            let clickAttempts = 0;
-            const maxAttempts = 20;
-            
-            let lastClickedSlot = null;
-            
-            while (this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' }) && 
-                   clickAttempts < maxAttempts) {
-              if (!this.enabled) break;
-              
-              const currentInventoryItems = this.ContainerManager.getValidInventoryItemsFromWindow();
-              const matchingItem = currentInventoryItems.find(i => {
-                if (!i || !i.customName) return false;
-                const cleanName = this.cleanItemName(i.customName);
-                return cleanName.toLowerCase().includes(itemName.toLowerCase());
-              });
-              
-              if (!matchingItem) {
-                break;
-              }
-              
-              const targetSlot = matchingItem.slot;
-              const targetWindowSlot = matchingItem.windowSlot;
-              
-              
-              if (lastClickedSlot === targetSlot) {
-                await delay(800);
-                
-                const recheckItems = this.ContainerManager.getValidInventoryItemsFromWindow();
-                const recheck = recheckItems.find(i => 
-                  i.slot === targetSlot && 
-                  this.cleanItemName(i.customName).toLowerCase().includes(itemName.toLowerCase())
-                );
-                
-                if (!recheck) {
-                  lastClickedSlot = null;
-                  continue;
+            // Check if inventory is mostly full
+            if (this.ContainerManager.isInventoryMostlyFull()) {
+              this.log(`   ⚠️ Inventory is mostly full, waiting...`);
+              const startTime = Date.now();
+              while (this.ContainerManager.isInventoryMostlyFull()) {
+                if (Date.now() - startTime >= 3000) {
+                  this.log(`  ⚠️ Inventory full after claiming ${claimedThisRound} items - will sell and continue`);
+                  finishedThisRound = true;
+                  // 🔥 Don't set allItemsCollected = true, we need to continue after selling
+                  break;
                 }
+                await delay(50);
               }
-              
-              await this.ContainerManager.click({}, 0, 0, targetWindowSlot);
-              
-              lastClickedSlot = targetSlot;
-              await delay(500);
-              clickAttempts++;
+              if (finishedThisRound) break;
             }
             
-            this.log(`  ✅ Sold ${itemName} (${clickAttempts} clicks)`);
+            await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
+            await delay(800);
+            claimedThisRound++;
+            totalClaimedCount++;
+            
+            const currentContainer = this.ContainerManager.getOpenContainerName();
+            
+            if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
+              await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
+            }
+            
+            await delay(200);
           }
-
+          
           this.ContainerManager.closeContainer();
           await delay(500);
+          
+          // 🔥 SELL PHASE - Sell everything in inventory
+          if (this.enabled && claimedThisRound > 0) {
+            this.log(`  📦 Selling ${claimedThisRound} claimed items...`);
+            
+            this.ContainerManager.closeContainer();
+            await delay(1000);
+            this.chatListener.send('/boostercookie');
+            
+            let containerOpened = false;
+            let attempts = 0;
+            const maxWaitAttempts = 10;
+            
+            while (!containerOpened && attempts < maxWaitAttempts) {
+              await delay(500);
+              const containerName = this.ContainerManager.getOpenContainerName() || '';            
+              if (containerName.includes('cookie') || containerName.includes('booster')) {
+                containerOpened = true;
+              }
+              attempts++;
+            }
+            
+            if (!containerOpened) {
+              this.log('  ⚠️ Could not open booster cookie, aborting');
+              this.purchasedItems.delete(purchaseId);
+              this.activePurchases.delete(purchaseId);
+              return false;
+            }
+          
+            const allInventoryItems = this.ContainerManager.getValidInventoryItems();
+            
+            const itemsToClick = allInventoryItems.filter(item => {
+              if (!item || !item.customName) return false;
+              const cleanName = this.cleanItemName(item.customName);
+              return cleanName.toLowerCase().includes(this.npcItem.toLowerCase());
+            });
+            
+            for (const item of itemsToClick) {
+              if (!this.enabled) break;
+              
+              const itemName = this.cleanItemName(item.customName);
+              
+              let clickAttempts = 0;
+              const maxAttempts = 20;
+              
+              let lastClickedSlot = null;
+              
+              while (this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' }) && 
+                     clickAttempts < maxAttempts) {
+                if (!this.enabled) break;
+                
+                const currentInventoryItems = this.ContainerManager.getValidInventoryItemsFromWindow();
+                const matchingItem = currentInventoryItems.find(i => {
+                  if (!i || !i.customName) return false;
+                  const cleanName = this.cleanItemName(i.customName);
+                  return cleanName.toLowerCase().includes(itemName.toLowerCase());
+                });
+                
+                if (!matchingItem) {
+                  break;
+                }
+                
+                const targetSlot = matchingItem.slot;
+                const targetWindowSlot = matchingItem.windowSlot;
+                
+                
+                if (lastClickedSlot === targetSlot) {
+                  await delay(800);
+                  
+                  const recheckItems = this.ContainerManager.getValidInventoryItemsFromWindow();
+                  const recheck = recheckItems.find(i => 
+                    i.slot === targetSlot && 
+                    this.cleanItemName(i.customName).toLowerCase().includes(itemName.toLowerCase())
+                  );
+                  
+                  if (!recheck) {
+                    lastClickedSlot = null;
+                    continue;
+                  }
+                }
+                
+                await this.ContainerManager.click({}, 0, 0, targetWindowSlot);
+                
+                lastClickedSlot = targetSlot;
+                await delay(500);
+                clickAttempts++;
+              }
+              
+              this.log(`  ✅ Sold ${itemName} (${clickAttempts} clicks)`);
+            }
+
+            this.ContainerManager.closeContainer();
+            await delay(500);
+            
+            this.log(`  ✅ Finished selling ${claimedThisRound} items`);
+          }
+          
+          // 🔥 If we haven't collected all items yet, loop will continue
+          // and go back to /managebazaarorders to claim more
         }
         
-        console.log(`💵 [${this.botInstance?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all items to Bazaar`);
+        // 🔥 ALL DONE - No more items to collect
+        console.log(`💵 [${this.botInstance?.username}][NPC:${this.npcItem}] SELL COMPLETED - Sold all ${totalClaimedCount} items to Bazaar`);
         
         // 📝 Log to web dashboard
         if (this.botInstance && typeof this.botInstance.log === 'function') {
-          this.botInstance.log(`💵 SELL COMPLETED: ${this.npcItem} - All items sold to Bazaar`, 'success', 'npcflip');
+          this.botInstance.log(`💵 SELL COMPLETED: ${this.npcItem} - All ${totalClaimedCount} items sold to Bazaar`, 'success', 'npcflip');
         }
         
         // 📊 Registrar acción para estadísticas
@@ -600,6 +628,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 
