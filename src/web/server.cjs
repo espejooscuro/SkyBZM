@@ -3,7 +3,6 @@
 
 
 
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -793,14 +792,39 @@ class WebServer {
     // For now, clients will poll the API
   }
 
+  getLocalIPAddress() {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        // Skip over internal (i.e. 127.0.0.1) and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    
+    return 'localhost';
+  }
+
   start() {
-    this.server = this.app.listen(this.port, () => {
-      console.log(`\n✅ Web Dashboard: http://localhost:${this.port}`);
-      console.log(`📊 API Endpoint: http://localhost:${this.port}/api`);
+    this.server = this.app.listen(this.port, '0.0.0.0', () => {
+      const localIP = this.getLocalIPAddress();
+      
+      console.log(`\n✅ Web Dashboard Started!`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📱 Local Access:    http://localhost:${this.port}`);
+      console.log(`🌐 Network Access:  http://${localIP}:${this.port}`);
+      console.log(`📊 API Endpoint:    http://${localIP}:${this.port}/api`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
       if (this.config.webPassword) {
-        console.log(`🔑 Web Password: ${this.config.webPassword}\n`);
+        console.log(`🔑 Web Password: ${this.config.webPassword}`);
+        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
+      
+      console.log(`\n💡 Tip: Access from any device on your network using the Network Access URL\n`);
     });
   }
 
@@ -812,6 +836,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
