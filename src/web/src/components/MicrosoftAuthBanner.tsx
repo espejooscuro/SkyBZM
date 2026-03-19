@@ -20,7 +20,10 @@ export default function MicrosoftAuthBanner({ username, code, link, logs, onDism
 
   // Check for successful sign-in
   useEffect(() => {
-    const hasSignedIn = logs.some(log => log.includes('[msa] Signed in with Microsoft'));
+    const hasSignedIn = logs.some(log => {
+      const message = typeof log === 'string' ? log : log?.message || '';
+      return message.includes('[msa] Signed in with Microsoft');
+    });
     if (hasSignedIn && !isSuccess) {
       setIsSuccess(true);
       toast.success('Successfully signed in with Microsoft!');
@@ -240,3 +243,4 @@ export default function MicrosoftAuthBanner({ username, code, link, logs, onDism
     </AnimatePresence>
   );
 }
+
