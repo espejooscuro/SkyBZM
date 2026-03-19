@@ -1,6 +1,5 @@
 
 
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -75,20 +74,6 @@ class Bot {
       'game update',
       'server is too laggy'
     ];
-    
-    // 🔐 MSA message buffer
-    this.msaMessageBuffer = '';
-    
-    // 💾 Store original console methods for cleanup
-    this.originalConsoleLog = null;
-    this.originalConsoleInfo = null;
-  }
-
-  /**
-   * Intercepta mensajes de consola para capturar logs de autenticación de Microsoft
-   */
-  setupConsoleInterceptor() {
-    // No longer needed - we'll capture MSA messages differently
   }
 
   loadConfig() {
@@ -115,10 +100,17 @@ class Bot {
     const proxy = this.config?.proxy; // { host, port, type }
     
     // 🔐 Interceptar mensajes de MSA específicamente para este bot
-    const originalWrite = process.stdout.write.bind(process.stdout);
+    // Guardamos la referencia original de stdout ANTES de sobrescribirla
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
     const self = this;
+    let isCapturing = false; // Flag para evitar loops
     
     process.stdout.write = function(chunk, encoding, callback) {
+      // Si ya estamos capturando, salir inmediatamente para evitar loop
+      if (isCapturing) {
+        return originalStdoutWrite(chunk, encoding, callback);
+      }
+      
       const message = chunk.toString();
       
       // Detectar mensajes de MSA y agregarlos a los logs del bot
@@ -127,15 +119,19 @@ class Bot {
           message.includes('use the code') ||
           message.includes('First time signing in')) {
         
+        isCapturing = true;
+        
         // Agregar al log del bot con toda la información
         self.log(message.trim(), 'info', 'authentication');
         
-        console.log(`[MSA-CAPTURE] Bot ${self.name}: "${message.trim()}"`);
-        console.log(`[MSA-CAPTURE] Total logs now: ${self.logs.length}`);
+        // Debug usando originalStdoutWrite directamente
+        originalStdoutWrite(`[MSA] Captured for ${self.name} (${self.logs.length} logs)\n`);
+        
+        isCapturing = false;
       }
       
       // Llamar al write original
-      return originalWrite(chunk, encoding, callback);
+      return originalStdoutWrite(chunk, encoding, callback);
     };
 
     this.bot = mineflayer.createBot({
@@ -693,6 +689,16 @@ class Bot {
         console.log(`   🔍 Inactivity monitor cleared`);
       }
       
+      // 1. Pausar FlipManager ANTES de destruir (guarda estado)
+      if (this.flipManager) {
+        console.log(`   ⏸️ Pausing FlipManager to save state...`);
+        this.flipManager.pause();
+        
+        console.log(`   🔥 Destroying FlipManager...`);
+        this.flipManager.destroy();
+        this.flipManager = null;
+      }
+      
       // 1.5. Destruir RestScheduler
       if (this.restScheduler) {
         console.log(`   🔥 Destroying RestScheduler...`);
@@ -871,28 +877,3 @@ class Bot {
 }
 
 module.exports = Bot;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
