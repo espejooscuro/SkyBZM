@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -17,18 +17,19 @@ interface ItemSearchInputProps {
   className?: string;
 }
 
-export default function ItemSearchInput({ 
+const ItemSearchInput = memo(({ 
   value, 
   onChange, 
   placeholder = "Search item...",
   className = ""
-}: ItemSearchInputProps) {
+}: ItemSearchInputProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [items, setItems] = useState<SkyblockItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SkyblockItem | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Si cambia el valor desde afuera, actualizar el item seleccionado
   useEffect(() => {
@@ -43,15 +44,22 @@ export default function ItemSearchInput({
           }
         })
         .catch(() => {});
+    } else if (!value && selectedItem) {
+      // Si el valor se limpia desde afuera, limpiar el item seleccionado
+      setSelectedItem(null);
     }
   }, [value]);
 
   // Buscar items cuando cambia el término de búsqueda
   useEffect(() => {
+    // Limpiar timeout anterior
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     const searchItems = async () => {
       if (searchTerm.length < 2) {
         setItems([]);
-        // NO cerrar el dropdown aquí, solo vaciar los resultados
         return;
       }
 
@@ -60,7 +68,7 @@ export default function ItemSearchInput({
         const response = await fetch(`/api/skyblock-items?q=${encodeURIComponent(searchTerm)}`);
         const data = await response.json();
         setItems(data.items || []);
-        setIsOpen(true); // Mantener abierto mientras haya búsqueda
+        setIsOpen(true);
       } catch (error) {
         console.error('Error searching items:', error);
         setItems([]);
@@ -69,25 +77,46 @@ export default function ItemSearchInput({
       }
     };
 
-    const timeoutId = setTimeout(searchItems, 300);
-    return () => clearTimeout(timeoutId);
+    searchTimeoutRef.current = setTimeout(searchItems, 300);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [searchTerm]);
 
-  const handleSelectItem = (item: SkyblockItem) => {
+  const handleSelectItem = useCallback((item: SkyblockItem) => {
     setSelectedItem(item);
     setSearchTerm('');
-    setIsOpen(false); // Solo cerrar cuando se selecciona
+    setIsOpen(false);
     setItems([]);
     onChange(item.id);
-  };
+  }, [onChange]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setSelectedItem(null);
     setSearchTerm('');
     setItems([]);
-    setIsOpen(false); // Cerrar al limpiar
+    setIsOpen(false);
     onChange('');
-  };
+  }, [onChange]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setSearchTerm(newValue);
+    if (newValue.length >= 2) {
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    if (searchTerm.length >= 2 && items.length > 0) {
+      setIsOpen(true);
+    }
+  }, [searchTerm, items.length]);
 
   const getTierColor = (tier?: string) => {
     switch (tier?.toUpperCase()) {
@@ -120,6 +149,7 @@ export default function ItemSearchInput({
             onClick={handleClear}
             className="p-1.5 hover:bg-secondary rounded-lg transition-colors"
             aria-label="Clear selection"
+            type="button"
           >
             <X className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
@@ -127,28 +157,23 @@ export default function ItemSearchInput({
       ) : (
         <>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50 pointer-events-none" />
             <Input
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                if (e.target.value.length >= 2) {
-                  setIsOpen(true); // Abrir si hay texto
-                }
-              }}
-              onFocus={() => {
-                if (searchTerm.length >= 2) {
-                  setIsOpen(true);
-                }
-              }}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
               placeholder={placeholder}
               className="h-9 rounded-xl text-sm pl-9"
+              autoComplete="off"
             />
           </div>
 
-          {/* Dropdown de sugerencias - ALWAYS VISIBLE WHEN OPEN */}
+          {/* Dropdown de sugerencias */}
           {isOpen && (
-            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-[400px] overflow-y-auto z-[99999]">
+            <div 
+              className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded-lg shadow-xl max-h-[400px] overflow-y-auto"
+              style={{ zIndex: 99999 }}
+            >
               {isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">
                   <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -192,9 +217,8 @@ export default function ItemSearchInput({
       )}
     </div>
   );
-}
+});
 
+ItemSearchInput.displayName = 'ItemSearchInput';
 
-
-
-
+export default ItemSearchInput;
