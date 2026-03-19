@@ -55,96 +55,127 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     <AnimatePresence>
       {!isDismissed && (
         <motion.div
+          drag
+          dragMomentum={false}
+          dragElastic={0.1}
+          dragConstraints={{
+            top: -window.innerHeight / 2 + 100,
+            bottom: window.innerHeight / 2 - 100,
+            left: -window.innerWidth / 2 + 200,
+            right: window.innerWidth / 2 - 200,
+          }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 cursor-move"
         >
           <div className="bg-card/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-border/50 overflow-hidden">
             {/* Header with gradient */}
-            <div className="relative bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 p-4 border-b border-border/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <svg className="w-6 h-6 text-white" viewBox="0 0 23 23" fill="currentColor">
-                      <path d="M0 0h11v11H0z" />
-                      <path d="M12 0h11v11H12z" />
-                      <path d="M0 12h11v11H0z" />
-                      <path d="M12 12h11v11H12z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-display text-base font-bold">Authentication Required</h3>
-                    <p className="text-xs text-muted-foreground">For {username}</p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={handleDismiss}
-                  className="w-8 h-8 rounded-lg hover:bg-muted transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-3">
-              {/* Timer */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Time remaining</span>
-                <span className="font-mono text-primary font-bold">{formatTime(timeLeft)}</span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: '100%' }}
-                  animate={{ width: `${(timeLeft / 900) * 100}%` }}
-                  transition={{ duration: 1 }}
-                  className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"
-                />
-              </div>
-
-              {/* Code Display */}
-              <div className="relative">
-                <div className="p-4 bg-muted/30 rounded-xl border border-border/50 text-center">
-                  <p className="text-xs text-muted-foreground mb-2">Authentication Code</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="font-mono text-3xl font-bold tracking-widest bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-                      {code}
-                    </p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={copyCode}
-                      className="h-8 w-8 rounded-lg hover:bg-muted"
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <Button
-                onClick={() => window.open(link, '_blank')}
-                className="w-full rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white border-0 hover:opacity-90 shadow-lg h-11 font-display"
+            <div className="relative bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-2xl overflow-hidden border border-white/20">
+              {/* Close button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDismiss();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open Microsoft Login
-              </Button>
+                <X className="w-4 h-4 text-white" />
+              </button>
 
-              {/* Help text */}
-              <p className="text-xs text-center text-muted-foreground">
-                Click the button above or manually visit{' '}
-                <span className="text-primary font-mono">microsoft.com/link</span>
-              </p>
+              {/* Drag handle indicator */}
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-3">
+                {/* Timer */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Time remaining</span>
+                  <span className="font-mono text-primary font-bold">{formatTime(timeLeft)}</span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: '100%' }}
+                    animate={{ width: `${(timeLeft / 900) * 100}%` }}
+                    transition={{ duration: 1 }}
+                    className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"
+                  />
+                </div>
+
+                {/* Content */}
+                <div className="p-6 pt-2">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                      <svg
+                        className="w-6 h-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white mb-1">
+                        🔐 Autenticación Requerida
+                      </h3>
+                      <p className="text-sm text-white/80">
+                        <strong>{username}</strong> necesita autenticación Microsoft
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Code display */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                        Código de acceso
+                      </span>
+                      <button
+                        onClick={handleCopy}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="p-1.5 hover:bg-white/10 rounded transition-colors cursor-pointer"
+                      >
+                        {copied ? (
+                          <Check className="w-4 h-4 text-green-300" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-white/60" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="text-center">
+                      <code className="text-2xl font-bold text-white tracking-wider font-mono select-all">
+                        {code}
+                      </code>
+                    </div>
+                  </div>
+
+                  {/* Action button */}
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="block"
+                  >
+                    <Button
+                      className="w-full bg-white hover:bg-white/90 text-purple-600 font-semibold py-3 rounded-lg transition-all hover:scale-105 cursor-pointer"
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Abrir Microsoft Login
+                    </Button>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -152,4 +183,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     </AnimatePresence>
   );
 }
+
+
+
 
