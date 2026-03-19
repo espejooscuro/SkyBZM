@@ -1,5 +1,6 @@
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -113,12 +114,18 @@ class Bot {
       
       const message = chunk.toString();
       
-      // Detectar mensajes de MSA y agregarlos a los logs del bot
-      if (message.includes('[msa]') || 
-          message.includes('microsoft.com/link') || 
-          message.includes('use the code') ||
-          message.includes('First time signing in')) {
-        
+      // Detectar mensajes de MSA REALES (no nuestros debug logs)
+      // Excluir mensajes que empiecen con [API] o [MSA] (nuestros logs)
+      const isRealMSAMessage = (
+        (message.includes('[msa]') || 
+         message.includes('microsoft.com/link') || 
+         message.includes('use the code') ||
+         message.includes('First time signing in')) &&
+        !message.startsWith('[API]') &&
+        !message.startsWith('[MSA]')
+      );
+      
+      if (isRealMSAMessage) {
         isCapturing = true;
         
         // Agregar al log del bot con toda la información
@@ -877,3 +884,4 @@ class Bot {
 }
 
 module.exports = Bot;
+
