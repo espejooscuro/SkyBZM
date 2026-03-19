@@ -3,7 +3,6 @@
 
 
 
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -622,15 +621,29 @@ class WebServer {
       const limit = parseInt(req.query.limit) || 30;
 
       if (!this.botManager || !this.botManager.bots) {
+        console.log(`[API] No botManager for ${username}`);
         return res.json({ logs: [] });
       }
 
       const bot = this.botManager.bots.get(username);
       if (!bot) {
+        console.log(`[API] Bot ${username} not found in botManager`);
         return res.status(404).json({ success: false, message: 'Bot not found' });
       }
 
-      const logs = (bot.logs || []).slice(-limit).map(log => ({
+      const allLogs = bot.logs || [];
+      console.log(`[API] Found ${allLogs.length} logs for ${username}`);
+      
+      if (allLogs.length > 0) {
+        console.log(`[API] Last 3 logs:`, allLogs.slice(-3).map(l => ({
+          timestamp: l.timestamp,
+          message: l.message?.substring(0, 50),
+          level: l.level,
+          type: l.type
+        })));
+      }
+
+      const logs = allLogs.slice(-limit).map(log => ({
         timestamp: log.timestamp || Date.now(),
         message: log.message || log,
         level: log.level || 'info',
@@ -790,6 +803,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
