@@ -59,7 +59,7 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4"
         >
           <div className="bg-card/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-border/50 overflow-hidden">
             {/* Header with gradient */}
@@ -152,3 +152,4 @@ export default function MicrosoftAuthBanner({ username, code, link, onDismiss }:
     </AnimatePresence>
   );
 }
+

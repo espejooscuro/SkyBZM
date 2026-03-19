@@ -24,6 +24,7 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
   const [actionLoading, setActionLoading] = useState('');
   const [localAccount, setLocalAccount] = useState<Account>(account);
   const [msaAuth, setMsaAuth] = useState<{ code: string; link: string } | null>(null);
+  const [msaDismissed, setMsaDismissed] = useState<Set<string>>(new Set()); // Track dismissed codes
   const { logs, profits, moneyFlow, flipActions, purseHistory, totalExpenses } = useBotData(account.username, true);
 
   const isConnected = botStatus?.connected || false;
@@ -61,10 +62,13 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
             link = `${link}?otc=${code}`;
           }
           
-          // Only show if we don't already have this auth request
-          if (!msaAuth || msaAuth.code !== code) {
+          // Only show if:
+          // 1. We don't already have this auth request showing
+          // 2. This code hasn't been dismissed by the user
+          if ((!msaAuth || msaAuth.code !== code) && !msaDismissed.has(code)) {
             console.log(`🔐 Microsoft authentication detected for ${account.username}:`, { code, link });
             setMsaAuth({ code, link });
+            return; // Exit early once we found the auth request
           }
         }
       }
@@ -85,7 +89,7 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
         }
       }
     }
-  }, [logs, msaAuth, account.username]);
+  }, [logs, msaAuth, account.username, msaDismissed]);
 
   const handleAction = async (action: 'start' | 'stop' | 'restart') => {
     setActionLoading(action);
@@ -123,6 +127,14 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
     onRefresh();
   };
 
+  const handleDismissMSA = () => {
+    if (msaAuth) {
+      // Track this code as dismissed
+      setMsaDismissed(prev => new Set([...prev, msaAuth.code]));
+      setMsaAuth(null);
+    }
+  };
+
   return (
     <>
       {/* Microsoft Authentication Banner */}
@@ -131,7 +143,7 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
           username={account.username}
           code={msaAuth.code}
           link={msaAuth.link}
-          onDismiss={() => setMsaAuth(null)}
+          onDismiss={handleDismissMSA}
         />
       )}
 
@@ -243,6 +255,9 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
     </>
   );
 }
+
+
+
 
 
 
