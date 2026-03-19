@@ -1,6 +1,8 @@
 
 
 
+
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -229,9 +231,6 @@ class Bot {
     this.bot.once("spawn", async () => {
       this.markActivity(); // 🔥 Marcar actividad
       console.log(`[${this.name}] Chunks loaded, bot ready!`);
-      
-      // 💸 Setup expense tracking from chat
-      this.setupExpenseTracking();
     });
 
     this.bot.on("login", async () => {
@@ -794,94 +793,9 @@ class Bot {
   markActivity() {
     this.lastActivity = Date.now();
   }
-
-  /**
-   * Setup expense tracking from chat messages
-   * Captures "[Bazaar] Buy Order Setup!" messages and records the expense
-   */
-  setupExpenseTracking() {
-    if (!this.chat) return;
-    
-    // Listen for Bazaar Buy Order messages
-    // Example: [Bazaar] Buy Order Setup! 71,000x Brown Mushroom for 504,100 coins.
-    this.chat.onMessageContains('Buy Order Setup!', (record) => {
-      // Parse the message to extract the amount
-      // Format: [Bazaar] Buy Order Setup! 71,000x Item Name for 504,100 coins.
-      const message = record.message;
-      
-      // Match the coins amount
-      const match = message.match(/for ([\d,]+) coins/i);
-      
-      if (match) {
-        const amountStr = match[1].replace(/,/g, '');
-        const amount = parseInt(amountStr, 10);
-        
-        if (!isNaN(amount) && amount > 0) {
-          // Extract item name
-          const itemMatch = message.match(/(?:(\d{1,3}(?:,\d{3})*|x\d+)x?\s+)?(.+?)\s+for\s+[\d,]+\s+coins/i);
-          const itemName = itemMatch ? itemMatch[2].trim() : 'Unknown Item';
-          
-          this.recordExpense(amount, `Buy Order: ${itemName}`);
-          
-          console.log(`[${this.name}] 💸 EXPENSE RECORDED: ${amount.toLocaleString()} coins for ${itemName}`);
-        }
-      }
-    });
-  }
-
-  /**
-   * Setup purse tracking from actionbar
-   * Captures the current purse from the action bar and tracks it over time
-   */
-  setupPurseTracking() {
-    if (!this.bot) return;
-    
-    // Track purse every 10 seconds
-    this.purseTrackingInterval = setInterval(() => {
-      try {
-        // Try to get purse from action bar or scoreboard
-        const purse = this.getPurseFromActionBar();
-        
-        if (purse !== null && purse !== this.currentPurse) {
-          this.currentPurse = purse;
-          
-          // Add to history
-          this.purseHistory.push({
-            timestamp: Date.now(),
-            purse: purse,
-            runtime: Date.now() - this.startTime
-          });
-          
-          // Keep only last 500 entries
-          if (this.purseHistory.length > 500) {
-            this.purseHistory = this.purseHistory.slice(-500);
-          }
-        }
-      } catch (error) {
-        // Silently fail - purse tracking is not critical
-      }
-    }, 10000); // Every 10 seconds
-  }
-
-  /**
-   * Extract purse from action bar text
-   * Example: "§r§6§lPurse: §r§b1,234,567§r"
-   */
-  getPurseFromActionBar() {
-    try {
-      if (!this.bot || !this.bot._client) return null;
-      
-      // The action bar is sent via set_title_text packet (action bar)
-      // We need to capture it from the last message
-      // For now, we'll return a placeholder
-      // TODO: Implement actual purse extraction from packets
-      
-      return this.currentPurse || 0;
-    } catch (error) {
-      return null;
-    }
-  }
 }
 
 module.exports = Bot;
+
+
 

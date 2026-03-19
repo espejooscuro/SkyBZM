@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,11 @@ interface FlipsPanelProps {
 const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUpdate: onUpdateFlips }) => {
   const [flipConfigs, setFlipConfigs] = useState<FlipConfig[]>(initialFlips ?? []);
   const [expandedFlips, setExpandedFlips] = useState<Set<number>>(new Set()); // Start with all collapsed
+
+  // Sync with parent when initialFlips changes
+  React.useEffect(() => {
+    setFlipConfigs(initialFlips ?? []);
+  }, [initialFlips]);
 
   const toggleFlipExpanded = (index: number) => {
     setExpandedFlips(prev => {
@@ -110,6 +117,7 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Item</Label>
           <ItemSearchInput 
+            key={`npc-${config.item}`}
             value={config.item ?? ''} 
             onChange={(itemId) => onChange({ ...config, item: itemId })} 
             placeholder="e.g. ENCHANTED_DIAMOND" 
@@ -137,6 +145,7 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Pet</Label>
           <ItemSearchInput 
+            key={`kat-${config.pet}`}
             value={config.pet ?? ''} 
             onChange={(itemId) => onChange({ ...config, pet: itemId })} 
             placeholder="e.g. GOLDEN_DRAGON" 
@@ -155,6 +164,7 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Item</Label>
         <ItemSearchInput 
+          key={`forge-${config.item}`}
           value={config.item ?? ''} 
           onChange={(itemId) => onChange({ ...config, item: itemId })} 
           placeholder="e.g. REFINED_DIAMOND" 
@@ -369,6 +379,8 @@ const FlipsPanel: React.FC<FlipsPanelProps> = ({ flipConfigs: initialFlips, onUp
 };
 
 export default FlipsPanel;
+
+
 
 
 
