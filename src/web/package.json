@@ -1,3 +1,4 @@
+
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
@@ -7,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:fast": "vite build --minify esbuild",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -90,3 +92,4 @@
     "vitest": "^3.2.4"
   }
 }
+

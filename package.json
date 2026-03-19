@@ -3,6 +3,7 @@
 
 
 
+
 {
   "name": "skybzm",
   "version": "1.0.0",
@@ -12,7 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prestart": "node scripts/build-web.js",
     "start": "node src/Launcher.js",
-    "web:build": "cd src/web && npm install && npm run build",
+    "web:build": "cd src/web && npm run build:fast",
     "prebuild": "npm run web:build",
     "build": "pkg . --compress GZip",
     "build:win": "npm run web:build && pkg . --targets node18-win-x64 --compress GZip --output dist/SkyBZM-win.exe",
@@ -69,6 +70,7 @@
     "pkg": "^5.8.1"
   }
 }
+
 
 
 
