@@ -4,6 +4,7 @@ import { RefreshCw, Bot, Sparkles, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import BotCard from '@/components/BotCard';
+import CreateBotDialog from '@/components/CreateBotDialog';
 import * as api from '@/lib/api';
 import type { Account, BotStatusInfo, AppConfig } from '@/lib/api';
 
@@ -125,6 +126,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
                 </h2>
                 <p className="text-sm text-muted-foreground mt-0.5">Manage and monitor your bazaar flippers</p>
               </div>
+              <CreateBotDialog onBotCreated={fetchData} />
             </div>
 
             <AnimatePresence>
@@ -158,4 +160,6 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     </div>
   );
 }
+
+
 

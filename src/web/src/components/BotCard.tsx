@@ -58,6 +58,11 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
     setLocalAccount(prev => ({ ...prev, ...updates }));
   };
 
+  const handleDelete = () => {
+    // Refresh the parent to reload the bot list
+    onRefresh();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -159,13 +164,15 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
             <LogsPanel logs={logs} />
           </TabsContent>
           <TabsContent value="config" className="mt-0">
-            <ConfigPanel account={localAccount} onUpdate={handleConfigUpdate} />
+            <ConfigPanel account={localAccount} onUpdate={handleConfigUpdate} onDelete={handleDelete} />
           </TabsContent>
         </div>
       </Tabs>
     </motion.div>
   );
 }
+
+
 
 
 

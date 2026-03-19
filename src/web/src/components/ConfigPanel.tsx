@@ -1,21 +1,34 @@
-
-
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Shield, Clock, Coffee, Cookie, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Shield, Clock, Coffee, Cookie, Eye, EyeOff, Trash2 } from 'lucide-react';
 import type { Account } from '@/lib/api';
+import * as api from '@/lib/api';
 
 interface ConfigPanelProps {
   account: Account;
   onUpdate: (updates: Partial<Account>) => void;
+  onDelete?: () => void;
 }
 
-export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
+export default function ConfigPanel({ account, onUpdate, onDelete }: ConfigPanelProps) {
   const [showProxyPass, setShowProxyPass] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Backward compatibility: convert old restAfter/restTime to workDuration/breakDuration
   const shortBreaksRaw = account.restSchedule?.shortBreaks;
@@ -148,9 +161,72 @@ export default function ConfigPanel({ account, onUpdate }: ConfigPanelProps) {
           </div>
         )}
       </motion.div>
+
+      {/* Delete Bot */}
+      {onDelete && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-destructive/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </div>
+              <div>
+                <h3 className="font-display text-sm font-semibold text-destructive mb-1">Danger Zone</h3>
+                <p className="text-xs text-muted-foreground">
+                  Permanently delete this bot and all its configurations. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="rounded-xl flex-shrink-0"
+                  disabled={deleteLoading}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the bot <span className="font-semibold text-foreground">{account.username}</span> and remove all of its configurations. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      setDeleteLoading(true);
+                      try {
+                        await api.deleteBot(account.username);
+                        onDelete();
+                      } catch (err) {
+                        console.error('Failed to delete bot:', err);
+                        alert('Failed to delete bot. Please try again.');
+                      } finally {
+                        setDeleteLoading(false);
+                      }
+                    }}
+                    className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete Bot
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
+
+
+
 
 
 

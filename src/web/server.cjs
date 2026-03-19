@@ -3,7 +3,6 @@
 
 
 
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -138,6 +137,98 @@ class WebServer {
         this.config = req.body.config || req.body;
         this.saveConfig();
         res.json({ success: true, message: 'Configuration updated' });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Create new bot account
+    this.app.post('/api/bots', (req, res) => {
+      try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Username and password are required' 
+          });
+        }
+
+        this.loadConfig();
+
+        // Check if bot already exists
+        const exists = this.config.accounts.find(acc => acc.username === username);
+        if (exists) {
+          return res.status(409).json({ 
+            success: false, 
+            message: 'Bot with this username already exists' 
+          });
+        }
+
+        // Create new account with default settings
+        const newAccount = {
+          username,
+          password,
+          enabled: true,
+          autoStart: false,
+          flipConfigs: [],
+          restSchedule: {
+            shortBreaks: { enabled: false, workDuration: 60, breakDuration: 10 },
+            dailyRest: { enabled: false, workDuration: 12 }
+          },
+          proxy: { enabled: false, host: '', port: 1080, username: '', password: '' },
+          boosterCookie: { enabled: false, useWhenTimeLeft: 24 }
+        };
+
+        this.config.accounts.push(newAccount);
+        this.saveConfig();
+
+        res.json({ 
+          success: true, 
+          message: 'Bot created successfully',
+          account: newAccount
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Delete bot account
+    this.app.delete('/api/bots/:username', async (req, res) => {
+      try {
+        const { username } = req.params;
+
+        this.loadConfig();
+
+        // Check if bot exists
+        const accountIndex = this.config.accounts.findIndex(acc => acc.username === username);
+        if (accountIndex === -1) {
+          return res.status(404).json({ 
+            success: false, 
+            message: 'Bot not found' 
+          });
+        }
+
+        // Stop the bot if it's running
+        if (this.botManager && this.botManager.bots) {
+          const bot = this.botManager.bots.get(username);
+          if (bot && bot.bot) {
+            try {
+              await this.botManager.stopBot(username);
+            } catch (err) {
+              console.warn(`⚠️ Error stopping bot ${username}:`, err.message);
+            }
+          }
+        }
+
+        // Remove the account from config
+        this.config.accounts.splice(accountIndex, 1);
+        this.saveConfig();
+
+        res.json({ 
+          success: true, 
+          message: `Bot ${username} deleted successfully` 
+        });
       } catch (error) {
         res.status(500).json({ success: false, message: error.message });
       }
@@ -697,6 +788,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 

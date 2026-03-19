@@ -3,7 +3,6 @@
 
 
 
-
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -195,6 +194,18 @@ export const updateBotConfig = (username: string, updates: Partial<Account>) =>
     method: 'PUT',
     body: JSON.stringify(updates),
   });
+
+export const createBot = (username: string, password: string) =>
+  request<{ success: boolean; message: string; account: Account }>('/api/bots', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+
+export const deleteBot = (username: string) =>
+  request<{ success: boolean; message: string }>(`/api/bots/${username}`, {
+    method: 'DELETE',
+  });
+
 
 
 
