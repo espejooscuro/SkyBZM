@@ -143,6 +143,7 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
           username={account.username}
           code={msaAuth.code}
           link={msaAuth.link}
+          logs={logs}
           onDismiss={handleDismissMSA}
         />
       )}
@@ -255,6 +256,7 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
     </>
   );
 }
+
 
 
 
