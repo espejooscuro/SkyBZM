@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,16 +21,14 @@ interface CreateBotDialogProps {
 export default function CreateBotDialog({ onBotCreated }: CreateBotDialogProps) {
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username.trim() || !password.trim()) {
-      setError('Username and password are required');
+    if (!username.trim()) {
+      setError('Username is required');
       return;
     }
 
@@ -38,12 +36,11 @@ export default function CreateBotDialog({ onBotCreated }: CreateBotDialogProps) 
     setError(null);
 
     try {
-      const result = await api.createBot(username.trim(), password.trim());
+      const result = await api.createBot(username.trim(), ''); // Empty password since we use Microsoft auth
       
       if (result.success) {
         setOpen(false);
         setUsername('');
-        setPassword('');
         onBotCreated();
       } else {
         setError(result.message || 'Failed to create bot');
@@ -74,43 +71,21 @@ export default function CreateBotDialog({ onBotCreated }: CreateBotDialogProps) 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="username" className="text-sm font-medium">
-              Minecraft Username
+              Minecraft Username / Email
             </Label>
             <Input
               id="username"
               type="text"
-              placeholder="Enter username"
+              placeholder="Enter username or email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
               className="h-10 rounded-xl"
               autoComplete="off"
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium">
-              Minecraft Password
-            </Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className="h-10 rounded-xl pr-10"
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              You'll authenticate via Microsoft after starting the bot
+            </p>
           </div>
 
           {error && (
@@ -135,7 +110,7 @@ export default function CreateBotDialog({ onBotCreated }: CreateBotDialogProps) 
             </Button>
             <Button
               type="submit"
-              disabled={loading || !username.trim() || !password.trim()}
+              disabled={loading || !username.trim()}
               className="flex-1 rounded-xl pastel-gradient text-white border-0"
             >
               {loading ? (
@@ -154,14 +129,16 @@ export default function CreateBotDialog({ onBotCreated }: CreateBotDialogProps) 
         </form>
 
         <div className="mt-4 p-3 rounded-xl bg-muted/50 text-xs text-muted-foreground">
-          <p className="font-semibold mb-1">📌 Important:</p>
+          <p className="font-semibold mb-1">📌 How it works:</p>
           <ul className="space-y-1 ml-4 list-disc">
-            <li>Use a Microsoft account credentials</li>
-            <li>2FA must be disabled on the account</li>
-            <li>The bot will start in offline mode by default</li>
+            <li>Create the bot with just your username/email</li>
+            <li>Start the bot and it will show a Microsoft login link</li>
+            <li>Visit the link and enter the code to authenticate</li>
+            <li>The bot will connect automatically after authentication</li>
           </ul>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Play, Square, RotateCw, BarChart3, ListPlus, Activity, Settings2, Save } from 'lucide-react';
@@ -8,6 +8,7 @@ import StatsPanel from '@/components/StatsPanel';
 import FlipsPanel from '@/components/FlipsPanel';
 import LogsPanel from '@/components/LogsPanel';
 import ConfigPanel from '@/components/ConfigPanel';
+import MicrosoftAuthBanner from '@/components/MicrosoftAuthBanner';
 import { useBotData } from '@/hooks/useBotData';
 import * as api from '@/lib/api';
 import type { Account, BotStatusInfo, FlipConfig } from '@/lib/api';
@@ -22,10 +23,69 @@ interface BotCardProps {
 export default function BotCard({ account, botStatus, onRefresh }: BotCardProps) {
   const [actionLoading, setActionLoading] = useState('');
   const [localAccount, setLocalAccount] = useState<Account>(account);
+  const [msaAuth, setMsaAuth] = useState<{ code: string; link: string } | null>(null);
   const { logs, profits, moneyFlow, flipActions, purseHistory, totalExpenses } = useBotData(account.username, true);
 
   const isConnected = botStatus?.connected || false;
   const state = botStatus?.state || 'disconnected';
+
+  // Detect Microsoft authentication logs
+  useEffect(() => {
+    if (!logs || logs.length === 0) return;
+
+    // Check the most recent logs for MSA authentication
+    const recentLogs = logs.slice(-10); // Check last 10 logs
+    
+    for (const log of recentLogs) {
+      const message = typeof log === 'string' ? log : log.message || '';
+      
+      // Pattern 1: "[msa] First time signing in. Please authenticate now:"
+      // Pattern 2: "To sign in, use a web browser to open the page https://www.microsoft.com/link and use the code 47VXPU3Y"
+      // Pattern 3: "or visit http://microsoft.com/link?otc=47VXPU3Y"
+      
+      const isMsaStart = message.includes('[msa]') && message.includes('First time signing in');
+      const hasCode = /use the code ([A-Z0-9]{6,})/i.test(message);
+      const hasLink = /(https?:\/\/(?:www\.)?microsoft\.com\/link[^\s]*)/i.test(message);
+      
+      if (isMsaStart || (hasCode && hasLink)) {
+        const codeMatch = message.match(/code ([A-Z0-9]{6,})/i) || 
+                         message.match(/otc=([A-Z0-9]{6,})/i);
+        const linkMatch = message.match(/(https?:\/\/(?:www\.)?microsoft\.com\/link[^\s]*)/i);
+        
+        if (codeMatch && linkMatch) {
+          const code = codeMatch[1];
+          let link = linkMatch[1];
+          
+          // If link doesn't have the code, add it
+          if (!link.includes('otc=') && !link.includes('?')) {
+            link = `${link}?otc=${code}`;
+          }
+          
+          // Only show if we don't already have this auth request
+          if (!msaAuth || msaAuth.code !== code) {
+            console.log(`🔐 Microsoft authentication detected for ${account.username}:`, { code, link });
+            setMsaAuth({ code, link });
+          }
+        }
+      }
+      
+      // Detect successful authentication to dismiss the banner
+      const successPatterns = [
+        'Logged in',
+        'Successfully authenticated',
+        'Connected to',
+        'Authentication successful',
+        'Login successful'
+      ];
+      
+      if (successPatterns.some(pattern => message.includes(pattern))) {
+        if (msaAuth) {
+          console.log(`✅ Authentication completed for ${account.username}`);
+          setMsaAuth(null);
+        }
+      }
+    }
+  }, [logs, msaAuth, account.username]);
 
   const handleAction = async (action: 'start' | 'stop' | 'restart') => {
     setActionLoading(action);
@@ -64,113 +124,129 @@ export default function BotCard({ account, botStatus, onRefresh }: BotCardProps)
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="pastel-card pastel-card-hover overflow-hidden"
-    >
-      {/* Header */}
-      <div className="p-6 border-b border-border/40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ rotate: 5 }}
-              className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center border border-border/50 overflow-hidden shadow-sm"
-            >
-              <img
-                src={`https://mc-heads.net/avatar/${account.username}/56`}
-                alt={account.username}
-                className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </motion.div>
-            <div>
-              <h2 className="font-display text-xl font-bold">{account.username}</h2>
-              <div className="flex items-center gap-3 mt-1.5">
-                <StatusBadge connected={isConnected} state={state} />
+    <>
+      {/* Microsoft Authentication Banner */}
+      {msaAuth && (
+        <MicrosoftAuthBanner
+          username={account.username}
+          code={msaAuth.code}
+          link={msaAuth.link}
+          onDismiss={() => setMsaAuth(null)}
+        />
+      )}
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pastel-card pastel-card-hover overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-border/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <motion.div
+                whileHover={{ rotate: 5 }}
+                className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center border border-border/50 overflow-hidden shadow-sm"
+              >
+                <img
+                  src={`https://mc-heads.net/avatar/${account.username}/56`}
+                  alt={account.username}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </motion.div>
+              <div>
+                <h2 className="font-display text-xl font-bold">{account.username}</h2>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <StatusBadge connected={isConnected} state={state} />
+                </div>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isConnected ? (
+                <Button size="sm" onClick={() => handleAction('start')} disabled={!!actionLoading} className="bg-accent text-accent-foreground hover:bg-accent/80 font-display text-xs rounded-xl px-4">
+                  {actionLoading === 'start' ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                  <span className="ml-1.5">Start</span>
+                </Button>
+              ) : (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => handleAction('restart')} disabled={!!actionLoading} className="text-[hsl(var(--pastel-peach))] hover:bg-[hsl(var(--pastel-peach))]/10 rounded-xl">
+                    <RotateCw className={`w-4 h-4 ${actionLoading === 'restart' ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleAction('stop')} disabled={!!actionLoading} className="text-destructive hover:bg-destructive/10 rounded-xl">
+                    <Square className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+              <Button size="sm" variant="outline" onClick={saveConfig} className="rounded-xl text-xs gap-1">
+                <Save className="w-3.5 h-3.5" />
+                Save
+              </Button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {!isConnected ? (
-              <Button size="sm" onClick={() => handleAction('start')} disabled={!!actionLoading} className="bg-accent text-accent-foreground hover:bg-accent/80 font-display text-xs rounded-xl px-4">
-                {actionLoading === 'start' ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                <span className="ml-1.5">Start</span>
-              </Button>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" onClick={() => handleAction('restart')} disabled={!!actionLoading} className="text-[hsl(var(--pastel-peach))] hover:bg-[hsl(var(--pastel-peach))]/10 rounded-xl">
-                  <RotateCw className={`w-4 h-4 ${actionLoading === 'restart' ? 'animate-spin' : ''}`} />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleAction('stop')} disabled={!!actionLoading} className="text-destructive hover:bg-destructive/10 rounded-xl">
-                  <Square className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-            <Button size="sm" variant="outline" onClick={saveConfig} className="rounded-xl text-xs gap-1">
-              <Save className="w-3.5 h-3.5" />
-              Save
-            </Button>
-          </div>
+          {isConnected && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-3 gap-3 mt-5">
+              {[
+                { label: 'State', value: state, color: 'text-accent', bg: 'bg-accent/8' },
+                { label: 'Profits', value: `${profits.length}`, color: 'text-primary', bg: 'bg-primary/8' },
+                { label: 'Logs', value: `${logs.length}`, color: 'text-[hsl(var(--pastel-sky))]', bg: 'bg-[hsl(var(--pastel-sky))]/8' },
+              ].map(stat => (
+                <div key={stat.label} className={`${stat.bg} rounded-xl p-3.5 text-center border border-border/30`}>
+                  <p className="text-xs text-muted-foreground mb-0.5">{stat.label}</p>
+                  <p className={`font-mono text-base font-bold ${stat.color}`}>{stat.value}</p>
+                </div>
+              ))}
+            </motion.div>
+          )}
         </div>
 
-        {isConnected && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="grid grid-cols-3 gap-3 mt-5">
+        {/* Tabs */}
+        <Tabs defaultValue="stats" className="w-full">
+          <TabsList className="w-full justify-start bg-secondary/40 rounded-none border-b border-border/30 h-12 px-3 gap-1">
             {[
-              { label: 'State', value: state, color: 'text-accent', bg: 'bg-accent/8' },
-              { label: 'Profits', value: `${profits.length}`, color: 'text-primary', bg: 'bg-primary/8' },
-              { label: 'Logs', value: `${logs.length}`, color: 'text-[hsl(var(--pastel-sky))]', bg: 'bg-[hsl(var(--pastel-sky))]/8' },
-            ].map(stat => (
-              <div key={stat.label} className={`${stat.bg} rounded-xl p-3.5 text-center border border-border/30`}>
-                <p className="text-xs text-muted-foreground mb-0.5">{stat.label}</p>
-                <p className={`font-mono text-base font-bold ${stat.color}`}>{stat.value}</p>
-              </div>
+              { value: 'stats', label: 'Stats', icon: BarChart3 },
+              { value: 'flips', label: 'Flips', icon: ListPlus },
+              { value: 'logs', label: 'Logs', icon: Activity },
+              { value: 'config', label: 'Config', icon: Settings2 },
+            ].map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="font-display text-xs rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm gap-1.5 px-3">
+                <tab.icon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </TabsTrigger>
             ))}
-          </motion.div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="stats" className="w-full">
-        <TabsList className="w-full justify-start bg-secondary/40 rounded-none border-b border-border/30 h-12 px-3 gap-1">
-          {[
-            { value: 'stats', label: 'Stats', icon: BarChart3 },
-            { value: 'flips', label: 'Flips', icon: ListPlus },
-            { value: 'logs', label: 'Logs', icon: Activity },
-            { value: 'config', label: 'Config', icon: Settings2 },
-          ].map(tab => (
-            <TabsTrigger key={tab.value} value={tab.value} className="font-display text-xs rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm gap-1.5 px-3">
-              <tab.icon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <div className="p-6">
-          <TabsContent value="stats" className="mt-0">
-            <StatsPanel 
-              profits={profits} 
-              moneyFlow={moneyFlow} 
-              flipActions={flipActions}
-              purseHistory={purseHistory}
-              purse={botStatus?.purse}
-              totalExpenses={totalExpenses}
-            />
-          </TabsContent>
-          <TabsContent value="flips" className="mt-0">
-            <FlipsPanel flipConfigs={localAccount.flipConfigs ?? []} onUpdate={handleFlipUpdate} />
-          </TabsContent>
-          <TabsContent value="logs" className="mt-0">
-            <LogsPanel logs={logs} />
-          </TabsContent>
-          <TabsContent value="config" className="mt-0">
-            <ConfigPanel account={localAccount} onUpdate={handleConfigUpdate} onDelete={handleDelete} />
-          </TabsContent>
-        </div>
-      </Tabs>
-    </motion.div>
+          </TabsList>
+          <div className="p-6">
+            <TabsContent value="stats" className="mt-0">
+              <StatsPanel 
+                profits={profits} 
+                moneyFlow={moneyFlow} 
+                flipActions={flipActions}
+                purseHistory={purseHistory}
+                purse={botStatus?.purse}
+                totalExpenses={totalExpenses}
+              />
+            </TabsContent>
+            <TabsContent value="flips" className="mt-0">
+              <FlipsPanel flipConfigs={localAccount.flipConfigs ?? []} onUpdate={handleFlipUpdate} />
+            </TabsContent>
+            <TabsContent value="logs" className="mt-0">
+              <LogsPanel logs={logs} />
+            </TabsContent>
+            <TabsContent value="config" className="mt-0">
+              <ConfigPanel account={localAccount} onUpdate={handleConfigUpdate} onDelete={handleDelete} />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </motion.div>
+    </>
   );
 }
+
+
+
+
 
 
 

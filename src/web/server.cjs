@@ -3,6 +3,7 @@
 
 
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -147,10 +148,10 @@ class WebServer {
       try {
         const { username, password } = req.body;
         
-        if (!username || !password) {
+        if (!username) {
           return res.status(400).json({ 
             success: false, 
-            message: 'Username and password are required' 
+            message: 'Username is required' 
           });
         }
 
@@ -166,9 +167,10 @@ class WebServer {
         }
 
         // Create new account with default settings
+        // Password can be empty string for Microsoft authentication
         const newAccount = {
           username,
-          password,
+          password: password || '',
           enabled: true,
           autoStart: false,
           flipConfigs: [],
@@ -788,6 +790,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 
