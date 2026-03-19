@@ -741,15 +741,35 @@ class WebServer {
       Object.assign(account, updates);
       this.saveConfig();
 
-      // Update bot configuration if it exists
+      // 🔥 Update bot configuration dynamically if it exists and is running
       if (this.botManager && this.botManager.bots) {
         const bot = this.botManager.bots.get(username);
-        if (bot) {
-          Object.assign(bot, updates);
+        if (bot && bot.bot && bot.isLogged) {
+          console.log(`🔄 [${username}] Bot is running, reloading configuration dynamically...`);
+          const reloadResult = bot.reloadConfig(account);
+          
+          if (reloadResult.success) {
+            return res.json({ 
+              success: true, 
+              message: 'Configuration updated and reloaded dynamically',
+              reloaded: true
+            });
+          } else {
+            return res.status(500).json({ 
+              success: false, 
+              message: `Configuration saved but reload failed: ${reloadResult.message}` 
+            });
+          }
+        } else {
+          console.log(`ℹ️ [${username}] Bot is offline, configuration will apply on next start`);
         }
       }
 
-      res.json({ success: true, message: 'Configuration updated' });
+      res.json({ 
+        success: true, 
+        message: 'Configuration saved (bot offline, will apply on next start)',
+        reloaded: false
+      });
     });
 
     // Serve React app for all other routes
@@ -792,6 +812,7 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
 
 
 

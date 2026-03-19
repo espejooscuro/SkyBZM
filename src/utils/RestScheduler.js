@@ -1,3 +1,4 @@
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -529,6 +530,54 @@ class RestScheduler {
   }
   
   /**
+   * 🔄 Update configuration dynamically
+   */
+  updateConfig(newConfig) {
+    console.log(`🔄 [${this.bot.name}][RestScheduler] Updating configuration...`);
+    
+    // Clear existing timers
+    if (this.shortBreakTimer) {
+      clearTimeout(this.shortBreakTimer);
+      this.shortBreakTimer = null;
+    }
+    
+    if (this.dailyRestTimer) {
+      clearTimeout(this.dailyRestTimer);
+      this.dailyRestTimer = null;
+    }
+    
+    // Update configuration
+    this.config = newConfig || {
+      shortBreaks: { enabled: false },
+      dailyRest: { enabled: false }
+    };
+    
+    // Short breaks
+    this.shortBreaksEnabled = this.config.shortBreaks?.enabled || false;
+    this.workDuration = this.config.shortBreaks?.workDuration || 10;
+    this.breakDuration = this.config.shortBreaks?.breakDuration || 3;
+    
+    // Daily rest
+    this.dailyRestEnabled = this.config.dailyRest?.enabled || false;
+    this.workHours = this.config.dailyRest?.workHours || 16;
+    this.restHours = 24 - this.workHours;
+    
+    console.log(`   → Short Breaks: ${this.shortBreaksEnabled ? 'Enabled' : 'Disabled'}`);
+    console.log(`   → Daily Rest: ${this.dailyRestEnabled ? 'Enabled' : 'Disabled'}`);
+    
+    // Restart scheduling with new configuration
+    if (this.shortBreaksEnabled) {
+      this.scheduleNextShortBreak();
+    }
+    
+    if (this.dailyRestEnabled) {
+      this.scheduleNextDailyRest();
+    }
+    
+    console.log(`✅ [${this.bot.name}][RestScheduler] Configuration updated`);
+  }
+
+  /**
    * Clean up resources
    */
   destroy() {
@@ -545,3 +594,4 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
+

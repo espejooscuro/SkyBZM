@@ -3,6 +3,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -94,6 +95,49 @@ class Bot {
     } else {
       // Fallback si no hay accountConfig (formato antiguo)
       this.config = globalConfig;
+    }
+  }
+
+  /**
+   * 🔄 Recarga la configuración desde el archivo y actualiza el bot dinámicamente
+   * Este método se llama cuando se actualiza la configuración desde el dashboard
+   */
+  reloadConfig(newAccountConfig) {
+    console.log(`🔄 [${this.name}] Reloading configuration...`);
+    
+    try {
+      // Actualizar accountConfig con los nuevos datos
+      if (newAccountConfig) {
+        this.accountConfig = newAccountConfig;
+      }
+      
+      // Recargar configuración
+      this.loadConfig();
+      
+      // Si hay un FlipManager activo, actualizar sus configuraciones
+      if (this.flipManager) {
+        console.log(`   📊 Updating FlipManager configuration...`);
+        
+        // Actualizar configuraciones de flip
+        if (this.accountConfig?.flipConfigs) {
+          this.flipManager.updateFlipConfigs(this.accountConfig.flipConfigs);
+        }
+        
+        // Actualizar RestScheduler si existe
+        if (this.restScheduler && this.accountConfig?.restSchedule) {
+          console.log(`   ⏰ Updating RestScheduler configuration...`);
+          this.restScheduler.updateConfig(this.accountConfig.restSchedule);
+        }
+      }
+      
+      console.log(`✅ [${this.name}] Configuration reloaded successfully`);
+      this.log('Configuration reloaded', 'success', 'config');
+      
+      return { success: true, message: 'Configuration reloaded' };
+    } catch (error) {
+      console.error(`❌ [${this.name}] Error reloading config:`, error);
+      this.log(`Error reloading config: ${error.message}`, 'error', 'config');
+      return { success: false, message: error.message };
     }
   }
 
@@ -796,6 +840,7 @@ class Bot {
 }
 
 module.exports = Bot;
+
 
 
 

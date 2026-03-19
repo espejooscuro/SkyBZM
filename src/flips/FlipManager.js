@@ -10,6 +10,7 @@
 
 
 
+
 const TaskQueue = require('../utils/TaskQueue');
 const Flip = require('./Flip');
 const NPCFlip = require('./NPCflip');
@@ -1109,6 +1110,98 @@ class FlipManager {
     this.log(`✅ Resumed ${this.flips.length} active flips`);
   }
 
+  /**
+   * 🔄 Update flip configurations dynamically without restarting the bot
+   * This method is called when configuration is updated from the dashboard
+   */
+  async updateFlipConfigs(newFlipConfigs = []) {
+    this.log(`🔄 Updating flip configurations...`);
+    this.log(`   → Current flips: ${this.flips.length}`);
+    this.log(`   → New configs: ${newFlipConfigs.length}`);
+    
+    // 1. Identificar flips NPC/KAT/FORGE/CRAFT actuales
+    const currentSpecialFlips = this.flips.filter(f => f instanceof NPCFlip);
+    const currentSpecialFlipIds = currentSpecialFlips.map(f => `${f.itemTag || f.npcItem}`);
+    
+    this.log(`   → Current special flips: ${currentSpecialFlips.length}`);
+    
+    // 2. Identificar nuevas configuraciones especiales (NPC, KAT, etc.)
+    const newSpecialConfigs = newFlipConfigs.filter(c => 
+      c.type && c.type.toUpperCase() !== 'SELL_ORDER'
+    );
+    
+    this.log(`   → New special configs: ${newSpecialConfigs.length}`);
+    
+    // 3. Identificar flips que deben detenerse (no están en newFlipConfigs)
+    const flipsToStop = [];
+    for (const flip of currentSpecialFlips) {
+      const flipId = `${flip.itemTag || flip.npcItem}`;
+      const stillExists = newSpecialConfigs.find(config => {
+        const configItem = config.item || config.npcItem || config.pet;
+        return configItem === flipId;
+      });
+      
+      if (!stillExists) {
+        flipsToStop.push(flip);
+      }
+    }
+    
+    if (flipsToStop.length > 0) {
+      this.log(`   ⏹️ Stopping ${flipsToStop.length} removed flips...`);
+      for (const flip of flipsToStop) {
+        flip.stop();
+        const index = this.flips.indexOf(flip);
+        if (index > -1) {
+          this.flips.splice(index, 1);
+        }
+        this.log(`      ✓ Stopped ${flip.item || flip.itemTag}`);
+      }
+    }
+    
+    // 4. Identificar flips que deben crearse (nuevos en newFlipConfigs)
+    const flipsToCreate = [];
+    for (const config of newSpecialConfigs) {
+      if (!config.enabled) continue; // Skip disabled configs
+      
+      const configItem = config.item || config.npcItem || config.pet;
+      const alreadyExists = currentSpecialFlips.find(flip => {
+        const flipId = `${flip.itemTag || flip.npcItem}`;
+        return flipId === configItem;
+      });
+      
+      if (!alreadyExists) {
+        flipsToCreate.push(config);
+      }
+    }
+    
+    if (flipsToCreate.length > 0) {
+      this.log(`   ▶️ Creating ${flipsToCreate.length} new flips...`);
+      await this.initializeFlipsFromConfig(flipsToCreate);
+    }
+    
+    // 5. Actualizar flips existentes (si hay cambios en configuración)
+    for (const flip of currentSpecialFlips) {
+      if (this.flips.indexOf(flip) === -1) continue; // Skip if already removed
+      
+      const flipId = `${flip.itemTag || flip.npcItem}`;
+      const matchingConfig = newSpecialConfigs.find(config => {
+        const configItem = config.item || config.npcItem || config.pet;
+        return configItem === flipId;
+      });
+      
+      if (matchingConfig && flip.updateConfig) {
+        this.log(`   🔧 Updating config for ${flip.item || flipId}...`);
+        flip.updateConfig(matchingConfig);
+      }
+    }
+    
+    this.log(`✅ Flip configurations updated successfully`);
+    this.log(`   → Total flips now: ${this.flips.length}`);
+    
+    // Save state after updating
+    this.saveState();
+  }
+
   destroy() {
     this.log('🧹 Destroying FlipManager...');
     
@@ -1141,9 +1234,6 @@ class FlipManager {
 }
 
 module.exports = FlipManager;
-
-
-
 
 
 

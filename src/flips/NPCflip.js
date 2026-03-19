@@ -3,6 +3,7 @@
 
 
 
+
 const Flip = require('./Flip');
 
 
@@ -561,6 +562,14 @@ class NPCFlip extends Flip {
   }
   
   /**
+   * Stop the flip (alias for destroy, but more descriptive)
+   */
+  stop() {
+    this.log('⏹️ Stopping NPC flip...');
+    this.destroy();
+  }
+
+  /**
    * Clean up resources
    */
   destroy() {
@@ -584,6 +593,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 
