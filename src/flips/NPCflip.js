@@ -1,6 +1,7 @@
 
 
 
+
 const Flip = require('./Flip');
 
 
@@ -432,10 +433,15 @@ class NPCFlip extends Flip {
           
             const allInventoryItems = this.ContainerManager.getValidInventoryItems();
             
+            // 🔥 FIX: Use exact item name match instead of contains
             const itemsToClick = allInventoryItems.filter(item => {
               if (!item || !item.customName) return false;
               const cleanName = this.cleanItemName(item.customName);
-              return cleanName.toLowerCase().includes(this.npcItem.toLowerCase());
+              const targetName = this.npcItem.toLowerCase().trim();
+              const actualName = cleanName.toLowerCase().trim();
+              
+              // Exact match only - prevents "Wheat Seeds" matching when looking for "Wheat"
+              return actualName === targetName;
             });
             
             for (const item of itemsToClick) {
@@ -628,6 +634,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 
