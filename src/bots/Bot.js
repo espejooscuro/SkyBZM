@@ -3,7 +3,6 @@
 
 
 
-
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -522,8 +521,13 @@ class Bot {
         prefixText = data.prefix.value.text.value || '';
       }
 
-      if (data.suffix && data.suffix.type === 'compound' && data.suffix.value.text) {
-        suffixText = data.suffix.value.text.value || '';
+      // 🔥 FIX: Suffix puede ser 'compound' o 'string'
+      if (data.suffix) {
+        if (data.suffix.type === 'compound' && data.suffix.value.text) {
+          suffixText = data.suffix.value.text.value || '';
+        } else if (data.suffix.type === 'string') {
+          suffixText = data.suffix.value || '';
+        }
       }
 
       // Concatenar y limpiar códigos de color (§x)
@@ -532,6 +536,7 @@ class Bot {
       // Solo nos interesa Purse/Piggy
       if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
         console.log(`💰 [${this.name}] DEBUG - Scoreboard line detected: "${fullLine}"`);
+        console.log(`💰 [${this.name}] DEBUG - Prefix: "${prefixText}", Suffix: "${suffixText}"`);
         
         // Extraer solo los números y comas
         const match = fullLine.match(/([0-9,]+)/);
@@ -543,7 +548,7 @@ class Bot {
           const purseValue = parseInt(purseString.replace(/,/g, ''));
           console.log(`💰 [${this.name}] DEBUG - Parsed purse value: ${purseValue}`);
           console.log(`💰 [${this.name}] DEBUG - Current purse: ${this.currentPurse}`);
-          console.log(`💰 [${this.name}] DEBUG - Is valid (>1M): ${purseValue > 1000000}`);
+          console.log(`💰 [${this.name}] DEBUG - Is valid (>100K): ${purseValue > 100000}`);
           console.log(`💰 [${this.name}] DEBUG - Is different: ${purseValue !== this.currentPurse}`);
           
           // 🔥 CAMBIO: Reducir el mínimo de 1M a 100k para detectar purses más pequeños
@@ -854,6 +859,7 @@ class Bot {
 }
 
 module.exports = Bot;
+
 
 
 

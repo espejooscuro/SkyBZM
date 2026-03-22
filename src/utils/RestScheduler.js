@@ -1,5 +1,6 @@
 
 
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -281,14 +282,20 @@ class RestScheduler {
         prefixText = data.prefix.value.text.value || '';
       }
 
-      if (data.suffix && data.suffix.type === 'compound' && data.suffix.value.text) {
-        suffixText = data.suffix.value.text.value || '';
+      // 🔥 FIX: Suffix puede ser 'compound' o 'string'
+      if (data.suffix) {
+        if (data.suffix.type === 'compound' && data.suffix.value.text) {
+          suffixText = data.suffix.value.text.value || '';
+        } else if (data.suffix.type === 'string') {
+          suffixText = data.suffix.value || '';
+        }
       }
 
       const fullLine = (prefixText + suffixText).replace(/§./g, '').trim();
 
       if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
         console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Scoreboard line detected: "${fullLine}"`);
+        console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Prefix: "${prefixText}", Suffix: "${suffixText}"`);
         
         const match = fullLine.match(/([0-9,]+)/);
         if (match) {
@@ -603,5 +610,6 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
+
 
 
