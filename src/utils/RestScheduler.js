@@ -1,4 +1,5 @@
 
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -287,16 +288,22 @@ class RestScheduler {
       const fullLine = (prefixText + suffixText).replace(/§./g, '').trim();
 
       if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
+        console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Scoreboard line detected: "${fullLine}"`);
+        
         const match = fullLine.match(/([0-9,]+)/);
         if (match) {
           const purseString = match[1];
           const purseValue = parseInt(purseString.replace(/,/g, ''));
           
-          if (!isNaN(purseValue) && purseValue > 1000000 && purseValue !== this.bot.currentPurse) {
+          console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Parsed purse: ${purseValue}`);
+          
+          // 🔥 CAMBIO: Reducir el mínimo de 1M a 100k
+          if (!isNaN(purseValue) && purseValue > 100000 && purseValue !== this.bot.currentPurse) {
             this.bot.currentPurse = purseValue;
             
             if (this.bot.startPurse === null) {
               this.bot.startPurse = purseValue;
+              console.log(`💰 [RestScheduler-${this.bot.name}] Initial purse captured: ${purseValue.toLocaleString()} coins`);
             }
             
             const now = Date.now();
@@ -307,6 +314,8 @@ class RestScheduler {
               purse: purseValue,
               runtime: this.bot.runtime
             });
+            
+            console.log(`💰 [RestScheduler-${this.bot.name}] Purse updated: ${purseValue.toLocaleString()} coins`);
             
             const oneDayAgo = now - (24 * 60 * 60 * 1000);
             this.bot.purseHistory = this.bot.purseHistory.filter(entry => entry.timestamp > oneDayAgo);
@@ -594,4 +603,5 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
+
 
