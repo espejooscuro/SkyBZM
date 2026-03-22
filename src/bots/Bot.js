@@ -3,6 +3,7 @@
 
 
 
+
 const mineflayer = require("mineflayer");
 const TaskQueue = require("../utils/TaskQueue");
 const AutoBoosterCookie = require("../utils/AutoBoosterCookie");
@@ -535,24 +536,16 @@ class Bot {
 
       // Solo nos interesa Purse/Piggy
       if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
-        console.log(`💰 [${this.name}] DEBUG - Scoreboard line detected: "${fullLine}"`);
-        console.log(`💰 [${this.name}] DEBUG - Prefix: "${prefixText}", Suffix: "${suffixText}"`);
-        
         // Extraer solo los números y comas
         const match = fullLine.match(/([0-9,]+)/);
         if (match) {
           const purseString = match[1];
-          console.log(`💰 [${this.name}] DEBUG - Extracted purse string: "${purseString}"`);
           
           // Convertir a número eliminando las comas
           const purseValue = parseInt(purseString.replace(/,/g, ''));
-          console.log(`💰 [${this.name}] DEBUG - Parsed purse value: ${purseValue}`);
-          console.log(`💰 [${this.name}] DEBUG - Current purse: ${this.currentPurse}`);
-          console.log(`💰 [${this.name}] DEBUG - Is valid (>100K): ${purseValue > 100000}`);
-          console.log(`💰 [${this.name}] DEBUG - Is different: ${purseValue !== this.currentPurse}`);
           
-          // 🔥 CAMBIO: Reducir el mínimo de 1M a 100k para detectar purses más pequeños
-          if (!isNaN(purseValue) && purseValue > 100000 && purseValue !== this.currentPurse) {
+          // Validar que el purse sea mayor a 1M y diferente al actual
+          if (!isNaN(purseValue) && purseValue > 1000000 && purseValue !== this.currentPurse) {
             this.currentPurse = purseValue;
             
             // Si es la primera captura, guardar como startPurse
@@ -579,11 +572,7 @@ class Bot {
             if (this.purseHistory.length > 1000) {
               this.purseHistory = this.purseHistory.slice(-1000);
             }
-          } else if (purseValue <= 100000) {
-            console.log(`⚠️ [${this.name}] Purse too low (${purseValue}), ignoring...`);
           }
-        } else {
-          console.log(`⚠️ [${this.name}] DEBUG - No purse number found in line`);
         }
       }
     });
@@ -859,6 +848,7 @@ class Bot {
 }
 
 module.exports = Bot;
+
 
 
 

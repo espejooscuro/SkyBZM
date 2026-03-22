@@ -1,6 +1,7 @@
 
 
 
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
@@ -294,18 +295,13 @@ class RestScheduler {
       const fullLine = (prefixText + suffixText).replace(/§./g, '').trim();
 
       if (fullLine.includes('Purse') || fullLine.includes('Piggy')) {
-        console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Scoreboard line detected: "${fullLine}"`);
-        console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Prefix: "${prefixText}", Suffix: "${suffixText}"`);
-        
         const match = fullLine.match(/([0-9,]+)/);
         if (match) {
           const purseString = match[1];
           const purseValue = parseInt(purseString.replace(/,/g, ''));
           
-          console.log(`💰 [RestScheduler-${this.bot.name}] DEBUG - Parsed purse: ${purseValue}`);
-          
-          // 🔥 CAMBIO: Reducir el mínimo de 1M a 100k
-          if (!isNaN(purseValue) && purseValue > 100000 && purseValue !== this.bot.currentPurse) {
+          // Validar que el purse sea mayor a 1M y diferente al actual
+          if (!isNaN(purseValue) && purseValue > 1000000 && purseValue !== this.bot.currentPurse) {
             this.bot.currentPurse = purseValue;
             
             if (this.bot.startPurse === null) {
@@ -610,6 +606,7 @@ class RestScheduler {
 }
 
 module.exports = RestScheduler;
+
 
 
 
