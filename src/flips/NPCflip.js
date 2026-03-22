@@ -1,6 +1,7 @@
 
 
 
+
 const Flip = require('./Flip');
 
 
@@ -580,6 +581,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 
