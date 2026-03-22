@@ -2,7 +2,6 @@
 
 
 
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -77,7 +76,8 @@ class WebServer {
               lastHeartbeat: Date.now(),
               lastActivity: Date.now()
             },
-            purse: 0
+            currentPurse: 0,
+            startPurse: 0
           };
 
           // If botManager exists, get live data
@@ -86,7 +86,8 @@ class WebServer {
             if (bot) {
               botInfo.connected = !!bot.bot;
               botInfo.state = bot.bot ? 'connected' : 'disconnected';
-              botInfo.purse = bot.purse || 0;
+              botInfo.currentPurse = bot.currentPurse || 0;
+              botInfo.startPurse = bot.startPurse || 0;
             }
           }
 
@@ -249,17 +250,25 @@ class WebServer {
           const bot = this.botManager.bots.get(account.username);
           
           if (bot) {
+            const stats = bot.getStats ? bot.getStats() : {};
+            
             return {
               id: bot.username,
               username: bot.username,
               status: bot.bot ? 'online' : 'offline',
               autoStart: account.autoStart || false,
               flips: account.flipConfigs || account.flips || [],
-              stats: bot.stats || {
-                totalProfit: 0,
+              stats: {
+                totalProfit: stats.currentProfit || 0,
                 totalFlips: 0,
                 successRate: 0,
+                currentPurse: stats.currentPurse || 0,
+                startPurse: stats.startPurse || 0,
+                coinsPerHour: stats.coinsPerHour || 0,
+                runtime: stats.runtime || 0
               },
+              purseHistory: stats.purseHistory || [],
+              totalExpenses: stats.totalExpenses || 0,
               inventory: bot.inventory || [],
               restSchedule: account.restSchedule || {
                 shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
@@ -278,7 +287,13 @@ class WebServer {
                 totalProfit: 0,
                 totalFlips: 0,
                 successRate: 0,
+                currentPurse: 0,
+                startPurse: 0,
+                coinsPerHour: 0,
+                runtime: 0
               },
+              purseHistory: [],
+              totalExpenses: 0,
               inventory: [],
               restSchedule: account.restSchedule || {
                 shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
@@ -302,7 +317,13 @@ class WebServer {
           totalProfit: 0,
           totalFlips: 0,
           successRate: 0,
+          currentPurse: 0,
+          startPurse: 0,
+          coinsPerHour: 0,
+          runtime: 0
         },
+        purseHistory: [],
+        totalExpenses: 0,
         inventory: [],
         restSchedule: account.restSchedule || {
           shortBreaks: { enabled: false, workDuration: 10, breakDuration: 3 },
@@ -597,19 +618,29 @@ class WebServer {
           lastHeartbeat: Date.now(),
           lastActivity: Date.now()
         },
-        purse: 0,
+        currentPurse: 0,
+        startPurse: 0,
         purseHistory: [],
-        totalExpenses: 0
+        totalExpenses: 0,
+        runtime: 0,
+        currentProfit: 0,
+        coinsPerHour: 0
       };
 
       if (this.botManager && this.botManager.bots) {
         const bot = this.botManager.bots.get(username);
         if (bot) {
+          const stats = bot.getStats ? bot.getStats() : {};
+          
           botInfo.connected = !!bot.bot;
           botInfo.state = bot.bot ? 'connected' : 'disconnected';
-          botInfo.purse = bot.currentPurse || 0;
-          botInfo.purseHistory = bot.purseHistory || [];
-          botInfo.totalExpenses = bot.totalExpenses || 0;
+          botInfo.currentPurse = stats.currentPurse || bot.currentPurse || 0;
+          botInfo.startPurse = stats.startPurse || bot.startPurse || 0;
+          botInfo.purseHistory = stats.purseHistory || bot.purseHistory || [];
+          botInfo.totalExpenses = stats.totalExpenses || bot.totalExpenses || 0;
+          botInfo.runtime = stats.runtime || bot.runtime || 0;
+          botInfo.currentProfit = stats.currentProfit || 0;
+          botInfo.coinsPerHour = stats.coinsPerHour || 0;
         }
       }
 
@@ -836,6 +867,9 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+
+
 
 
 
