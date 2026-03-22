@@ -345,6 +345,10 @@ class NPCFlip extends Flip {
           
           if (!hasBuyOrder) {
             this.log(`  ✅ No more buy orders found - Claimed ${totalClaimedCount} total items`);
+            if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
+              await delay(800);
+              await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
+            }
             allItemsCollected = true;
             this.ContainerManager.closeContainer();
             await delay(500);
@@ -398,6 +402,7 @@ class NPCFlip extends Flip {
             const currentContainer = this.ContainerManager.getOpenContainerName();
             
             if (this.ContainerManager.getOpenContainerName() == "order options" || this.ContainerManager.hasItemInContainer( {contains: "cancel order", type: "container"} )) {
+              await delay(800);
               await this.ContainerManager.click({ customName: "Cancel Order", type: 'container' });
             }
             

@@ -262,7 +262,7 @@ class Bot {
     this.chat = new ChatListener(this.bot, {
       watchList: ["sold", "bought", "coins", "flip", "skyblock", "joined", "Hypixel", "Sending to", "Bazaar"],
       callback: (msg) => {
-        console.log(msg.message);
+        console.log(`[ ${this.name} ]    ${msg.message}`);
       }
     });
 

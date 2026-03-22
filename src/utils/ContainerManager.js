@@ -121,51 +121,39 @@ class ContainerManager {
     return titleText.replace(/§[0-9a-fk-or]/gi, '').toLowerCase().trim();
   }
 
-  /**
-   * Checks if an item exists in the current container
-   * @param {Object} filters - Optional keys: 'contains', 'originalName', 'customName', etc.
-   * @returns {boolean}
-   */
+/**
+ * Checks if an item exists in the current container
+ * @param {Object} filters - Optional keys: 'contains', 'originalName', 'customName', etc.
+ * @returns {boolean}
+ */
 hasItemInContainer(filters = {}) {
-  const isInventory = filters.type === "inventory";
-  const slotsSource = isInventory
-    ? this.bot.inventory?.slots
-    : this.bot.currentWindow?.slots;
+  const window = this.bot.currentWindow;
 
-  if (!Array.isArray(slotsSource)) {
+  if (!window || !Array.isArray(window.slots)) {
+    console.error('❌ No window open or invalid slots');
     return false;
   }
 
+  // 🔥 Usar SIEMPRE el window completo
+  const items = this._getValidItems(true);
 
-  const items = this._getValidItems(!isInventory);
+  const totalSlots = window.slots.length;
+  const inventoryStart = totalSlots - 36;
 
-
-  let found = false;
+  const { type, ...realFilters } = filters;
 
   for (const item of items) {
-    const name = item.plainName;
-    let matches = false;
+    const isInventorySlot = item.slot >= inventoryStart;
 
-    if (filters.equals) {
-      matches = name === filters.equals.toLowerCase();
-    }
-    if (filters.contains) {
-      matches = name.includes(filters.contains.toLowerCase());
-    }
-    if (filters.startsWith) {
-      matches = name.startsWith(filters.startsWith.toLowerCase());
-    }
-    if (filters.regex) {
-      matches = filters.regex.test(name);
-    }
+    if (type === 'inventory' && !isInventorySlot) continue;
+    if (type === 'container' && isInventorySlot) continue;
 
-    if (matches) {
-      found = true;
-      break;
+    if (this._matchesFilters(item, realFilters)) {
+      return true;
     }
   }
 
-  return found;
+  return false;
 }
 
   /**
@@ -173,36 +161,25 @@ hasItemInContainer(filters = {}) {
    * @param {Object} filters - Filters like { contains: 'plasma', type: 'inventory' }
    * @returns {number} Total quantity of matching items
    */
-  countItemsInInventory(filters = {}) {
-    const isInventory = filters.type !== "container";
-    const items = this._getValidItems(!isInventory);
-    
-    let totalCount = 0;
-    
-    for (const item of items) {
-      const name = item.plainName;
-      let matches = false;
-      
-      if (filters.equals) {
-        matches = name === filters.equals.toLowerCase();
-      }
-      if (filters.contains) {
-        matches = name.includes(filters.contains.toLowerCase());
-      }
-      if (filters.startsWith) {
-        matches = name.startsWith(filters.startsWith.toLowerCase());
-      }
-      if (filters.regex) {
-        matches = filters.regex.test(name);
-      }
-      
-      if (matches) {
-        totalCount += item.quantity;
-      }
+  /**
+ * Counts how many items match the filters in inventory or container
+ * @param {Object} filters - Filters like { contains: 'plasma', type: 'inventory' }
+ * @returns {number} Total quantity of matching items
+ */
+countItemsInInventory(filters = {}) {
+  const isInventory = filters.type !== "container";
+  const items = this._getValidItems(!isInventory);
+
+  let totalCount = 0;
+
+  for (const item of items) {
+    if (this._matchesFilters(item, filters)) {
+      totalCount += item.quantity;
     }
-    
-    return totalCount;
   }
+
+  return totalCount;
+}
 
   /**
    * Returns true if less than 1/3 of inventory slots are empty
@@ -588,108 +565,80 @@ _parseDurationToMs(durationLine) {
     if (maxDelay !== undefined) this.maxDelay = maxDelay;
   }
 
-  /**
-   * Clicks an item in container or inventory
-   * @param {Object} filters
-   * @param {number} mouseButton
-   * @param {number} mode
-   * @param {number} specificSlot - If provided, clicks this exact slot without searching
-   * @returns {Promise<boolean>}
-   */
-  async click(filters = {}, mouseButton = 0, mode = 0, specificSlot = null) {
-    await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
 
-    const window = this.bot.currentWindow;
-    if (!window) {
-      console.error('❌ No window open to click in.');
-      return false;
-    }
 
-    let realSlot;
 
-    // If a specific window slot is provided, use it directly
-    if (specificSlot !== null && specificSlot !== undefined) {
-      realSlot = specificSlot;
-    } else {
-      // Original search logic using _getValidItems
-      const containerItems = this._getValidItems(true);
-      const inventoryItems = this._getValidItems(false);
-      
-      console.log("📦 Container items encontrados:", containerItems.length);
-      containerItems.forEach(item => {
-        console.log(`  • Container Slot ${item.slot} → "${item.plainName}" (custom: "${item.customName}") x${item.quantity}`);
-      });
-      
-      console.log("🎒 Inventory items encontrados:", inventoryItems.length);
-      inventoryItems.forEach(item => {
-        console.log(`  • Inventory Slot ${item.slot} → "${item.plainName}" (custom: "${item.customName}") x${item.quantity}`);
-      });
-      
-      const allItems = [
-        ...containerItems.map(item => ({ ...item, type: 'container' })),
-        ...inventoryItems.map(item => ({ ...item, type: 'inventory' }))
-      ];
 
-      console.log("🔍 Buscando con filtros:", filters);
-      const foundItem = allItems.find(item => this._matchesFilters(item, filters));
 
-      if (!foundItem) {
-        const containerName = this.getOpenContainerName() || 'unknown container';
-        console.error(`❌ Click aborted: item not found in container ${containerName}`);
-        console.error('🔍 Filters used:', filters);
-        return false;
-      }
+async click(filters = {}, mouseButton = 0, mode = 0, specificSlot = null) {
+  await new Promise(res => setTimeout(res, 100 + Math.floor(Math.random() * 200)));
 
-      console.log(`✅ Item encontrado en slot ${foundItem.slot} (${foundItem.type}): "${foundItem.plainName}" x${foundItem.quantity}`);
-      
-      realSlot = foundItem.slot;
+  const window = this.bot.currentWindow;
+  if (!window) {
+    console.error('❌ No window open to click in.');
+    return false;
+  }
 
-      if (foundItem.type === 'inventory') {
-        const originalSlot = realSlot;
-        
-        // Calculate container size (slots before inventory)
-        const totalSlots = window.slots.length;
-        const inventorySize = 36; // Standard player inventory (27 main + 9 hotbar)
-        const containerSize = totalSlots - inventorySize;
-        
-        // Inventory slots in bot.inventory are 0-35 (9-35 are main inventory, 0-8 are hotbar)
-        // In currentWindow, they start after the container slots
-        
-        if (realSlot >= 9 && realSlot <= 35) {
-          // Main inventory slots (9-35) → add container size
-          realSlot = containerSize + realSlot - 9;
-        } else if (realSlot >= 0 && realSlot <= 8) {
-          // Hotbar slots (0-8) → they come after main inventory in currentWindow
-          realSlot = containerSize + 27 + realSlot;
-        }
-        
-        console.log(`🔄 Slot convertido de inventory ${originalSlot} → window ${realSlot}`);
+  let realSlot;
+
+  if (specificSlot !== null && specificSlot !== undefined) {
+    realSlot = specificSlot;
+  } else {
+    // 🔥 USAR SIEMPRE currentWindow
+    const items = this._getValidItems(true);
+
+    const totalSlots = window.slots.length;
+    const inventoryStart = totalSlots - 36;
+
+    const { type, ...realFilters } = filters;
+
+    let foundItem = null;
+
+    for (const item of items) {
+      const isInventorySlot = item.slot >= inventoryStart;
+
+      if (type === 'inventory' && !isInventorySlot) continue;
+      if (type === 'container' && isInventorySlot) continue;
+
+      if (this._matchesFilters(item, realFilters)) {
+        foundItem = item;
+        realSlot = item.slot;
+        break;
       }
     }
-    
-    // 🔥 Verify the slot actually contains an item
-    const slotItem = window.slots[realSlot];
-    
-    if (!slotItem) {
-      console.error(`❌ Slot ${realSlot} está vacío en currentWindow, abortando click`);
-      return false;
-    }
 
-    try {
-      console.log(`✅ Haciendo click en slot ${realSlot}: "${slotItem.displayName || slotItem.name}" x${slotItem.count}`);
-      this.bot.currentWindow.requiresConfirmation = false;
-      this.bot.inventory.requiresConfirmation = false;
-      await this.bot.clickWindow(realSlot, mouseButton, mode);
-      
-      // Wait for inventory to update
-      await new Promise(resolve => setTimeout(resolve, 150));
-      
-      return true;
-    } catch (err) {
-      console.error('⚠️ Error during clickWindow:', err.message);
+    if (!foundItem) {
+      const containerName = this.getOpenContainerName() || 'unknown container';
+      console.error(`❌ No se encontró item en ${containerName}`);
+      console.error('🔍 Filters:', filters);
       return false;
     }
+  }
+
+  const slotItem = window.slots[realSlot];
+
+  if (!slotItem) {
+    console.error(`❌ Slot ${realSlot} vacío`);
+    return false;
+  }
+
+  try {
+
+    this.bot.currentWindow.requiresConfirmation = false;
+    this.bot.inventory.requiresConfirmation = false;
+
+    await this.bot.clickWindow(realSlot, mouseButton, mode);
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    return true;
+  } catch (err) {
+    console.error('⚠️ Error during clickWindow:', err.message);
+    return false;
+  }
 }
+
+
 
 
   /**
