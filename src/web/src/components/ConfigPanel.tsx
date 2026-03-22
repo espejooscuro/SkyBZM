@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Shield, Clock, Coffee, Cookie, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Shield, Clock, Coffee, Cookie, Eye, EyeOff, Trash2, PlayCircle, Database } from 'lucide-react';
 import type { Account } from '@/lib/api';
 import * as api from '@/lib/api';
 
@@ -41,6 +41,8 @@ export default function ConfigPanel({ account, onUpdate, onDelete }: ConfigPanel
   const dailyRest = account.restSchedule?.dailyRest ?? { enabled: false, workDuration: 12 };
   const proxy = account.proxy ?? { enabled: false, host: '', port: 1080, username: '', password: '' };
   const cookie = account.boosterCookie ?? { enabled: false, useWhenTimeLeft: 24 };
+  const autoStart = account.autoStart ?? false;
+  const useCachedPrices = account.useCachedPrices ?? false;
 
   return (
     <div className="space-y-3">
@@ -162,6 +164,45 @@ export default function ConfigPanel({ account, onUpdate, onDelete }: ConfigPanel
         )}
       </motion.div>
 
+      {/* Auto Start on Launch */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-green-500/15 flex items-center justify-center">
+              <PlayCircle className="w-4 h-4 text-green-500" />
+            </div>
+            <div>
+              <span className="font-display text-sm font-semibold">Auto Start on Launch</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Start bot automatically when program loads</p>
+            </div>
+          </div>
+          <Switch checked={autoStart} onCheckedChange={v => onUpdate({ autoStart: v })} />
+        </div>
+      </motion.div>
+
+      {/* Use Cached Prices */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center">
+              <Database className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="flex-1">
+              <span className="font-display text-sm font-semibold">Use Cached Prices</span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fallback to cached prices when API fails
+              </p>
+              <div className="mt-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <p className="text-[10px] text-yellow-600/90 dark:text-yellow-500/90 leading-relaxed">
+                  ⚠️ Warning: Cached prices may be up to 24 hours old and could be inaccurate. Use with caution to avoid losses.
+                </p>
+              </div>
+            </div>
+          </div>
+          <Switch checked={useCachedPrices} onCheckedChange={v => onUpdate({ useCachedPrices: v })} />
+        </div>
+      </motion.div>
+
       {/* Delete Bot */}
       {onDelete && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
@@ -224,6 +265,7 @@ export default function ConfigPanel({ account, onUpdate, onDelete }: ConfigPanel
     </div>
   );
 }
+
 
 
 

@@ -3,6 +3,7 @@
 
 
 
+
 // API client matching SkyBZM server endpoints
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -80,6 +81,7 @@ export interface Account {
   password?: string;
   enabled?: boolean;
   autoStart?: boolean;
+  useCachedPrices?: boolean;
   proxy?: ProxyConfig;
   flips?: Record<string, any>;
   flipConfigs?: FlipConfig[];
@@ -205,6 +207,7 @@ export const deleteBot = (username: string) =>
   request<{ success: boolean; message: string }>(`/api/bots/${username}`, {
     method: 'DELETE',
   });
+
 
 
 

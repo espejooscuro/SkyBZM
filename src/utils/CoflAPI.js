@@ -1,3 +1,4 @@
+
 class CoflAPI {
   constructor(
     apiUrl = 'https://sky.coflnet.com/api/flip/bazaar/spread',
@@ -13,6 +14,76 @@ class CoflAPI {
     this.blacklistContaining = Array.isArray(blacklistContaining)
       ? blacklistContaining
       : blacklistContaining ? [blacklistContaining] : [];
+    
+    // 🔥 NEW: Price cache for fallback when API fails
+    this.priceCache = new Map();
+    this.cacheTimestamps = new Map();
+    this.CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+    
+    // 🔥 NEW: Retry configuration
+    this.MAX_RETRIES = 3;
+    this.RETRY_DELAY_BASE = 2000; // 2 seconds base delay
+  }
+
+  /* =========================
+     RETRY LOGIC WITH BACKOFF
+     ========================= */
+
+  async _retryWithBackoff(fn, retries = this.MAX_RETRIES, operationName = 'operation') {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const result = await fn();
+        return result;
+      } catch (err) {
+        const isLastAttempt = attempt === retries - 1;
+        
+        if (isLastAttempt) {
+          console.error(`❌ [CoflAPI] ${operationName} failed after ${retries} attempts: ${err.message}`);
+          throw err;
+        }
+        
+        // Exponential backoff: 2s, 4s, 8s
+        const delay = this.RETRY_DELAY_BASE * Math.pow(2, attempt);
+        console.warn(`⚠️ [CoflAPI] ${operationName} attempt ${attempt + 1}/${retries} failed: ${err.message}. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  /* =========================
+     CACHE MANAGEMENT
+     ========================= */
+
+  _setCachedPrice(itemTag, priceData) {
+    this.priceCache.set(itemTag, priceData);
+    this.cacheTimestamps.set(itemTag, Date.now());
+  }
+
+  _getCachedPrice(itemTag) {
+    if (!this.priceCache.has(itemTag)) {
+      return null;
+    }
+
+    const timestamp = this.cacheTimestamps.get(itemTag);
+    const age = Date.now() - timestamp;
+
+    if (age > this.CACHE_MAX_AGE) {
+      // Cache expired
+      this.priceCache.delete(itemTag);
+      this.cacheTimestamps.delete(itemTag);
+      return null;
+    }
+
+    const cached = this.priceCache.get(itemTag);
+    const ageInHours = Math.floor(age / (60 * 60 * 1000));
+    console.log(`📦 [CoflAPI] Using cached price for ${itemTag} (age: ${ageInHours}h)`);
+    return cached;
+  }
+
+  clearCache() {
+    this.priceCache.clear();
+    this.cacheTimestamps.clear();
+    console.log('🧹 [CoflAPI] Price cache cleared');
   }
 
   /* =========================
@@ -20,47 +91,69 @@ class CoflAPI {
      ========================= */
 
   async fetchSpreads() {
-    const res = await fetch(this.apiUrl);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    return res.json();
+    return this._retryWithBackoff(async () => {
+      const res = await fetch(this.apiUrl);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return res.json();
+    }, this.MAX_RETRIES, 'fetchSpreads');
   }
 
 /* =========================
    SNAPSHOT BAZAAR (HYPIXEL)
    ========================= */
 
-  async getBazaarSnapshot(itemTag) {
-    const res = await fetch("https://api.hypixel.net/v2/skyblock/bazaar");
-    if (!res.ok) throw new Error(`Bazaar HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data.success || !data.products[itemTag]) {
-      throw new Error(`Item ${itemTag} not found in bazaar`);
+  async getBazaarSnapshot(itemTag, useCachedIfFails = false) {
+    try {
+      const snapshot = await this._retryWithBackoff(async () => {
+        const res = await fetch("https://api.hypixel.net/v2/skyblock/bazaar");
+        if (!res.ok) throw new Error(`Bazaar HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success || !data.products[itemTag]) {
+          throw new Error(`Item ${itemTag} not found in bazaar`);
+        }
+        const product = data.products[itemTag];
+
+        const buyPrice = Math.round((product.buy_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
+        const sellPrice = Math.round((product.sell_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
+        const buyVolume = product.buy_summary?.[0]?.amount ?? 0;
+        const sellVolume = product.sell_summary?.[0]?.amount ?? 0;
+
+        const resNames = await fetch("https://api.hypixel.net/resources/skyblock/items");
+        if (!resNames.ok) throw new Error(`HTTP ${resNames.status} loading item names`);
+        const dataNames = await resNames.json();
+
+        const itemsList = dataNames.items;
+        const hypixelItem = itemsList.find(i => i.id === itemTag);
+        const itemName = hypixelItem ? hypixelItem.name : itemTag;
+
+        return {
+          item: itemName,
+          itemTag,
+          buyPrice,
+          sellPrice,
+          buyVolume,
+          sellVolume
+        };
+      }, this.MAX_RETRIES, `getBazaarSnapshot(${itemTag})`);
+
+      // Cache the successful result
+      this._setCachedPrice(itemTag, snapshot);
+      return snapshot;
+
+    } catch (err) {
+      // If all retries failed, try to use cached price if enabled
+      if (useCachedIfFails) {
+        const cached = this._getCachedPrice(itemTag);
+        if (cached) {
+          console.warn(`⚠️ [CoflAPI] API failed for ${itemTag}, using cached price (may be inaccurate)`);
+          return cached;
+        }
+      }
+      
+      throw err;
     }
-    const product = data.products[itemTag];
-
-    const buyPrice = Math.round((product.buy_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
-    const sellPrice = Math.round((product.sell_summary?.[0]?.pricePerUnit ?? 0) * 10) / 10;
-    const buyVolume = product.buy_summary?.[0]?.amount ?? 0;
-    const sellVolume = product.sell_summary?.[0]?.amount ?? 0;
-
-    const resNames = await fetch("https://api.hypixel.net/resources/skyblock/items");
-    if (!resNames.ok) throw new Error(`HTTP ${resNames.status} loading item names`);
-    const dataNames = await resNames.json();
-
-    const itemsList = dataNames.items; // ✅ acceder al array
-    const hypixelItem = itemsList.find(i => i.id === itemTag);
-    const itemName = hypixelItem ? hypixelItem.name : itemTag; // fallback
-
-    return {
-      item: itemName,
-      itemTag,
-      buyPrice,
-      sellPrice,
-      buyVolume,
-      sellVolume
-    };
   }
 
 
@@ -155,3 +248,4 @@ computeProfit(quickStatus) {
 }
 
 module.exports = CoflAPI;
+

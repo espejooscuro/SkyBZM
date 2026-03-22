@@ -2,6 +2,7 @@
 
 
 
+
 const Flip = require('./Flip');
 
 
@@ -109,13 +110,17 @@ class NPCFlip extends Flip {
         return;
       }
       
-      const snapshot = await this.api.getBazaarSnapshot(this.npcItemTag);
+      // 🔥 Check if bot has useCachedPrices enabled
+      const useCachedPrices = this.botInstance?.accountConfig?.useCachedPrices ?? false;
+      
+      const snapshot = await this.api.getBazaarSnapshot(this.npcItemTag, useCachedPrices);
       this.npcItem = snapshot.item;
       this.item = snapshot.item;
       this.itemTag = snapshot.itemTag;
     } catch (error) {
       this.npcItem = this.npcItemTag;
       this.item = this.npcItemTag;
+      this.log(`⚠️ Failed to fetch item name: ${error.message}`);
     }
   }
   
@@ -581,6 +586,7 @@ class NPCFlip extends Flip {
 }
 
 module.exports = NPCFlip;
+
 
 
 
