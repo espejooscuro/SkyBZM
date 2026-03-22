@@ -332,9 +332,8 @@ class NPCFlip extends Flip {
           
           const containerName = this.ContainerManager.getOpenContainerName();
           
-          // Check if buy order exists at all
           const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
-            contains: `buy ${this.npcItem.toLowerCase()}`, 
+            customName: `buy ${this.npcItem.toLowerCase()}`, 
             type: "container" 
           });
           
@@ -358,7 +357,7 @@ class NPCFlip extends Flip {
             
             // Check if buy order still exists
             const stillHasBuyOrder = this.ContainerManager.hasItemInContainer({ 
-              contains: `buy ${this.npcItem.toLowerCase()}`, 
+              customName: `buy ${this.npcItem.toLowerCase()}`, 
               type: "container" 
             });
             
@@ -385,7 +384,7 @@ class NPCFlip extends Flip {
               if (finishedThisRound) break;
             }
             
-            await this.ContainerManager.click({ contains: this.npcItem, type: 'container' });
+            await this.ContainerManager.click({ customName: `buy ${this.npcItem.toLowerCase()}`, type: 'container' });
             await delay(800);
             claimedThisRound++;
             totalClaimedCount++;
@@ -430,72 +429,25 @@ class NPCFlip extends Flip {
               return false;
             }
           
-            const allInventoryItems = this.ContainerManager.getValidInventoryItems();
+          
             
-            const itemsToClick = allInventoryItems.filter(item => {
-              if (!item || !item.customName) return false;
-              const cleanName = this.cleanItemName(item.customName);
-              return cleanName.toLowerCase().includes(this.npcItem.toLowerCase());
-            });
-            
-            for (const item of itemsToClick) {
+          let hasItems = true;
+          const itemName = this.cleanItemName(this.npcItem.toLowerCase());
+          
+          while (hasItems) {
+
+            if (!this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' })) {
+              hasItems = false;
+              break;
+            }
+              
               if (!this.enabled) break;
               
-              const itemName = this.cleanItemName(item.customName);
-              
-              let clickAttempts = 0;
-              const maxAttempts = 20;
-              
-              let lastClickedSlot = null;
-              
-              while (this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' }) && 
-                     clickAttempts < maxAttempts) {
-                if (!this.enabled) break;
-                
-                const currentInventoryItems = this.ContainerManager.getValidInventoryItemsFromWindow();
-                const matchingItem = currentInventoryItems.find(i => {
-                  if (!i || !i.customName) return false;
-                  const cleanName = this.cleanItemName(i.customName);
-                  return cleanName.toLowerCase().includes(itemName.toLowerCase());
-                });
-                
-                if (!matchingItem) {
-                  break;
-                }
-                
-                const targetSlot = matchingItem.slot;
-                const targetWindowSlot = matchingItem.windowSlot;
-                
-                
-                if (lastClickedSlot === targetSlot) {
-                  await delay(800);
-                  
-                  const recheckItems = this.ContainerManager.getValidInventoryItemsFromWindow();
-                  const recheck = recheckItems.find(i => 
-                    i.slot === targetSlot && 
-                    this.cleanItemName(i.customName).toLowerCase().includes(itemName.toLowerCase())
-                  );
-                  
-                  if (!recheck) {
-                    lastClickedSlot = null;
-                    continue;
-                  }
-                }
-                
-                await this.ContainerManager.click({}, 0, 0, targetWindowSlot);
-                
-                lastClickedSlot = targetSlot;
-                await delay(500);
-                clickAttempts++;
-              }
-              
-              this.log(`  ✅ Sold ${itemName} (${clickAttempts} clicks)`);
+              await this.ContainerManager.click({contains: itemName, type: 'inventory' });
+              await delay(500);
             }
-
             this.ContainerManager.closeContainer();
             await delay(500);
-            
-            this.log(`  ✅ Finished selling ${claimedThisRound} items`);
           }
           
           // 🔥 If we haven't collected all items yet, loop will continue
