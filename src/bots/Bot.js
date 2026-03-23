@@ -564,8 +564,6 @@ class Bot {
               runtime: this.runtime
             });
             
-            console.log(`💰 [${this.name}] Purse updated: ${purseValue.toLocaleString()} coins (history length: ${this.purseHistory.length})`);
-            
             // Limitar historial a últimas 24 horas (max 1000 puntos)
             const oneDayAgo = now - (24 * 60 * 60 * 1000);
             this.purseHistory = this.purseHistory.filter(entry => entry.timestamp > oneDayAgo);
