@@ -335,9 +335,26 @@ class NPCFlip extends Flip {
           await delay(1300);
           this.chatListener.send('/managebazaarorders');
           await delay(1300);
-          
-          const containerName = this.ContainerManager.getOpenContainerName();
-          
+         const allItems = this.ContainerManager.getValidContainerItems();
+          const window = this.bot.currentWindow;
+          const totalSlots = window.slots.length;
+          const inventoryStart = totalSlots - 36;
+
+          const itemsToSell = new Set();
+
+          for (const item of allItems) {
+            // Solo items del CONTENEDOR (no del inventario del player)
+            if (item.slot < inventoryStart) {
+              const cleanName = item.customNameClean
+                .replace(/^buy\s+/i, '')
+                .trim();
+
+              itemsToSell.add(cleanName);
+            }
+          }
+
+          console.log(`📋 Items to sell:`, Array.from(itemsToSell));
+
           const hasBuyOrder = this.ContainerManager.hasItemInContainer({ 
             customName: `buy ${this.npcItem.toLowerCase()}`, 
             type: "container" 
@@ -413,7 +430,7 @@ class NPCFlip extends Flip {
           await delay(500);
           
           // 🔥 SELL PHASE - Sell everything in inventory
-          if (this.enabled && claimedThisRound > 0) {
+          if (this.enabled ) {
             this.log(`  📦 Selling ${claimedThisRound} claimed items...`);
             
             this.ContainerManager.closeContainer();
@@ -445,18 +462,25 @@ class NPCFlip extends Flip {
           let hasItems = true;
           const itemName = this.cleanItemName(this.npcItem.toLowerCase());
           
-          while (hasItems) {
 
-            if (!this.ContainerManager.hasItemInContainer({ contains: itemName, type: 'inventory' })) {
-              hasItems = false;
-              break;
-            }
-              
-              if (!this.enabled) break;
-              
-              await this.ContainerManager.click({contains: itemName, type: 'inventory' });
-              await delay(500);
-            }
+
+          for (const bazaarItem of itemsToSell) {
+            let hasItems = true;
+              while (hasItems) {
+
+              if (!this.ContainerManager.hasItemInContainer({ contains: bazaarItem, type: 'inventory' })) {
+                hasItems = false;
+                break;
+              }
+                
+                if (!this.enabled) break;
+                
+                await this.ContainerManager.click({contains: bazaarItem, type: 'inventory' });
+                await delay(500);
+              }
+          }
+
+          
             this.ContainerManager.closeContainer();
             await delay(500);
           }

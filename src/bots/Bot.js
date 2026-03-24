@@ -369,7 +369,7 @@ class Bot {
 
       await this.queue.enqueue(async () => {
         console.log(`[${this.name}] Starting bot...`);
-        await delay(5000);
+        await delay(6000);
         
         // 🔥 Safety check: Verify bot still exists
         if (!this.chat || !this.bot || this.bot.ended) {
@@ -381,7 +381,7 @@ class Bot {
         console.log(`🌍 [${this.name}] Joining Skyblock...`);
         this.log('🌍 Joining Skyblock...', 'info', 'connection');
         this.chat.send("/skyblock");
-        await delay(5000);
+        await delay(6000);
         
         if (!this.chat || !this.bot || this.bot.ended) {
           console.warn(`[${this.name}] Bot destroyed during startup, aborting task`);
